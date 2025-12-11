@@ -8,9 +8,10 @@ import { Card, Button } from '@/components'
 interface AnalysisResultsProps {
   inputs: AnalysisInputs
   results: AnalysisResultsType
+  onBackToEdit?: () => void  // Add this prop
 }
 
-export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
+export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
   const isCashPurchase = inputs.property.isCashPurchase
   
@@ -584,17 +585,31 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
         </div>
       </Card>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-        <Button className="px-8">
-          📄 Export as PDF
-        </Button>
-        <Button variant="secondary" className="px-8">
-          💾 Save Analysis
-        </Button>
-        <Button variant="secondary" className="px-8">
-          🔄 Run Another Analysis
-        </Button>
+      {/* Action Buttons - UPDATED with Back Button */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between pt-8">
+        <div>
+          {onBackToEdit && (
+            <Button 
+              variant="secondary" 
+              onClick={onBackToEdit}
+              className="px-8"
+            >
+              ← Back to Edit
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button className="px-8">
+            📄 Export as PDF
+          </Button>
+          <Button variant="secondary" className="px-8">
+            💾 Save Analysis
+          </Button>
+          <Button variant="secondary" className="px-8">
+            🔄 Run Another Analysis
+          </Button>
+        </div>
       </div>
     </div>
   )
