@@ -122,8 +122,8 @@ export function PropertyAnalysisForm() {
     const annualNOI = netOperatingIncome * 12
     const propertyValue = formData.property?.purchasePrice || 1
     const capRate = annualNOI / propertyValue
-    const cashOnCashReturn = annualCashFlow / totalInvestment
-    const yearsToRecoup = totalInvestment / annualCashFlow
+    const cashOnCashReturn = totalInvestment > 0 ? annualCashFlow / totalInvestment : 0
+    const yearsToRecoup = annualCashFlow > 0 ? propertyValue / annualCashFlow : 0
 
     const calculatedResults: AnalysisResultsType = {
       keyMetrics: {
