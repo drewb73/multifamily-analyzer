@@ -17,14 +17,14 @@ const getDefaultExpenses = (propertyValue: number): ExpenseCategory[] => [
   { 
     id: '1', 
     name: 'Property Taxes', 
-    amount: 1, // Default 1% of property value
+    amount: 1, // Default 1% of property value (annual)
     isPercentage: true, 
     percentageOf: 'propertyValue' 
   },
   { 
     id: '2', 
     name: 'Insurance', 
-    amount: 0.5, // Default 0.5% of property value
+    amount: 0.5, // Default 0.5% of property value (annual)
     isPercentage: true, 
     percentageOf: 'propertyValue' 
   },
@@ -38,30 +38,30 @@ const getDefaultExpenses = (propertyValue: number): ExpenseCategory[] => [
   { 
     id: '4', 
     name: 'Repairs & Maintenance', 
-    amount: 5, 
+    amount: 5, // 5% of Rent
     isPercentage: true, 
-    percentageOf: 'income' 
+    percentageOf: 'rent' 
   },
   { 
     id: '5', 
     name: 'Property Management', 
-    amount: 8, 
+    amount: 5, // 5% of Rent
     isPercentage: true, 
-    percentageOf: 'income' 
+    percentageOf: 'rent' 
   },
   { 
     id: '6', 
     name: 'Vacancy Reserve', 
-    amount: 5, 
+    amount: 3, // 3% of Rent
     isPercentage: true, 
-    percentageOf: 'income' 
+    percentageOf: 'rent' 
   },
   { 
     id: '7', 
     name: 'Capital Expenditures', 
-    amount: 5, 
+    amount: 5, // 5% of Rent
     isPercentage: true, 
-    percentageOf: 'income' 
+    percentageOf: 'rent' 
   },
 ]
 
@@ -164,15 +164,21 @@ export function IncomeExpenseForm({
     setIncome(income.filter(inc => inc.id !== id))
   }
 
-  const calculateTotalExpenses = (monthlyIncome: number) => {
+  const calculateTotalExpenses = (monthlyRentalIncome: number, monthlyGrossIncome: number) => {
     return expenses.reduce((total, expense) => {
       if (expense.isPercentage) {
         if (expense.percentageOf === 'propertyValue') {
-          return total + (propertyValue * (expense.amount / 100) / 12) // Annual to monthly
-        } else {
-          return total + (monthlyIncome * (expense.amount / 100))
+          // Property taxes, insurance - based on property value (annual to monthly)
+          return total + ((propertyValue * (expense.amount / 100)) / 12)
+        } else if (expense.percentageOf === 'rent') {
+          // Management, repairs, vacancy - based on RENTAL income only
+          return total + (monthlyRentalIncome * (expense.amount / 100))
+        } else if (expense.percentageOf === 'income') {
+          // Based on total gross income
+          return total + (monthlyGrossIncome * (expense.amount / 100))
         }
       }
+      // Fixed expenses
       return total + expense.amount
     }, 0)
   }
@@ -181,9 +187,10 @@ export function IncomeExpenseForm({
     return income.reduce((total, inc) => total + inc.amount, 0)
   }
 
-  const monthlyIncome = calculateTotalIncome()
-  const monthlyExpenses = calculateTotalExpenses(monthlyIncome)
-  const netOperatingIncome = monthlyIncome - monthlyExpenses
+  const monthlyRentalIncome = income.find(inc => inc.isCalculated)?.amount || 0
+  const monthlyGrossIncome = calculateTotalIncome()
+  const monthlyExpenses = calculateTotalExpenses(monthlyRentalIncome, monthlyGrossIncome)
+  const netOperatingIncome = monthlyGrossIncome - monthlyExpenses
 
   return (
     <div className="space-y-8">
@@ -193,9 +200,6 @@ export function IncomeExpenseForm({
         </h2>
         <p className="text-neutral-600 mb-6">
           Enter your projected monthly income and expenses for the property.
-          <span className="block text-sm text-primary-600 mt-1">
-            Note: Rental income is automatically calculated from your unit mix analysis.
-          </span>
         </p>
       </div>
 
@@ -203,10 +207,10 @@ export function IncomeExpenseForm({
       <div className="grid md:grid-cols-3 gap-6">
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-primary-600 mb-2">
-            {formatCurrency(monthlyIncome)}
+            {formatCurrency(monthlyGrossIncome)}
           </div>
-          <div className="text-lg font-semibold text-neutral-800 mb-2">Monthly Income</div>
-          <div className="text-sm text-neutral-600">Gross Operating Income</div>
+          <div className="text-lg font-semibold text-neutral-800 mb-2">Monthly Gross Income</div>
+          <div className="text-sm text-neutral-600">Total income before expenses</div>
         </Card>
         
         <Card className="p-6 text-center">
@@ -214,7 +218,7 @@ export function IncomeExpenseForm({
             {formatCurrency(monthlyExpenses)}
           </div>
           <div className="text-lg font-semibold text-neutral-800 mb-2">Monthly Expenses</div>
-          <div className="text-sm text-neutral-600">Total Operating Expenses</div>
+          <div className="text-sm text-neutral-600">Includes vacancy & management</div>
         </Card>
         
         <Card className="p-6 text-center">
@@ -391,8 +395,8 @@ export function IncomeExpenseForm({
                       </>
                     ) : (
                       <>
-                        <option value="income">of Income</option>
                         <option value="rent">of Rent</option>
+                        <option value="income">of Gross Income</option>
                       </>
                     )}
                   </select>
@@ -414,10 +418,9 @@ export function IncomeExpenseForm({
         <div className="mt-6 p-4 bg-primary-50 rounded-lg">
           <h4 className="font-semibold text-primary-800 mb-2">Expense Notes:</h4>
           <ul className="text-sm text-primary-700 space-y-1">
-            <li>• Property taxes and insurance are calculated as a percentage of property value</li>
-            <li>• Other expenses can be fixed amounts or percentages of income</li>
-            <li>• Property management is typically 8-10% of gross income</li>
-            <li>• Vacancy reserve and repairs are typically 5% each</li>
+            <li>• Property taxes and insurance are calculated as a percentage of property value (annual amounts converted to monthly)</li>
+            <li>• Vacancy reserve is set to 3% of <strong>Rent</strong> by default</li>
+            <li>• Property management is set to 5% of <strong>Rent</strong> by default</li>
           </ul>
         </div>
       </Card>
