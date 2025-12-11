@@ -4,47 +4,193 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Simple base styles without custom properties */
-body {
-  @apply bg-gray-50 text-gray-900 font-sans;
-  font-feature-settings: "rlig" 1, "calt" 1;
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-neutral-200;
+  }
+
+  *:focus {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  body {
+    @apply bg-background text-neutral-900 font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full hover:bg-neutral-400 transition-colors;
+  }
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Manrope', system-ui, sans-serif;
-  @apply font-semibold tracking-tight;
-}
+@layer components {
+  /* Card variations */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-soft;
+  }
 
-/* Custom component classes */
-.glass-card {
-  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-lg;
-}
+  .elevated-card {
+    @apply bg-white rounded-xl border border-neutral-200 shadow-soft hover:shadow-medium transition-shadow duration-300;
+  }
 
-.gradient-bg {
-  @apply bg-gradient-to-br from-blue-50 via-white to-teal-50;
-}
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary-50 via-white to-secondary-50;
+  }
 
-.btn-primary {
-  @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-medium 
-         hover:bg-blue-700 transition-all duration-200 
-         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-         disabled:opacity-50 disabled:cursor-not-allowed;
-}
+  /* Button variations */
+  .btn-primary {
+    @apply bg-primary-600 text-white px-6 py-3 rounded-lg font-medium 
+           hover:bg-primary-700 transition-all duration-200 
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           shadow-sm hover:shadow-md;
+  }
 
-.btn-secondary {
-  @apply bg-white text-blue-600 border border-blue-200 px-6 py-3 rounded-lg font-medium
-         hover:bg-blue-50 transition-all duration-200
-         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
-}
+  .btn-secondary {
+    @apply bg-white text-primary-600 border border-primary-200 px-6 py-3 rounded-lg font-medium
+           hover:bg-primary-50 hover:border-primary-300 transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+           shadow-sm hover:shadow-md;
+  }
 
-.input-field {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg 
-         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-         transition-all duration-200 outline-none
-         placeholder:text-gray-400;
-}
+  .btn-accent {
+    @apply bg-secondary-600 text-white px-6 py-3 rounded-lg font-medium 
+           hover:bg-secondary-700 transition-all duration-200 
+           focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           shadow-sm hover:shadow-md;
+  }
 
-.card {
-  @apply bg-white rounded-xl border border-gray-200 shadow-sm
-         hover:shadow-md transition-shadow duration-200;
+  .btn-ghost {
+    @apply text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 px-4 py-2 rounded-lg font-medium
+           transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-neutral-300;
+  }
+
+  /* Input variations */
+  .input-field {
+    @apply w-full px-4 py-2.5 border border-neutral-300 rounded-lg 
+           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-all duration-200 outline-none
+           placeholder:text-neutral-400
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-success {
+    @apply border-success-300 focus:ring-success-500;
+  }
+
+  .input-error {
+    @apply border-error-300 focus:ring-error-500;
+  }
+
+  /* Badge variations */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary-100 text-secondary-800;
+  }
+
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+
+  .badge-error {
+    @apply bg-error-100 text-error-800;
+  }
+
+  /* Alert variations */
+  .alert {
+    @apply p-4 rounded-lg border;
+  }
+
+  .alert-info {
+    @apply bg-primary-50 border-primary-200 text-primary-800;
+  }
+
+  .alert-success {
+    @apply bg-success-50 border-success-200 text-success-800;
+  }
+
+  .alert-warning {
+    @apply bg-warning-50 border-warning-200 text-warning-800;
+  }
+
+  .alert-error {
+    @apply bg-error-50 border-error-200 text-error-800;
+  }
+
+  /* Table styles */
+  .table-container {
+    @apply overflow-x-auto rounded-lg border border-neutral-200;
+  }
+
+  .table {
+    @apply min-w-full divide-y divide-neutral-200;
+  }
+
+  .table th {
+    @apply px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-neutral-50;
+  }
+
+  .table td {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-neutral-900;
+  }
+
+  .table tr {
+    @apply hover:bg-neutral-50 transition-colors;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    @apply w-full bg-neutral-200 rounded-full overflow-hidden;
+  }
+
+  .progress-bar-fill {
+    @apply h-2 bg-primary-600 transition-all duration-300;
+  }
 }
