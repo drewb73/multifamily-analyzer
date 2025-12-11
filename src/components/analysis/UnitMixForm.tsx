@@ -9,8 +9,6 @@ interface UnitMixFormProps {
   data: UnitType[]
   onUpdate: (data: UnitType[]) => void
   totalUnits: number
-  overallVacancyRate: number
-  onVacancyRateChange: (rate: number) => void
 }
 
 const UNIT_TYPES = [
@@ -29,9 +27,7 @@ const UNIT_TYPES = [
 export function UnitMixForm({ 
   data, 
   onUpdate, 
-  totalUnits,
-  overallVacancyRate,
-  onVacancyRateChange 
+  totalUnits
 }: UnitMixFormProps) {
   const [unitMix, setUnitMix] = useState<UnitType[]>(data)
   const [newUnit, setNewUnit] = useState<Omit<UnitType, 'id'>>({
@@ -86,20 +82,10 @@ export function UnitMixForm({
     return unitMix.reduce((sum, unit) => sum + (unit.marketRent * unit.count), 0)
   }
 
-  const calculateNetCurrentIncome = () => {
-    const grossCurrent = calculateTotalCurrentRent()
-    return grossCurrent * (1 - (overallVacancyRate / 100))
-  }
-
-  const calculateNetMarketIncome = () => {
-    const grossMarket = calculateTotalMarketRent()
-    return grossMarket * (1 - (overallVacancyRate / 100))
-  }
-
   const calculateUpsidePotential = () => {
-    const currentNet = calculateNetCurrentIncome()
-    const marketNet = calculateNetMarketIncome()
-    return marketNet - currentNet
+    const currentGross = calculateTotalCurrentRent()
+    const marketGross = calculateTotalMarketRent()
+    return marketGross - currentGross
   }
 
   return (
@@ -114,35 +100,6 @@ export function UnitMixForm({
         </p>
       </div>
 
-      {/* Vacancy Rate Input */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Overall Vacancy Rate</h3>
-        <div className="max-w-md">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <input
-                  type="number"
-                  value={overallVacancyRate}
-                  onChange={(e) => onVacancyRateChange(parseFloat(e.target.value) || 0)}
-                  className="input-field pr-8"
-                  placeholder="5"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <span className="text-neutral-500">%</span>
-                </div>
-              </div>
-              <p className="text-sm text-neutral-500 mt-2">
-                This vacancy rate will be applied to the total monthly rent to calculate net income.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* Unit Mix Summary */}
       <Card className="p-6">
         <div className="grid md:grid-cols-4 gap-4 mb-6">
@@ -154,27 +111,27 @@ export function UnitMixForm({
           </div>
           <div className="text-center p-4 bg-secondary-50 rounded-lg">
             <div className="text-2xl font-bold text-secondary-600 mb-1">
-              {formatCurrency(calculateNetCurrentIncome())}
+              {formatCurrency(calculateTotalCurrentRent())}
             </div>
-            <div className="text-sm text-neutral-600">Monthly Net Current Income</div>
+            <div className="text-sm text-neutral-600">Monthly Gross Current Income</div>
             <div className="text-xs text-neutral-500">
-              (after {overallVacancyRate}% vacancy)
+              (before vacancy & expenses)
             </div>
           </div>
           <div className="text-center p-4 bg-neutral-50 rounded-lg">
             <div className="text-2xl font-bold text-neutral-600 mb-1">
-              {formatCurrency(calculateNetMarketIncome())}
+              {formatCurrency(calculateTotalMarketRent())}
             </div>
-            <div className="text-sm text-neutral-600">Monthly Net Market Income</div>
+            <div className="text-sm text-neutral-600">Monthly Gross Market Income</div>
             <div className="text-xs text-neutral-500">
-              (after {overallVacancyRate}% vacancy)
+              (before vacancy & expenses)
             </div>
           </div>
           <div className="text-center p-4 bg-accent-50 rounded-lg">
             <div className="text-2xl font-bold text-accent-600 mb-1">
               {formatCurrency(calculateUpsidePotential())}
             </div>
-            <div className="text-sm text-neutral-600">Monthly Upside</div>
+            <div className="text-sm text-neutral-600">Monthly Upside Potential</div>
           </div>
         </div>
       </Card>
@@ -281,15 +238,15 @@ export function UnitMixForm({
                   <th>Sq Ft</th>
                   <th>Current Rent</th>
                   <th>Market Rent</th>
-                  <th>Monthly Current Income</th>
-                  <th>Monthly Market Income</th>
+                  <th>Monthly Gross Current</th>
+                  <th>Monthly Gross Market</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {unitMix.map((unit) => {
-                  const monthlyCurrentIncome = unit.currentRent * unit.count
-                  const monthlyMarketIncome = unit.marketRent * unit.count
+                  const monthlyCurrentGross = unit.currentRent * unit.count
+                  const monthlyMarketGross = unit.marketRent * unit.count
                   
                   return (
                     <tr key={unit.id}>
@@ -351,10 +308,10 @@ export function UnitMixForm({
                         </div>
                       </td>
                       <td className="font-medium">
-                        {formatCurrency(monthlyCurrentIncome)}
+                        {formatCurrency(monthlyCurrentGross)}
                       </td>
                       <td className="font-medium">
-                        {formatCurrency(monthlyMarketIncome)}
+                        {formatCurrency(monthlyMarketGross)}
                       </td>
                       <td>
                         <button
@@ -377,18 +334,6 @@ export function UnitMixForm({
                   </td>
                   <td className="font-bold">
                     {formatCurrency(calculateTotalMarketRent())}
-                  </td>
-                  <td></td>
-                </tr>
-                <tr className="bg-neutral-50 font-semibold border-t border-neutral-200">
-                  <td colSpan={5} className="text-right pr-6">
-                    Totals (Net after {overallVacancyRate}% vacancy):
-                  </td>
-                  <td className="font-bold">
-                    {formatCurrency(calculateNetCurrentIncome())}
-                  </td>
-                  <td className="font-bold">
-                    {formatCurrency(calculateNetMarketIncome())}
                   </td>
                   <td></td>
                 </tr>
