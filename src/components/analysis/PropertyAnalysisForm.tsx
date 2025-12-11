@@ -28,7 +28,6 @@ export function PropertyAnalysisForm() {
     unitMix: [],
     expenses: [],
     income: [],
-    overallVacancyRate: 5, // Default 5% vacancy
   })
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
 
@@ -39,17 +38,13 @@ export function PropertyAnalysisForm() {
     { id: 4, name: 'Results' },
   ]
 
-  // Calculate rental income from unit mix
-  const calculateRentalIncome = () => {
+  // Calculate GROSS rental income from unit mix (before vacancy)
+  const calculateGrossRentalIncome = () => {
     if (!formData.unitMix || formData.unitMix.length === 0) return 0
     
-    const totalCurrentRent = formData.unitMix.reduce((sum, unit) => 
+    return formData.unitMix.reduce((sum, unit) => 
       sum + (unit.currentRent * unit.count), 0
     )
-    
-    // Apply overall vacancy rate
-    const vacancyRate = formData.overallVacancyRate || 5
-    return totalCurrentRent * (1 - (vacancyRate / 100))
   }
 
   const handleNext = () => {
@@ -72,36 +67,43 @@ export function PropertyAnalysisForm() {
     setFormData(prev => ({ ...prev, unitMix }))
   }
 
-  const handleVacancyRateChange = (rate: number) => {
-    setFormData(prev => ({ ...prev, overallVacancyRate: rate }))
-  }
-
   const handleIncomeExpenseUpdate = (income: AnalysisInputs['income'], expenses: AnalysisInputs['expenses']) => {
     setFormData(prev => ({ ...prev, income, expenses }))
   }
 
   const handleCalculate = () => {
-    // Calculate actual results
-    const monthlyRentalIncome = calculateRentalIncome()
-    const totalMonthlyIncome = monthlyRentalIncome + 
-      (formData.income?.filter(inc => !inc.isCalculated)
-        .reduce((sum, inc) => sum + inc.amount, 0) || 0)
+    // 1. Calculate GROSS rental income (before vacancy)
+    const monthlyGrossRentalIncome = calculateGrossRentalIncome()
     
-    // Calculate expenses
+    // 2. Calculate other income (parking, laundry, etc.)
+    const otherMonthlyIncome = formData.income?.filter(inc => !inc.isCalculated)
+      .reduce((sum, inc) => sum + inc.amount, 0) || 0
+    
+    // 3. Total GROSS monthly income
+    const totalMonthlyGrossIncome = monthlyGrossRentalIncome + otherMonthlyIncome
+    
+    // 4. Calculate expenses
     const monthlyExpenses = formData.expenses?.reduce((total, expense) => {
       if (expense.isPercentage) {
         if (expense.percentageOf === 'propertyValue') {
+          // Property taxes, insurance - based on property value (annual to monthly)
           return total + ((formData.property?.purchasePrice || 0) * (expense.amount / 100) / 12)
-        } else {
-          return total + (totalMonthlyIncome * (expense.amount / 100))
+        } else if (expense.percentageOf === 'rent') {
+          // Management, repairs, vacancy - based on RENTAL income only
+          return total + (monthlyGrossRentalIncome * (expense.amount / 100))
+        } else if (expense.percentageOf === 'income') {
+          // Based on total gross income
+          return total + (totalMonthlyGrossIncome * (expense.amount / 100))
         }
       }
+      // Fixed expenses
       return total + expense.amount
     }, 0) || 0
 
-    const netOperatingIncome = totalMonthlyIncome - monthlyExpenses
+    // 5. Calculate Net Operating Income (Gross Income - ALL Expenses)
+    const netOperatingIncome = totalMonthlyGrossIncome - monthlyExpenses
     
-    // Calculate mortgage payment if not cash purchase
+    // 6. Calculate mortgage payment if not cash purchase
     let monthlyMortgagePayment = 0
     if (!formData.property?.isCashPurchase && formData.property) {
       const loanAmount = formData.property.purchasePrice - formData.property.downPayment
@@ -114,37 +116,52 @@ export function PropertyAnalysisForm() {
       }
     }
 
+    // 7. Calculate monthly cash flow
     const monthlyCashFlow = netOperatingIncome - monthlyMortgagePayment
     
-    // Calculate key metrics
+    // 8. Calculate key metrics
+    const propertyValue = formData.property?.purchasePrice || 0
     const totalInvestment = formData.property?.downPayment || 0
     const annualCashFlow = monthlyCashFlow * 12
     const annualNOI = netOperatingIncome * 12
-    const propertyValue = formData.property?.purchasePrice || 1
-    const capRate = annualNOI / propertyValue
+    
+    // Cap Rate = Annual NOI / Property Value
+    const capRate = propertyValue > 0 ? annualNOI / propertyValue : 0
+    
+    // Cash on Cash Return = Annual Cash Flow / Total Cash Invested
     const cashOnCashReturn = totalInvestment > 0 ? annualCashFlow / totalInvestment : 0
+    
+    // Years to Recoup = Purchase Price / Annual Cash Flow
     const yearsToRecoup = annualCashFlow > 0 ? propertyValue / annualCashFlow : 0
+    
+    // Gross Rent Multiplier = Property Value / Annual Gross Income
+    const grossRentMultiplier = (totalMonthlyGrossIncome * 12) > 0 ? 
+      propertyValue / (totalMonthlyGrossIncome * 12) : 0
+    
+    // Debt Service Coverage Ratio = NOI / Annual Debt Service
+    const debtServiceCoverageRatio = formData.property?.isCashPurchase || monthlyMortgagePayment === 0 ? 
+      Infinity : netOperatingIncome / monthlyMortgagePayment
 
     const calculatedResults: AnalysisResultsType = {
       keyMetrics: {
         capRate,
         cashOnCashReturn,
         netOperatingIncome: annualNOI,
-        grossRentMultiplier: propertyValue / (totalMonthlyIncome * 12),
-        debtServiceCoverageRatio: formData.property?.isCashPurchase ? Infinity : netOperatingIncome / monthlyMortgagePayment,
+        grossRentMultiplier,
+        debtServiceCoverageRatio,
         totalInvestment,
         annualCashFlow,
-        yearsToRecoup: yearsToRecoup > 0 ? yearsToRecoup : 0,
+        yearsToRecoup,
       },
       monthlyBreakdown: {
-        grossIncome: totalMonthlyIncome,
+        grossIncome: totalMonthlyGrossIncome,
         totalExpenses: monthlyExpenses,
         netOperatingIncome,
         mortgagePayment: monthlyMortgagePayment,
         cashFlow: monthlyCashFlow,
       },
       annualBreakdown: {
-        grossIncome: totalMonthlyIncome * 12,
+        grossIncome: totalMonthlyGrossIncome * 12,
         totalExpenses: monthlyExpenses * 12,
         netOperatingIncome: annualNOI,
         debtService: monthlyMortgagePayment * 12,
@@ -209,8 +226,6 @@ export function PropertyAnalysisForm() {
             data={formData.unitMix ?? []}
             onUpdate={handleUnitMixUpdate}
             totalUnits={formData.property?.totalUnits || 0}
-            overallVacancyRate={formData.overallVacancyRate || 5}
-            onVacancyRateChange={handleVacancyRateChange}
           />
         )}
         
@@ -218,7 +233,7 @@ export function PropertyAnalysisForm() {
           <IncomeExpenseForm 
             incomeData={formData.income ?? []}
             expenseData={formData.expenses ?? []}
-            calculatedRentalIncome={calculateRentalIncome()}
+            calculatedRentalIncome={calculateGrossRentalIncome()}
             propertyValue={formData.property?.purchasePrice || 0}
             onUpdate={handleIncomeExpenseUpdate}
           />
