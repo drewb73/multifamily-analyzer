@@ -56,7 +56,6 @@ export interface AnalysisResults {
     debtServiceCoverageRatio: number;
     totalInvestment: number;
     annualCashFlow: number;
-    yearsToRecoup: number;
   };
   monthlyBreakdown: {
     grossIncome: number;
