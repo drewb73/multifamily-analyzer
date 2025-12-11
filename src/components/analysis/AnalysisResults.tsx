@@ -10,8 +10,7 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
-  // We'll implement the actual results display in the next step
-  // For now, let's create a basic structure
+  const isCashPurchase = inputs.property.isCashPurchase
   
   return (
     <div className="space-y-8">
@@ -22,6 +21,11 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
         <p className="text-lg text-neutral-600">
           Your property analysis is complete! Here are the key metrics.
         </p>
+        {isCashPurchase && (
+          <div className="inline-block mt-2 px-4 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+            All Cash Purchase
+          </div>
+        )}
       </div>
 
       {/* Key Metrics Grid */}
@@ -76,16 +80,22 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
               <div className="text-sm text-neutral-600">Purchase Price:</div>
               <div className="text-sm font-medium">{formatCurrency(inputs.property.purchasePrice)}</div>
               
-              <div className="text-sm text-neutral-600">Down Payment:</div>
-              <div className="text-sm font-medium">{formatCurrency(inputs.property.downPayment)}</div>
-              
-              <div className="text-sm text-neutral-600">Loan Amount:</div>
+              <div className="text-sm text-neutral-600">Purchase Type:</div>
               <div className="text-sm font-medium">
-                {formatCurrency(inputs.property.purchasePrice - inputs.property.downPayment)}
+                {isCashPurchase ? 'All Cash' : `Financed (${((inputs.property.downPayment / inputs.property.purchasePrice) * 100).toFixed(1)}% down)`}
               </div>
               
-              <div className="text-sm text-neutral-600">Interest Rate:</div>
-              <div className="text-sm font-medium">{inputs.property.interestRate}%</div>
+              {!isCashPurchase && (
+                <>
+                  <div className="text-sm text-neutral-600">Loan Amount:</div>
+                  <div className="text-sm font-medium">
+                    {formatCurrency(inputs.property.purchasePrice - inputs.property.downPayment)}
+                  </div>
+                  
+                  <div className="text-sm text-neutral-600">Interest Rate:</div>
+                  <div className="text-sm font-medium">{inputs.property.interestRate}%</div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -108,10 +118,12 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
               <span className="text-neutral-600">Net Operating Income:</span>
               <span className="font-medium">{formatCurrency(results.monthlyBreakdown.netOperatingIncome)}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-600">Mortgage Payment:</span>
-              <span className="font-medium text-error-600">-{formatCurrency(results.monthlyBreakdown.mortgagePayment)}</span>
-            </div>
+            {!isCashPurchase && (
+              <div className="flex justify-between items-center">
+                <span className="text-neutral-600">Mortgage Payment:</span>
+                <span className="font-medium text-error-600">-{formatCurrency(results.monthlyBreakdown.mortgagePayment)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-3 border-t border-neutral-200">
               <span className="text-lg font-semibold text-neutral-800">Monthly Cash Flow:</span>
               <span className={`text-lg font-bold ${results.monthlyBreakdown.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
@@ -136,10 +148,12 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
               <span className="text-neutral-600">Net Operating Income:</span>
               <span className="font-medium">{formatCurrency(results.annualBreakdown.netOperatingIncome)}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-600">Debt Service:</span>
-              <span className="font-medium text-error-600">-{formatCurrency(results.annualBreakdown.debtService)}</span>
-            </div>
+            {!isCashPurchase && (
+              <div className="flex justify-between items-center">
+                <span className="text-neutral-600">Debt Service:</span>
+                <span className="font-medium text-error-600">-{formatCurrency(results.annualBreakdown.debtService)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-3 border-t border-neutral-200">
               <span className="text-lg font-semibold text-neutral-800">Annual Cash Flow:</span>
               <span className={`text-lg font-bold ${results.annualBreakdown.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
