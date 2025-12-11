@@ -51,9 +51,9 @@ export default function Home() {
         {/* Stats */}
         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="elevated-card p-6 text-center">
-            <div className="text-4xl font-bold text-primary-600 mb-2">$4.99</div>
-            <div className="text-lg font-semibold text-neutral-800 mb-2">Unlimited Use</div>
-            <p className="text-neutral-600">Designed for investors of all experience levels</p>
+            <div className="text-4xl font-bold text-primary-600 mb-2">$0 Trial</div>
+            <div className="text-lg font-semibold text-neutral-800 mb-2">Free Limited Trial</div>
+            <p className="text-neutral-600">Free limited analysis for 72 hours</p>
           </div>
           <div className="elevated-card p-6 text-center">
             <div className="text-4xl font-bold text-primary-600 mb-2">30+</div>
@@ -73,7 +73,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-neutral-600">
             <p>© 2025 Multifamily Property Analyzer. All rights reserved.</p>
-            <p className="mt-2 text-sm">Built with Next.js, TypeScript, and Tailwind CSS</p>
+            <p className="mt-2 text-sm">Built with Next.js, TypeScript, and Tailwind CSS by Drew Barton</p>
           </div>
         </div>
       </footer>
