@@ -8,34 +8,123 @@ import { Card } from '@/components'
 interface IncomeExpenseFormProps {
   incomeData: IncomeCategory[]
   expenseData: ExpenseCategory[]
+  calculatedRentalIncome: number
+  propertyValue: number
   onUpdate: (income: IncomeCategory[], expenses: ExpenseCategory[]) => void
 }
 
-const DEFAULT_EXPENSES: ExpenseCategory[] = [
-  { id: '1', name: 'Property Taxes', amount: 0, isPercentage: false, percentageOf: 'income' },
-  { id: '2', name: 'Insurance', amount: 0, isPercentage: false, percentageOf: 'income' },
-  { id: '3', name: 'Utilities', amount: 0, isPercentage: false, percentageOf: 'income' },
-  { id: '4', name: 'Repairs & Maintenance', amount: 5, isPercentage: true, percentageOf: 'income' },
-  { id: '5', name: 'Property Management', amount: 8, isPercentage: true, percentageOf: 'income' },
-  { id: '6', name: 'Vacancy Reserve', amount: 5, isPercentage: true, percentageOf: 'income' },
-  { id: '7', name: 'Capital Expenditures', amount: 5, isPercentage: true, percentageOf: 'income' },
+const getDefaultExpenses = (propertyValue: number): ExpenseCategory[] => [
+  { 
+    id: '1', 
+    name: 'Property Taxes', 
+    amount: 1, // Default 1% of property value
+    isPercentage: true, 
+    percentageOf: 'propertyValue' 
+  },
+  { 
+    id: '2', 
+    name: 'Insurance', 
+    amount: 0.5, // Default 0.5% of property value
+    isPercentage: true, 
+    percentageOf: 'propertyValue' 
+  },
+  { 
+    id: '3', 
+    name: 'Utilities', 
+    amount: 0, 
+    isPercentage: false, 
+    percentageOf: 'income' 
+  },
+  { 
+    id: '4', 
+    name: 'Repairs & Maintenance', 
+    amount: 5, 
+    isPercentage: true, 
+    percentageOf: 'income' 
+  },
+  { 
+    id: '5', 
+    name: 'Property Management', 
+    amount: 8, 
+    isPercentage: true, 
+    percentageOf: 'income' 
+  },
+  { 
+    id: '6', 
+    name: 'Vacancy Reserve', 
+    amount: 5, 
+    isPercentage: true, 
+    percentageOf: 'income' 
+  },
+  { 
+    id: '7', 
+    name: 'Capital Expenditures', 
+    amount: 5, 
+    isPercentage: true, 
+    percentageOf: 'income' 
+  },
 ]
 
-const DEFAULT_INCOME: IncomeCategory[] = [
-  { id: '1', name: 'Rental Income', amount: 0, isVariable: true },
-  { id: '2', name: 'Parking Income', amount: 0, isVariable: false },
-  { id: '3', name: 'Laundry Income', amount: 0, isVariable: false },
-  { id: '4', name: 'Storage Income', amount: 0, isVariable: false },
-  { id: '5', name: 'Other Income', amount: 0, isVariable: false },
+const getDefaultIncome = (calculatedRentalIncome: number): IncomeCategory[] => [
+  { 
+    id: '1', 
+    name: 'Rental Income', 
+    amount: calculatedRentalIncome, 
+    isVariable: true,
+    isCalculated: true 
+  },
+  { 
+    id: '2', 
+    name: 'Parking Income', 
+    amount: 0, 
+    isVariable: false,
+    isCalculated: false 
+  },
+  { 
+    id: '3', 
+    name: 'Laundry Income', 
+    amount: 0, 
+    isVariable: false,
+    isCalculated: false 
+  },
+  { 
+    id: '4', 
+    name: 'Storage Income', 
+    amount: 0, 
+    isVariable: false,
+    isCalculated: false 
+  },
+  { 
+    id: '5', 
+    name: 'Other Income', 
+    amount: 0, 
+    isVariable: false,
+    isCalculated: false 
+  },
 ]
 
-export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeExpenseFormProps) {
+export function IncomeExpenseForm({ 
+  incomeData, 
+  expenseData, 
+  calculatedRentalIncome,
+  propertyValue,
+  onUpdate 
+}: IncomeExpenseFormProps) {
   const [expenses, setExpenses] = useState<ExpenseCategory[]>(
-    expenseData.length > 0 ? expenseData : DEFAULT_EXPENSES
+    expenseData.length > 0 ? expenseData : getDefaultExpenses(propertyValue)
   )
   const [income, setIncome] = useState<IncomeCategory[]>(
-    incomeData.length > 0 ? incomeData : DEFAULT_INCOME
+    incomeData.length > 0 ? incomeData : getDefaultIncome(calculatedRentalIncome)
   )
+
+  // Update rental income when calculated value changes
+  useEffect(() => {
+    setIncome(prev => prev.map(inc => 
+      inc.isCalculated 
+        ? { ...inc, amount: calculatedRentalIncome }
+        : inc
+    ))
+  }, [calculatedRentalIncome])
 
   useEffect(() => {
     onUpdate(income, expenses)
@@ -63,7 +152,7 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
   const addIncome = () => {
     setIncome([
       ...income,
-      { id: generateId(), name: '', amount: 0, isVariable: false }
+      { id: generateId(), name: '', amount: 0, isVariable: false, isCalculated: false }
     ])
   }
 
@@ -78,7 +167,11 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
   const calculateTotalExpenses = (monthlyIncome: number) => {
     return expenses.reduce((total, expense) => {
       if (expense.isPercentage) {
-        return total + (monthlyIncome * (expense.amount / 100))
+        if (expense.percentageOf === 'propertyValue') {
+          return total + (propertyValue * (expense.amount / 100) / 12) // Annual to monthly
+        } else {
+          return total + (monthlyIncome * (expense.amount / 100))
+        }
       }
       return total + expense.amount
     }, 0)
@@ -100,6 +193,9 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
         </h2>
         <p className="text-neutral-600 mb-6">
           Enter your projected monthly income and expenses for the property.
+          <span className="block text-sm text-primary-600 mt-1">
+            Note: Rental income is automatically calculated from your unit mix analysis.
+          </span>
         </p>
       </div>
 
@@ -150,9 +246,13 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
                   type="text"
                   value={inc.name}
                   onChange={(e) => handleIncomeChange(inc.id, 'name', e.target.value)}
-                  className="input-field"
+                  className={`input-field ${inc.isCalculated ? 'bg-neutral-50' : ''}`}
                   placeholder="Income source name"
+                  disabled={inc.isCalculated}
                 />
+                {inc.isCalculated && (
+                  <p className="text-xs text-primary-600 mt-1">Auto-calculated from unit mix</p>
+                )}
               </div>
               
               <div>
@@ -164,9 +264,10 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
                     type="number"
                     value={inc.amount || ''}
                     onChange={(e) => handleIncomeChange(inc.id, 'amount', parseFloat(e.target.value) || 0)}
-                    className="input-field pl-7"
+                    className={`input-field pl-7 ${inc.isCalculated ? 'bg-neutral-50' : ''}`}
                     placeholder="Monthly amount"
                     min="0"
+                    disabled={inc.isCalculated}
                   />
                 </div>
               </div>
@@ -178,18 +279,23 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
                     checked={inc.isVariable}
                     onChange={(e) => handleIncomeChange(inc.id, 'isVariable', e.target.checked)}
                     className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                    disabled={inc.isCalculated}
                   />
-                  <span className="text-sm text-neutral-700">Variable (based on occupancy)</span>
+                  <span className={`text-sm ${inc.isCalculated ? 'text-neutral-400' : 'text-neutral-700'}`}>
+                    Variable (based on occupancy)
+                  </span>
                 </label>
               </div>
               
               <div className="flex justify-end">
-                <button
-                  onClick={() => removeIncome(inc.id)}
-                  className="text-error-600 hover:text-error-800 text-sm font-medium"
-                >
-                  Remove
-                </button>
+                {!inc.isCalculated && (
+                  <button
+                    onClick={() => removeIncome(inc.id)}
+                    className="text-error-600 hover:text-error-800 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -209,88 +315,110 @@ export function IncomeExpenseForm({ incomeData, expenseData, onUpdate }: IncomeE
         </div>
 
         <div className="space-y-4">
-          {expenses.map((expense) => (
-            <div key={expense.id} className="grid md:grid-cols-5 gap-4 items-center">
-              <div>
-                <input
-                  type="text"
-                  value={expense.name}
-                  onChange={(e) => handleExpenseChange(expense.id, 'name', e.target.value)}
-                  className="input-field"
-                  placeholder="Expense name"
-                />
-              </div>
-              
-              <div>
-                <div className="relative">
-                  {expense.isPercentage ? (
-                    <>
-                      <input
-                        type="number"
-                        value={expense.amount || ''}
-                        onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
-                        className="input-field pr-8"
-                        placeholder="Percentage"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                        <span className="text-neutral-500">%</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-neutral-500">$</span>
-                      </div>
-                      <input
-                        type="number"
-                        value={expense.amount || ''}
-                        onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
-                        className="input-field pl-7"
-                        placeholder="Monthly amount"
-                        min="0"
-                      />
-                    </>
-                  )}
+          {expenses.map((expense) => {
+            const isPropertyTaxOrInsurance = expense.name === 'Property Taxes' || expense.name === 'Insurance'
+            
+            return (
+              <div key={expense.id} className="grid md:grid-cols-5 gap-4 items-center">
+                <div>
+                  <input
+                    type="text"
+                    value={expense.name}
+                    onChange={(e) => handleExpenseChange(expense.id, 'name', e.target.value)}
+                    className="input-field"
+                    placeholder="Expense name"
+                  />
+                </div>
+                
+                <div>
+                  <div className="relative">
+                    {expense.isPercentage ? (
+                      <>
+                        <input
+                          type="number"
+                          value={expense.amount || ''}
+                          onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="input-field pr-8"
+                          placeholder="Percentage"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-neutral-500">%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-neutral-500">$</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={expense.amount || ''}
+                          onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="input-field pl-7"
+                          placeholder="Monthly amount"
+                          min="0"
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={expense.isPercentage}
+                      onChange={(e) => handleExpenseChange(expense.id, 'isPercentage', e.target.checked)}
+                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-neutral-700">Is Percentage</span>
+                  </label>
+                </div>
+                
+                <div>
+                  <select
+                    value={expense.percentageOf}
+                    onChange={(e) => handleExpenseChange(expense.id, 'percentageOf', e.target.value as 'income' | 'propertyValue' | 'rent')}
+                    className="input-field"
+                    disabled={!expense.isPercentage}
+                  >
+                    {isPropertyTaxOrInsurance ? (
+                      <>
+                        <option value="propertyValue">of Property Value</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="income">of Income</option>
+                        <option value="rent">of Rent</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => removeExpense(expense.id)}
+                    className="text-error-600 hover:text-error-800 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
-              
-              <div>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={expense.isPercentage}
-                    onChange={(e) => handleExpenseChange(expense.id, 'isPercentage', e.target.checked)}
-                    className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-neutral-700">Is Percentage</span>
-                </label>
-              </div>
-              
-              <div>
-                <select
-                  value={expense.percentageOf}
-                  onChange={(e) => handleExpenseChange(expense.id, 'percentageOf', e.target.value as 'income' | 'rent')}
-                  className="input-field"
-                  disabled={!expense.isPercentage}
-                >
-                  <option value="income">of Income</option>
-                  <option value="rent">of Rent</option>
-                </select>
-              </div>
-              
-              <div className="flex justify-end">
-                <button
-                  onClick={() => removeExpense(expense.id)}
-                  className="text-error-600 hover:text-error-800 text-sm font-medium"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
+        </div>
+
+        <div className="mt-6 p-4 bg-primary-50 rounded-lg">
+          <h4 className="font-semibold text-primary-800 mb-2">Expense Notes:</h4>
+          <ul className="text-sm text-primary-700 space-y-1">
+            <li>• Property taxes and insurance are calculated as a percentage of property value</li>
+            <li>• Other expenses can be fixed amounts or percentages of income</li>
+            <li>• Property management is typically 8-10% of gross income</li>
+            <li>• Vacancy reserve and repairs are typically 5% each</li>
+          </ul>
         </div>
       </Card>
     </div>
