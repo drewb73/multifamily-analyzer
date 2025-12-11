@@ -131,8 +131,6 @@ export function PropertyAnalysisForm() {
     // Cash on Cash Return = Annual Cash Flow / Total Cash Invested
     const cashOnCashReturn = totalInvestment > 0 ? annualCashFlow / totalInvestment : 0
     
-    // Years to Recoup = Purchase Price / Annual Cash Flow
-    const yearsToRecoup = annualCashFlow > 0 ? propertyValue / annualCashFlow : 0
     
     // Gross Rent Multiplier = Property Value / Annual Gross Income
     const grossRentMultiplier = (totalMonthlyGrossIncome * 12) > 0 ? 
