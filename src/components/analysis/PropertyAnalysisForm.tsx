@@ -151,7 +151,6 @@ export function PropertyAnalysisForm() {
         debtServiceCoverageRatio,
         totalInvestment,
         annualCashFlow,
-        yearsToRecoup,
       },
       monthlyBreakdown: {
         grossIncome: totalMonthlyGrossIncome,
