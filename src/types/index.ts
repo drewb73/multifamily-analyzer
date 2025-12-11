@@ -10,6 +10,7 @@ export interface PropertyDetails {
   interestRate: number;
   propertySize: number; // in square feet
   totalUnits: number;
+  isCashPurchase: boolean; // NEW: Track if it's a cash purchase
 }
 
 export interface UnitType {
@@ -19,15 +20,14 @@ export interface UnitType {
   squareFootage: number;
   currentRent: number;
   marketRent: number;
-  vacancyRate: number; // as a percentage (0-100)
 }
 
 export interface ExpenseCategory {
   id: string;
   name: string;
   amount: number;
-  isPercentage: boolean; // Fixed typo
-  percentageOf: 'income' | 'rent';
+  isPercentage: boolean;
+  percentageOf: 'income' | 'propertyValue' | 'rent'; // UPDATED: Added 'propertyValue'
 }
 
 export interface IncomeCategory {
@@ -35,13 +35,15 @@ export interface IncomeCategory {
   name: string;
   amount: number;
   isVariable: boolean;
+  isCalculated?: boolean; // NEW: Track if this is auto-calculated
 }
 
-export interface AnalysisInputs { // Fixed typo
-  property: PropertyDetails; // Fixed typo
+export interface AnalysisInputs {
+  property: PropertyDetails;
   unitMix: UnitType[];
   expenses: ExpenseCategory[];
   income: IncomeCategory[];
+  overallVacancyRate: number; // NEW: Overall vacancy rate
   photos?: File[];
 }
 
@@ -71,22 +73,3 @@ export interface AnalysisResults {
     cashFlow: number;
   };
 }
-
-// Additional types for the app
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  isSubscribed: boolean;
-  createdAt: Date;
-}
-
-export interface SavedAnalysis {
-  id: string;
-  userId: string;
-  inputs: AnalysisInputs;
-  results: AnalysisResults;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
