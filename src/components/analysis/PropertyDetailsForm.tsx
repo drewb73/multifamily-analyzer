@@ -11,16 +11,38 @@ interface PropertyDetailsFormProps {
 
 export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps) {
   const [formData, setFormData] = useState<PropertyDetails>(data)
+  const [isCashPurchase, setIsCashPurchase] = useState(data.isCashPurchase || false)
 
   useEffect(() => {
     onUpdate(formData)
   }, [formData, onUpdate])
 
-  const handleChange = (field: keyof PropertyDetails, value: string | number) => {
+  const handleChange = (field: keyof PropertyDetails, value: string | number | boolean) => {
     setFormData(prev => ({ 
       ...prev, 
       [field]: value 
     }))
+  }
+
+  const handleCashPurchaseChange = (isCash: boolean) => {
+    setIsCashPurchase(isCash)
+    if (isCash) {
+      setFormData(prev => ({
+        ...prev,
+        isCashPurchase: true,
+        downPayment: prev.purchasePrice, // Full payment for cash purchase
+        loanTerm: 0,
+        interestRate: 0
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        isCashPurchase: false,
+        downPayment: prev.purchasePrice * 0.2, // Default 20% down
+        loanTerm: 30,
+        interestRate: 6.5
+      }))
+    }
   }
 
   const calculatePricePerUnit = () => {
@@ -42,6 +64,8 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
   }
 
   const calculateMonthlyPayment = () => {
+    if (isCashPurchase) return 0
+    
     const loanAmount = calculateLoanAmount()
     const monthlyRate = (formData.interestRate / 100) / 12
     const months = formData.loanTerm * 12
@@ -149,78 +173,105 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
               </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Down Payment *
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-neutral-500">$</span>
-                </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
                 <input
-                  type="number"
-                  value={formData.downPayment || ''}
-                  onChange={(e) => handleChange('downPayment', parseFloat(e.target.value) || 0)}
-                  className="input-field pl-7"
-                  placeholder="200,000"
-                  min="0"
-                  max={formData.purchasePrice}
-                  required
+                  type="radio"
+                  checked={!isCashPurchase}
+                  onChange={() => handleCashPurchaseChange(false)}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300"
                 />
-              </div>
-              {formData.purchasePrice > 0 && (
-                <p className="text-sm text-neutral-500 mt-1">
-                  Down Payment: {((formData.downPayment / formData.purchasePrice) * 100).toFixed(1)}%
-                </p>
-              )}
+                <span className="ml-2 text-sm text-neutral-700">Financed</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={isCashPurchase}
+                  onChange={() => handleCashPurchaseChange(true)}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300"
+                />
+                <span className="ml-2 text-sm text-neutral-700">All Cash Purchase</span>
+              </label>
             </div>
+
+            {!isCashPurchase && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Down Payment *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-neutral-500">$</span>
+                    </div>
+                    <input
+                      type="number"
+                      value={formData.downPayment || ''}
+                      onChange={(e) => handleChange('downPayment', parseFloat(e.target.value) || 0)}
+                      className="input-field pl-7"
+                      placeholder="200,000"
+                      min="0"
+                      max={formData.purchasePrice}
+                      required
+                    />
+                  </div>
+                  {formData.purchasePrice > 0 && (
+                    <p className="text-sm text-neutral-500 mt-1">
+                      Down Payment: {((formData.downPayment / formData.purchasePrice) * 100).toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Loan Details */}
-        <div>
-          <h3 className="text-lg font-semibold text-neutral-800 mb-4">Loan Details</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Loan Term (Years) *
-              </label>
-              <select
-                value={formData.loanTerm}
-                onChange={(e) => handleChange('loanTerm', parseInt(e.target.value))}
-                className="input-field"
-                required
-              >
-                <option value={15}>15 years</option>
-                <option value={20}>20 years</option>
-                <option value={25}>25 years</option>
-                <option value={30}>30 years</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Interest Rate (%) *
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={formData.interestRate}
-                  onChange={(e) => handleChange('interestRate', parseFloat(e.target.value) || 0)}
-                  className="input-field pr-8"
-                  placeholder="6.5"
-                  step="0.1"
-                  min="0"
-                  max="20"
+        {/* Loan Details (only show if not cash purchase) */}
+        {!isCashPurchase && (
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-800 mb-4">Loan Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Loan Term (Years) *
+                </label>
+                <select
+                  value={formData.loanTerm}
+                  onChange={(e) => handleChange('loanTerm', parseInt(e.target.value))}
+                  className="input-field"
                   required
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <span className="text-neutral-500">%</span>
+                >
+                  <option value={15}>15 years</option>
+                  <option value={20}>20 years</option>
+                  <option value={25}>25 years</option>
+                  <option value={30}>30 years</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Interest Rate (%) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={formData.interestRate}
+                    onChange={(e) => handleChange('interestRate', parseFloat(e.target.value) || 0)}
+                    className="input-field pr-8"
+                    placeholder="6.5"
+                    step="0.1"
+                    min="0"
+                    max="20"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-neutral-500">%</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Property Details */}
         <div>
@@ -270,7 +321,7 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
             <div className="flex justify-between">
               <span className="text-sm text-neutral-600">Loan Amount:</span>
               <span className="text-sm font-medium text-neutral-900">
-                {formatCurrency(calculateLoanAmount())}
+                {isCashPurchase ? 'Cash Purchase' : formatCurrency(calculateLoanAmount())}
               </span>
             </div>
             <div className="flex justify-between">
@@ -285,12 +336,14 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
                 {formatCurrency(calculatePricePerSqFt())}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-neutral-600">Monthly Payment:</span>
-              <span className="text-sm font-medium text-neutral-900">
-                {formatCurrency(calculateMonthlyPayment())}
-              </span>
-            </div>
+            {!isCashPurchase && (
+              <div className="flex justify-between">
+                <span className="text-sm text-neutral-600">Monthly Payment:</span>
+                <span className="text-sm font-medium text-neutral-900">
+                  {formatCurrency(calculateMonthlyPayment())}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
