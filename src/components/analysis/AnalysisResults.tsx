@@ -12,8 +12,20 @@ interface AnalysisResultsProps {
 export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
   const isCashPurchase = inputs.property.isCashPurchase
   
+  // Find vacancy expense for display
+  const vacancyExpense = inputs.expenses.find(exp => 
+    exp.name.toLowerCase().includes('vacancy')
+  )
+  const vacancyRate = vacancyExpense?.isPercentage ? vacancyExpense.amount : 0
+  
+  // Find management expense for display
+  const managementExpense = inputs.expenses.find(exp => 
+    exp.name.toLowerCase().includes('management')
+  )
+  const managementRate = managementExpense?.isPercentage ? managementExpense.amount : 0
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" id="analysis-results">
       <div className="text-center">
         <h2 className="text-3xl font-display font-bold text-neutral-900 mb-4">
           Analysis Results
@@ -56,10 +68,10 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
         
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-neutral-600 mb-2">
-            {results.keyMetrics.yearsToRecoup.toFixed(1)}
+            {results.keyMetrics.yearsToRecoup.toFixed(1)} yrs
           </div>
           <div className="text-lg font-semibold text-neutral-800 mb-2">Years to Recoup</div>
-          <div className="text-sm text-neutral-600">Time to recover investment</div>
+          <div className="text-sm text-neutral-600">Time to recover down payment</div>
         </Card>
       </div>
 
@@ -84,6 +96,12 @@ export function AnalysisResults({ inputs, results }: AnalysisResultsProps) {
               <div className="text-sm font-medium">
                 {isCashPurchase ? 'All Cash' : `Financed (${((inputs.property.downPayment / inputs.property.purchasePrice) * 100).toFixed(1)}% down)`}
               </div>
+              
+              <div className="text-sm text-neutral-600">Vacancy Rate:</div>
+              <div className="text-sm font-medium">{vacancyRate}%</div>
+              
+              <div className="text-sm text-neutral-600">Management Fee:</div>
+              <div className="text-sm font-medium">{managementRate}%</div>
               
               {!isCashPurchase && (
                 <>
