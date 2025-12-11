@@ -240,6 +240,7 @@ export function PropertyAnalysisForm() {
           <AnalysisResults 
             inputs={formData as AnalysisInputs}
             results={results}
+            onBackToEdit={() => setCurrentStep(3)}
           />
         )}
       </Card>
