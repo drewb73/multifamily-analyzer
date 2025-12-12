@@ -1,3 +1,4 @@
+// src/components/analysis/PropertyAnalysisForm.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -8,15 +9,26 @@ import { IncomeExpenseForm } from './IncomeExpenseForm'
 import { AnalysisResults } from './AnalysisResults'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
-import { formatTimeAgo } from '@/lib/utils/format'
+import { formatTimeAgo } from '@/lib/utils'
 import { Save, Check, AlertCircle, Clock } from 'lucide-react'
-import { generateId } from '@/lib/utils'
 
 interface PropertyAnalysisFormProps {
   draftId?: string
 }
 
 export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
+  // Use draft hook - this is our single source of truth
+  const {
+    draft,
+    saveStatus,
+    lastSaved,
+    saveDraft,
+    autoSaveDraft,
+    createNewDraft,
+    isSaving,
+  } = useDraftAnalysis({ analysisId: draftId })
+
+  // Local state that syncs with draft
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<Partial<AnalysisInputs>>({
     property: {
@@ -37,17 +49,9 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
     income: [],
   })
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
-
-  // Use draft hook
-  const {
-    draft,
-    saveStatus,
-    lastSaved,
-    saveDraft,
-    autoSaveDraft,
-    createNewDraft,
-    loadDraft,
-  } = useDraftAnalysis({ analysisId: draftId })
+  
+  // Track if we've loaded the initial draft
+  const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
 
   const steps = [
     { id: 1, name: 'Property Details' },
@@ -56,96 +60,100 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
     { id: 4, name: 'Results' },
   ]
 
-  // Load draft data when component mounts or draft changes
+  // Load draft data ONCE when component mounts or when draft changes
   useEffect(() => {
-    if (draft) {
-      setFormData(draft.data)
-      setCurrentStep(draft.step)
+    if (draft && !hasLoadedInitialDraft) {
+      console.log('📥 Loading draft from storage:', { 
+        step: draft.step, 
+        hasResults: !!draft.results,
+        dataPresent: !!draft.data?.property?.address 
+      })
+      
+      // Only update local state if draft has data
+      if (draft.data && Object.keys(draft.data).length > 0) {
+        setFormData(draft.data)
+      }
+      
+      if (draft.step && draft.step !== currentStep) {
+        setCurrentStep(draft.step)
+      }
+      
       if (draft.results) {
         setResults(draft.results)
       }
+      
+      setHasLoadedInitialDraft(true)
     }
-  }, [draft])
+  }, [draft, hasLoadedInitialDraft, currentStep])
 
-  // Auto-save when form data changes
+  // Auto-save when form data changes (with debouncing built into the hook)
   useEffect(() => {
-    if (currentStep !== 4) { // Don't auto-save results page
-      autoSaveDraft(formData, currentStep, results)
+    // Don't auto-save if we're still loading or if form is empty
+    if (!hasLoadedInitialDraft || isSaving || !formData?.property?.address) {
+      return
     }
-  }, [formData, currentStep, results, autoSaveDraft])
+    
+    autoSaveDraft(formData, currentStep, results)
+  }, [formData, currentStep, results, autoSaveDraft, isSaving, hasLoadedInitialDraft])
 
-  // Calculate GROSS rental income from unit mix (before vacancy)
+  // Calculate GROSS rental income from unit mix
   const calculateGrossRentalIncome = useCallback(() => {
     if (!formData.unitMix || formData.unitMix.length === 0) return 0
-    
     return formData.unitMix.reduce((sum, unit) => 
       sum + (unit.currentRent * unit.count), 0
     )
   }, [formData.unitMix])
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < 4) {
       const nextStep = currentStep + 1
       setCurrentStep(nextStep)
-      // Save draft when moving to next step
-      saveDraft(formData, nextStep, results).catch(console.error)
+      await saveDraft(formData, nextStep, results)
     }
   }
 
-  const handleBack = () => {
+  const handleBack = async () => {
     if (currentStep > 1) {
       const prevStep = currentStep - 1
       setCurrentStep(prevStep)
-      // Save draft when moving back
-      saveDraft(formData, prevStep, results).catch(console.error)
+      await saveDraft(formData, prevStep, results)
     }
   }
 
-  const handlePropertyUpdate = (property: AnalysisInputs['property']) => {
+  const handlePropertyUpdate = useCallback((property: AnalysisInputs['property']) => {
     setFormData(prev => ({ ...prev, property }))
-  }
+  }, [])
 
-  const handleUnitMixUpdate = (unitMix: UnitType[]) => {
+  const handleUnitMixUpdate = useCallback((unitMix: UnitType[]) => {
     setFormData(prev => ({ ...prev, unitMix }))
-  }
+  }, [])
 
-  const handleIncomeExpenseUpdate = (income: AnalysisInputs['income'], expenses: AnalysisInputs['expenses']) => {
+  const handleIncomeExpenseUpdate = useCallback((income: AnalysisInputs['income'], expenses: AnalysisInputs['expenses']) => {
     setFormData(prev => ({ ...prev, income, expenses }))
-  }
+  }, [])
 
   const handleCalculate = async () => {
-    // 1. Calculate GROSS rental income (before vacancy)
+    // Calculate results
     const monthlyGrossRentalIncome = calculateGrossRentalIncome()
-    
-    // 2. Calculate other income (parking, laundry, etc.)
     const otherMonthlyIncome = formData.income?.filter(inc => !inc.isCalculated)
       .reduce((sum, inc) => sum + inc.amount, 0) || 0
-    
-    // 3. Total GROSS monthly income
     const totalMonthlyGrossIncome = monthlyGrossRentalIncome + otherMonthlyIncome
     
-    // 4. Calculate expenses
     const monthlyExpenses = formData.expenses?.reduce((total, expense) => {
       if (expense.isPercentage) {
         if (expense.percentageOf === 'propertyValue') {
-          // Property taxes, insurance - based on property value (annual to monthly)
           return total + ((formData.property?.purchasePrice || 0) * (expense.amount / 100) / 12)
         } else if (expense.percentageOf === 'rent') {
-          // Management, repairs, vacancy - based on RENTAL income only
           return total + (monthlyGrossRentalIncome * (expense.amount / 100))
         } else if (expense.percentageOf === 'income') {
-          // Based on total gross income
           return total + (totalMonthlyGrossIncome * (expense.amount / 100))
         }
       }
-      // Fixed expenses
       return total + expense.amount
     }, 0) || 0
 
-    // 5. Calculate Net Operating Income (Gross Income - ALL Expenses)
     const netOperatingIncome = totalMonthlyGrossIncome - monthlyExpenses
     
-    // 6. Calculate mortgage payment if not cash purchase
     let monthlyMortgagePayment = 0
     if (!formData.property?.isCashPurchase && formData.property) {
       const loanAmount = formData.property.purchasePrice - formData.property.downPayment
@@ -158,26 +166,16 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
       }
     }
 
-    // 7. Calculate monthly cash flow
     const monthlyCashFlow = netOperatingIncome - monthlyMortgagePayment
-    
-    // 8. Calculate key metrics
     const propertyValue = formData.property?.purchasePrice || 0
     const totalInvestment = formData.property?.downPayment || 0
     const annualCashFlow = monthlyCashFlow * 12
     const annualNOI = netOperatingIncome * 12
     
-    // Cap Rate = Annual NOI / Property Value
     const capRate = propertyValue > 0 ? annualNOI / propertyValue : 0
-    
-    // Cash on Cash Return = Annual Cash Flow / Total Cash Invested
     const cashOnCashReturn = totalInvestment > 0 ? annualCashFlow / totalInvestment : 0
-    
-    // Gross Rent Multiplier = Property Value / Annual Gross Income
     const grossRentMultiplier = (totalMonthlyGrossIncome * 12) > 0 ? 
       propertyValue / (totalMonthlyGrossIncome * 12) : 0
-    
-    // Debt Service Coverage Ratio = NOI / Annual Debt Service
     const debtServiceCoverageRatio = formData.property?.isCashPurchase || monthlyMortgagePayment === 0 ? 
       Infinity : netOperatingIncome / monthlyMortgagePayment
 
@@ -207,47 +205,36 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
       },
     }
 
+    console.log('✅ Calculated results, moving to step 4')
+    
+    // Update local state
     setResults(calculatedResults)
     setCurrentStep(4)
     
-    // Save draft with results
+    // Save with step 4
     await saveDraft(formData, 4, calculatedResults)
   }
 
   const handleStartNewAnalysis = () => {
-    createNewDraft()
-    setFormData({
-      property: {
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        purchasePrice: 0,
-        downPayment: 0,
-        loanTerm: 30,
-        interestRate: 6.5,
-        propertySize: 0,
-        totalUnits: 0,
-        isCashPurchase: false,
-      },
-      unitMix: [],
-      expenses: [],
-      income: [],
-    })
+    console.log('🔄 Starting new analysis')
+    const newDraft = createNewDraft()
+    setFormData(newDraft.data)
     setCurrentStep(1)
     setResults(null)
+    setHasLoadedInitialDraft(true) // Mark as loaded since we have a new draft
   }
 
   const handleSaveAnalysis = async () => {
     try {
       await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
-      alert('Analysis saved successfully!')
+      alert('✅ Analysis saved successfully!')
     } catch (error) {
-      alert('Error saving analysis. Please try again.')
+      console.error('Save error:', error)
+      alert('❌ Error saving analysis. Please try again.')
     }
   }
 
-  // Save status indicator component
+  // Save status indicator
   const SaveStatusIndicator = () => {
     if (saveStatus === 'saving') {
       return (
@@ -284,6 +271,16 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
     )
   }
 
+  // Show loading state while initial draft loads
+  if (!hasLoadedInitialDraft && !draftId) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+        <p className="mt-4 text-neutral-600">Preparing analysis tool...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Header with Save Status */}
@@ -298,14 +295,13 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
         </div>
         <div className="flex items-center gap-4">
           <SaveStatusIndicator />
-          {draft && (
-            <button
-              onClick={handleSaveAnalysis}
-              className="btn-secondary text-sm px-4 py-2"
-            >
-              💾 Save Now
-            </button>
-          )}
+          <button
+            onClick={handleSaveAnalysis}
+            disabled={isSaving}
+            className={`btn-secondary text-sm px-4 py-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isSaving ? 'Saving...' : '💾 Save Now'}
+          </button>
         </div>
       </div>
 
@@ -382,24 +378,36 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
         )}
       </Card>
 
-      {/* Navigation Buttons */}
+      {/* Navigation Buttons - SIMPLIFIED (No duplicate buttons) */}
       <div className="flex justify-between">
         <div>
           {currentStep > 1 && currentStep < 4 && (
             <Button 
               variant="secondary" 
               onClick={handleBack}
+              disabled={isSaving}
               className="px-8"
             >
               Back
             </Button>
           )}
+          {currentStep === 4 && (
+            <Button 
+              variant="secondary" 
+              onClick={() => setCurrentStep(3)}
+              disabled={isSaving}
+              className="px-8"
+            >
+              ← Back to Edit
+            </Button>
+          )}
         </div>
         
-        <div className="flex gap-4">
+        <div>
           {currentStep < 3 ? (
             <Button 
               onClick={handleNext}
+              disabled={isSaving}
               className="px-8"
             >
               Next
@@ -407,29 +415,45 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
           ) : currentStep === 3 ? (
             <Button 
               onClick={handleCalculate}
+              disabled={isSaving}
               className="px-8"
             >
-              Calculate Analysis
+              {isSaving ? 'Calculating...' : 'Calculate Analysis'}
             </Button>
           ) : (
             <div className="flex gap-4">
               <Button 
                 variant="secondary"
                 onClick={handleStartNewAnalysis}
+                disabled={isSaving}
                 className="px-8"
               >
                 Start New Analysis
-              </Button>
-              <Button 
-                className="px-8"
-                onClick={handleSaveAnalysis}
-              >
-                Save Analysis
               </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Debug info - shows current state in console */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-2 rounded-lg z-50 opacity-70 hover:opacity-100">
+          <div>Step: {currentStep}</div>
+          <div>Draft Step: {draft?.step || 'none'}</div>
+          <div>Has Data: {formData?.property?.address ? 'Yes' : 'No'}</div>
+          <div>Loaded: {hasLoadedInitialDraft ? 'Yes' : 'No'}</div>
+          <button 
+            onClick={() => {
+              console.log('Current formData:', formData)
+              console.log('Current draft:', draft)
+              console.log('localStorage current:', localStorage.getItem('multifamily_current_analysis'))
+            }}
+            className="mt-1 text-blue-300 hover:text-blue-100"
+          >
+            Debug Log
+          </button>
+        </div>
+      )}
     </div>
   )
 }
