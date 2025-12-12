@@ -1,4 +1,4 @@
-import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm'
+import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
 
 export default function DashboardPage() {
   return (
