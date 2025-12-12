@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button, Card } from '@/components'
 import { PropertyDetailsForm } from './PropertyDetailsForm'
 import { UnitMixForm } from './UnitMixForm'
 import { IncomeExpenseForm } from './IncomeExpenseForm'
 import { AnalysisResults } from './AnalysisResults'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
+import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
+import { formatTimeAgo } from '@/lib/utils/format'
+import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 import { generateId } from '@/lib/utils'
 
-export function PropertyAnalysisForm() {
+interface PropertyAnalysisFormProps {
+  draftId?: string
+}
+
+export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<Partial<AnalysisInputs>>({
     property: {
@@ -31,6 +38,17 @@ export function PropertyAnalysisForm() {
   })
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
 
+  // Use draft hook
+  const {
+    draft,
+    saveStatus,
+    lastSaved,
+    saveDraft,
+    autoSaveDraft,
+    createNewDraft,
+    loadDraft,
+  } = useDraftAnalysis({ analysisId: draftId })
+
   const steps = [
     { id: 1, name: 'Property Details' },
     { id: 2, name: 'Unit Mix' },
@@ -38,24 +56,48 @@ export function PropertyAnalysisForm() {
     { id: 4, name: 'Results' },
   ]
 
+  // Load draft data when component mounts or draft changes
+  useEffect(() => {
+    if (draft) {
+      setFormData(draft.data)
+      setCurrentStep(draft.step)
+      if (draft.results) {
+        setResults(draft.results)
+      }
+    }
+  }, [draft])
+
+  // Auto-save when form data changes
+  useEffect(() => {
+    if (currentStep !== 4) { // Don't auto-save results page
+      autoSaveDraft(formData, currentStep, results)
+    }
+  }, [formData, currentStep, results, autoSaveDraft])
+
   // Calculate GROSS rental income from unit mix (before vacancy)
-  const calculateGrossRentalIncome = () => {
+  const calculateGrossRentalIncome = useCallback(() => {
     if (!formData.unitMix || formData.unitMix.length === 0) return 0
     
     return formData.unitMix.reduce((sum, unit) => 
       sum + (unit.currentRent * unit.count), 0
     )
-  }
+  }, [formData.unitMix])
 
   const handleNext = () => {
     if (currentStep < 4) {
-      setCurrentStep(currentStep + 1)
+      const nextStep = currentStep + 1
+      setCurrentStep(nextStep)
+      // Save draft when moving to next step
+      saveDraft(formData, nextStep, results).catch(console.error)
     }
   }
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      const prevStep = currentStep - 1
+      setCurrentStep(prevStep)
+      // Save draft when moving back
+      saveDraft(formData, prevStep, results).catch(console.error)
     }
   }
 
@@ -71,7 +113,7 @@ export function PropertyAnalysisForm() {
     setFormData(prev => ({ ...prev, income, expenses }))
   }
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     // 1. Calculate GROSS rental income (before vacancy)
     const monthlyGrossRentalIncome = calculateGrossRentalIncome()
     
@@ -131,7 +173,6 @@ export function PropertyAnalysisForm() {
     // Cash on Cash Return = Annual Cash Flow / Total Cash Invested
     const cashOnCashReturn = totalInvestment > 0 ? annualCashFlow / totalInvestment : 0
     
-    
     // Gross Rent Multiplier = Property Value / Annual Gross Income
     const grossRentMultiplier = (totalMonthlyGrossIncome * 12) > 0 ? 
       propertyValue / (totalMonthlyGrossIncome * 12) : 0
@@ -168,10 +209,106 @@ export function PropertyAnalysisForm() {
 
     setResults(calculatedResults)
     setCurrentStep(4)
+    
+    // Save draft with results
+    await saveDraft(formData, 4, calculatedResults)
+  }
+
+  const handleStartNewAnalysis = () => {
+    createNewDraft()
+    setFormData({
+      property: {
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        purchasePrice: 0,
+        downPayment: 0,
+        loanTerm: 30,
+        interestRate: 6.5,
+        propertySize: 0,
+        totalUnits: 0,
+        isCashPurchase: false,
+      },
+      unitMix: [],
+      expenses: [],
+      income: [],
+    })
+    setCurrentStep(1)
+    setResults(null)
+  }
+
+  const handleSaveAnalysis = async () => {
+    try {
+      await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
+      alert('Analysis saved successfully!')
+    } catch (error) {
+      alert('Error saving analysis. Please try again.')
+    }
+  }
+
+  // Save status indicator component
+  const SaveStatusIndicator = () => {
+    if (saveStatus === 'saving') {
+      return (
+        <div className="flex items-center gap-2 text-primary-600">
+          <Clock className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Saving...</span>
+        </div>
+      )
+    }
+    
+    if (saveStatus === 'saved' && lastSaved) {
+      return (
+        <div className="flex items-center gap-2 text-success-600">
+          <Check className="w-4 h-4" />
+          <span className="text-sm">Saved {formatTimeAgo(lastSaved)}</span>
+        </div>
+      )
+    }
+    
+    if (saveStatus === 'error') {
+      return (
+        <div className="flex items-center gap-2 text-error-600">
+          <AlertCircle className="w-4 h-4" />
+          <span className="text-sm">Save failed</span>
+        </div>
+      )
+    }
+    
+    return (
+      <div className="flex items-center gap-2 text-warning-600">
+        <Save className="w-4 h-4" />
+        <span className="text-sm">Unsaved changes</span>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-8">
+      {/* Header with Save Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-neutral-900">
+            Property Analysis
+          </h1>
+          {draft?.name && (
+            <p className="text-neutral-600 mt-1">{draft.name}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          <SaveStatusIndicator />
+          {draft && (
+            <button
+              onClick={handleSaveAnalysis}
+              className="btn-secondary text-sm px-4 py-2"
+            >
+              💾 Save Now
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Progress Steps */}
       <div className="relative">
         <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-neutral-200">
@@ -278,17 +415,14 @@ export function PropertyAnalysisForm() {
             <div className="flex gap-4">
               <Button 
                 variant="secondary"
-                onClick={() => setCurrentStep(1)}
+                onClick={handleStartNewAnalysis}
                 className="px-8"
               >
-                Start Over
+                Start New Analysis
               </Button>
               <Button 
                 className="px-8"
-                onClick={() => {
-                  // TODO: Implement save functionality
-                  alert('Analysis saved!')
-                }}
+                onClick={handleSaveAnalysis}
               >
                 Save Analysis
               </Button>
