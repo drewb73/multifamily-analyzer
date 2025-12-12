@@ -1,3 +1,4 @@
+// src/components/analysis/PropertyDetailsForm.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -13,8 +14,13 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
   const [formData, setFormData] = useState<PropertyDetails>(data)
   const [isCashPurchase, setIsCashPurchase] = useState(data.isCashPurchase || false)
 
+  // Update parent only when user stops typing (debounced)
   useEffect(() => {
-    onUpdate(formData)
+    const timer = setTimeout(() => {
+      onUpdate(formData)
+    }, 300) // 300ms delay
+    
+    return () => clearTimeout(timer)
   }, [formData, onUpdate])
 
   const handleChange = (field: keyof PropertyDetails, value: string | number | boolean) => {
