@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType } from '@/types'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
-import { Card, Button } from '@/components'
+import { Button } from '@/components'
+import { Download } from 'lucide-react'
 
 interface AnalysisResultsProps {
   inputs: AnalysisInputs
   results: AnalysisResultsType
-  onBackToEdit?: () => void  // Add this prop
+  onBackToEdit?: () => void
 }
 
 export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const isCashPurchase = inputs.property.isCashPurchase
   
   // Find vacancy expense for display
@@ -151,6 +153,48 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
     }
   }
 
+  // Handle PDF Export
+  const handleExportToPDF = async () => {
+    setIsExporting(true)
+    try {
+      // TODO: Implement actual PDF export
+      // This is a placeholder for the PDF export functionality
+      console.log('Starting PDF export with data:', { inputs, results: displayResults })
+      
+      // Simulate PDF generation delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Create a blob with the analysis data (for now, just download JSON)
+      const dataStr = JSON.stringify({
+        propertyAnalysis: {
+          inputs,
+          results: displayResults,
+          analysisMode: showMarketAnalysis ? 'market' : 'current',
+          generatedAt: new Date().toISOString(),
+          propertyName: inputs.property.address || 'Untitled Property'
+        }
+      }, null, 2)
+      
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = window.URL.createObjectURL(dataBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `property-analysis-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      // Show success message
+      alert('✅ PDF export will be available soon! For now, data has been downloaded as JSON.')
+    } catch (error) {
+      console.error('PDF export error:', error)
+      alert('❌ Error exporting PDF. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-8" id="analysis-results">
       <div className="text-center">
@@ -207,7 +251,7 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
         {/* Upside Potential Banner */}
         {showMarketAnalysis && (
           <div className="max-w-2xl mx-auto mb-8">
-            <Card className="p-4 bg-gradient-to-r from-accent-50 to-secondary-50 border-accent-200">
+            <div className="elevated-card p-4 bg-gradient-to-r from-accent-50 to-secondary-50 border-accent-200">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-neutral-800 mb-2">💎 Upside Potential</h3>
                 <div className="grid grid-cols-3 gap-4">
@@ -231,14 +275,14 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
         )}
       </div>
 
       {/* Key Metrics Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6 text-center">
+        <div className="elevated-card p-6 text-center">
           <div className="text-3xl font-bold text-primary-600 mb-2">
             {formatPercentage(displayResults.keyMetrics.capRate)}
           </div>
@@ -249,9 +293,9 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               ↑ {formatPercentage(upsidePotential.capRate)}
             </div>
           )}
-        </Card>
+        </div>
         
-        <Card className="p-6 text-center">
+        <div className="elevated-card p-6 text-center">
           <div className="text-3xl font-bold text-secondary-600 mb-2">
             {formatPercentage(displayResults.keyMetrics.cashOnCashReturn)}
           </div>
@@ -262,9 +306,9 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               ↑ {formatPercentage(upsidePotential.cashOnCash)}
             </div>
           )}
-        </Card>
+        </div>
         
-        <Card className="p-6 text-center">
+        <div className="elevated-card p-6 text-center">
           <div className="text-3xl font-bold text-accent-600 mb-2">
             {formatCurrency(displayResults.keyMetrics.annualCashFlow)}
           </div>
@@ -275,9 +319,9 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               ↑ {formatCurrency(upsidePotential.annualCashFlow)}
             </div>
           )}
-        </Card>
+        </div>
         
-        <Card className="p-6 text-center">
+        <div className="elevated-card p-6 text-center">
           <div className="text-3xl font-bold text-neutral-600 mb-2">
             {displayResults.keyMetrics.grossRentMultiplier.toFixed(1)}
           </div>
@@ -288,11 +332,11 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               Market: {marketResults.keyMetrics.grossRentMultiplier.toFixed(1)}
             </div>
           )}
-        </Card>
+        </div>
       </div>
 
       {/* Property Summary */}
-      <Card className="p-6">
+      <div className="elevated-card p-6">
         <h3 className="text-xl font-semibold text-neutral-800 mb-4">Property Summary</h3>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
@@ -333,11 +377,11 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Monthly & Annual Breakdown */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="p-6">
+        <div className="elevated-card p-6">
           <h3 className="text-xl font-semibold text-neutral-800 mb-4">Monthly Breakdown</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -382,9 +426,9 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               </div>
             </div>
           </div>
-        </Card>
+        </div>
         
-        <Card className="p-6">
+        <div className="elevated-card p-6">
           <h3 className="text-xl font-semibold text-neutral-800 mb-4">Annual Breakdown</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -429,11 +473,11 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Rent Comparison */}
-      <Card className="p-6">
+      <div className="elevated-card p-6">
         <h3 className="text-xl font-semibold text-neutral-800 mb-4">Rent Comparison</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200">
@@ -510,10 +554,10 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
       {/* Calculation Breakdown */}
-      <Card className="p-6">
+      <div className="elevated-card p-6">
         <h3 className="text-xl font-semibold text-neutral-800 mb-4">How These Numbers Are Calculated</h3>
         <div className="space-y-6">
           {/* CAP Rate */}
@@ -583,33 +627,45 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
             )}
           </ul>
         </div>
-      </Card>
+      </div>
 
-      {/* Action Buttons - UPDATED with Back Button */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between pt-8">
-        <div>
-          {onBackToEdit && (
-            <Button 
-              variant="secondary" 
-              onClick={onBackToEdit}
-              className="px-8"
-            >
-              ← Back to Edit
-            </Button>
-          )}
-        </div>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8 border-t border-neutral-200">
+        {onBackToEdit && (
+          <Button 
+            variant="secondary" 
+            onClick={onBackToEdit}
+            className="px-8 py-3"
+          >
+            ← Back to Edit
+          </Button>
+        )}
         
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button className="px-8">
-            📄 Export as PDF
-          </Button>
-          <Button variant="secondary" className="px-8">
-            💾 Save Analysis
-          </Button>
-          <Button variant="secondary" className="px-8">
-            🔄 Run Another Analysis
-          </Button>
-        </div>
+        <Button 
+          onClick={handleExportToPDF}
+          disabled={isExporting}
+          className="px-8 py-3 bg-success-600 hover:bg-success-700"
+        >
+          {isExporting ? (
+            <>
+              <span className="animate-spin mr-2">⏳</span>
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="w-4 h-4 mr-2" />
+              Export to PDF
+            </>
+          )}
+        </Button>
+        
+        <Button 
+          variant="secondary"
+          onClick={() => window.location.href = '/drafts'}
+          className="px-8 py-3"
+        >
+          View Saved Drafts
+        </Button>
       </div>
     </div>
   )
