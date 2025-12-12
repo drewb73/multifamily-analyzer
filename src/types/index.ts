@@ -72,3 +72,30 @@ export interface AnalysisResults {
     cashFlow: number;
   };
 }
+
+// Draft Analysis Types
+export interface DraftAnalysis {
+  id: string;
+  timestamp: number;
+  lastModified: number;
+  name?: string;
+  data: Partial<AnalysisInputs>;
+  step: number;
+  results?: AnalysisResults;
+}
+
+export interface SavedAnalysis extends DraftAnalysis {
+  isSaved: true;
+  savedAt: number;
+  notes?: string;
+}
+
+// Storage State Types
+export interface StorageState {
+  currentDraft: DraftAnalysis | null;
+  savedAnalyses: SavedAnalysis[];
+  draftAnalyses: DraftAnalysis[];
+}
+
+// Draft Management Types
+export type SaveStatus = 'unsaved' | 'saving' | 'saved' | 'error';
