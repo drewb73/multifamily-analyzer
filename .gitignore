@@ -43,6 +43,9 @@ next-env.d.ts
 # Local env files
 .env.local
 .env
+.env
+.env.local
+.env*.local
 
 # database
 multifamily-analyzer\prisma
