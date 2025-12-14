@@ -1,3 +1,6 @@
+// Minimal Prisma Schema for PropertyAnalyzer
+// Start with this, then add features as needed
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,57 +10,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Account {
-  id                String  @id @default(auto()) @map("_id") @db.ObjectId
-  userId            String  @db.ObjectId
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.String
-  access_token      String? @db.String
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.String
-  session_state     String?
+// ============================================
+// CORE MODELS (Start Here)
+// ============================================
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model Session {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionToken String   @unique
-  userId       String   @db.ObjectId
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
+// User - Synced with Clerk
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  password      String?
-  image         String?
-  role          String    @default("user")
-  trialEndsAt   DateTime?
-  accounts      Account[]
-  sessions      Session[]
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId   String   @unique
+  
+  // Basic Info
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  
+  // Subscription
+  subscriptionStatus String?   @default("trial")
+  trialEndsAt        DateTime?
+  subscriptionEndsAt DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  properties Property[]
+  analyses   Analysis[]
 
   @@map("users")
 }
 
-model VerificationToken {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  identifier String
-  token      String   @unique
-  expires    DateTime
+// Property - Store property data
+model Property {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic Info
+  name    String
+  address String?
+  city    String?
+  state   String?
+  zipCode String?
+  
+  // Property Details
+  units          Int?
+  purchasePrice  Float?
+  
+  // Income
+  monthlyRent    Float?
+  otherIncome    Float?
+  
+  // Expenses
+  propertyTax    Float?
+  insurance      Float?
+  maintenance    Float?
+  
+  // Images (Cloudinary URLs)
+  images      String[]
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  analyses Analysis[]
 
-  @@unique([identifier, token])
-  @@map("verification_tokens")
+  @@map("properties")
+}
+
+// Analysis - Store property analyses
+model Analysis {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  // Analysis Info
+  name String
+  
+  // Store all analysis data as JSON
+  data Json
+  
+  // Key metrics (for quick filtering)
+  capRate   Float?
+  cashFlow  Float?
+  roi       Float?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("analyses")
 }
