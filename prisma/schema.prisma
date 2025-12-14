@@ -25,10 +25,18 @@ model User {
   lastName  String?
   imageUrl  String?
   
-  // Subscription
-  subscriptionStatus String?   @default("trial")
-  trialEndsAt        DateTime?
-  subscriptionEndsAt DateTime?
+  // Subscription & Tiers
+  subscriptionStatus String   @default("trial")  // "free", "trial", "premium", "enterprise"
+  subscriptionTier   String?  // For special tiers: "discount_7day", "early_bird", etc.
+  
+  // Trial Management
+  trialEndsAt        DateTime? // 72 hours from signup
+  hasUsedTrial       Boolean  @default(false) // Prevent multiple trials
+  
+  // Premium Subscription
+  subscriptionEndsAt DateTime? // For recurring subscriptions
+  stripeCustomerId   String?   // For Stripe integration (future)
+  stripeSubscriptionId String? // For Stripe integration (future)
   
   // Timestamps
   createdAt DateTime @default(now())
