@@ -10,13 +10,15 @@ import { AnalysisResults } from './AnalysisResults'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { formatTimeAgo } from '@/lib/utils'
+import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
 import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 
 interface PropertyAnalysisFormProps {
   draftId?: string
+  userSubscriptionStatus?: string | null
 }
 
-export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
+export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }: PropertyAnalysisFormProps) {
   // Use draft hook - this is our single source of truth
   const {
     draft,
@@ -105,6 +107,30 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
   }, [formData.unitMix])
 
   const handleNext = async () => {
+    // VALIDATION FOR STEP 1 - Property Details
+    if (currentStep === 1 && formData.property) {
+      const validation = validatePropertyDetails(formData.property)
+      if (!validation.isValid) {
+        alert(`Please fix the following errors:\n\n${validation.errors.join('\n')}`)
+        return
+      }
+    }
+
+    // VALIDATION FOR STEP 2 - Unit Mix
+    if (currentStep === 2) {
+      if (!formData.unitMix || formData.unitMix.length === 0) {
+        alert('Please add at least one unit type before continuing.')
+        return
+      }
+      
+      const validation = validateUnitMix(formData.unitMix, formData.property?.totalUnits || 0)
+      if (!validation.isValid) {
+        alert(`Please fix the following errors:\n\n${validation.errors.join('\n')}`)
+        return
+      }
+    }
+
+    // If validation passes, move to next step
     if (currentStep < 4) {
       const nextStep = currentStep + 1
       setCurrentStep(nextStep)
@@ -374,6 +400,7 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
             inputs={formData as AnalysisInputs}
             results={results}
             onBackToEdit={() => setCurrentStep(3)}
+            userSubscriptionStatus={userSubscriptionStatus}
           />
         )}
       </Card>
@@ -388,17 +415,7 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
               disabled={isSaving}
               className="px-8"
             >
-              Back
-            </Button>
-          )}
-          {currentStep === 4 && (
-            <Button 
-              variant="secondary" 
-              onClick={() => setCurrentStep(3)}
-              disabled={isSaving}
-              className="px-8"
-            >
-              ← Back to Edit
+              ← Back
             </Button>
           )}
         </div>
@@ -410,7 +427,7 @@ export function PropertyAnalysisForm({ draftId }: PropertyAnalysisFormProps) {
               disabled={isSaving}
               className="px-8"
             >
-              Next
+              Next →
             </Button>
           ) : currentStep === 3 ? (
             <Button 

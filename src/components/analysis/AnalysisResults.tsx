@@ -4,18 +4,27 @@ import { useState } from 'react'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType } from '@/types'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { Button } from '@/components'
-import { Download } from 'lucide-react'
+import { Download, Lock } from 'lucide-react'
 
 interface AnalysisResultsProps {
   inputs: AnalysisInputs
   results: AnalysisResultsType
   onBackToEdit?: () => void
+  userSubscriptionStatus?: string | null
 }
 
-export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResultsProps) {
+export function AnalysisResults({ 
+  inputs, 
+  results, 
+  onBackToEdit,
+  userSubscriptionStatus = null 
+}: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const isCashPurchase = inputs.property.isCashPurchase
+  
+  // Check if user has access to premium features (PDF export and saved drafts)
+  const isPremiumUser = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
   
   // Find vacancy expense for display
   const vacancyExpense = inputs.expenses.find(exp => 
@@ -155,6 +164,11 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
 
   // Handle PDF Export
   const handleExportToPDF = async () => {
+    if (!isPremiumUser) {
+      alert('⭐ Upgrade to Premium to export your analyses to PDF!\n\nClick "Upgrade Account" in the top right corner.')
+      return
+    }
+
     setIsExporting(true)
     try {
       // TODO: Implement actual PDF export
@@ -192,6 +206,14 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
       alert('❌ Error exporting PDF. Please try again.')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleViewSavedDrafts = () => {
+    if (isPremiumUser) {
+      window.location.href = '/drafts'
+    } else {
+      alert('⭐ Upgrade to Premium to save and view your property analyses!\n\nClick "Upgrade Account" in the top right corner.')
     }
   }
 
@@ -643,9 +665,11 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
         
         <Button 
           onClick={handleExportToPDF}
-          disabled={isExporting}
-          className="px-8 py-3 bg-success-600 hover:bg-success-700"
+          disabled={!isPremiumUser || isExporting}
+          className={`px-8 py-3 bg-success-600 hover:bg-success-700 ${!isPremiumUser ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={!isPremiumUser ? 'Upgrade to Premium to export to PDF' : 'Export your analysis to PDF'}
         >
+          {!isPremiumUser && <Lock className="w-4 h-4 mr-2" />}
           {isExporting ? (
             <>
               <span className="animate-spin mr-2">⏳</span>
@@ -655,16 +679,21 @@ export function AnalysisResults({ inputs, results, onBackToEdit }: AnalysisResul
             <>
               <Download className="w-4 h-4 mr-2" />
               Export to PDF
+              {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
             </>
           )}
         </Button>
         
         <Button 
           variant="secondary"
-          onClick={() => window.location.href = '/drafts'}
-          className="px-8 py-3"
+          onClick={handleViewSavedDrafts}
+          disabled={!isPremiumUser}
+          className={`px-8 py-3 ${!isPremiumUser ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={!isPremiumUser ? 'Upgrade to Premium to view saved analyses' : 'View your saved property analyses'}
         >
+          {!isPremiumUser && <Lock className="w-4 h-4 mr-2" />}
           View Saved Drafts
+          {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
         </Button>
       </div>
     </div>
