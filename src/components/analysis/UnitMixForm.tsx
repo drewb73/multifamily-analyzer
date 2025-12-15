@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { UnitType } from '@/types'
 import { generateId, formatCurrency } from '@/lib/utils'
 import { Card } from '@/components'
+import { X } from 'lucide-react'
 
 interface UnitMixFormProps {
   data: UnitType[]
@@ -102,7 +103,7 @@ export function UnitMixForm({
 
       {/* Unit Mix Summary */}
       <Card className="p-6">
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center p-4 bg-primary-50 rounded-lg">
             <div className="text-2xl font-bold text-primary-600 mb-1">
               {calculateTotalUnits()}/{totalUnits}
@@ -139,7 +140,7 @@ export function UnitMixForm({
       {/* Add New Unit Form */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-neutral-800 mb-4">Add Unit Type</h3>
-        <div className="grid md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               Type
@@ -147,7 +148,7 @@ export function UnitMixForm({
             <select
               value={newUnit.type}
               onChange={(e) => setNewUnit({...newUnit, type: e.target.value})}
-              className="input-field"
+              className="input-field w-full"
             >
               {UNIT_TYPES.map(type => (
                 <option key={type} value={type}>{type}</option>
@@ -163,7 +164,7 @@ export function UnitMixForm({
               type="number"
               value={newUnit.count}
               onChange={(e) => setNewUnit({...newUnit, count: parseInt(e.target.value) || 1})}
-              className="input-field"
+              className="input-field w-full"
               min="1"
               max={totalUnits - calculateTotalUnits()}
             />
@@ -177,7 +178,7 @@ export function UnitMixForm({
               type="number"
               value={newUnit.squareFootage}
               onChange={(e) => setNewUnit({...newUnit, squareFootage: parseInt(e.target.value) || 0})}
-              className="input-field"
+              className="input-field w-full"
               min="0"
             />
           </div>
@@ -190,7 +191,7 @@ export function UnitMixForm({
               type="number"
               value={newUnit.currentRent}
               onChange={(e) => setNewUnit({...newUnit, currentRent: parseInt(e.target.value) || 0})}
-              className="input-field"
+              className="input-field w-full"
               min="0"
             />
           </div>
@@ -203,7 +204,7 @@ export function UnitMixForm({
               type="number"
               value={newUnit.marketRent}
               onChange={(e) => setNewUnit({...newUnit, marketRent: parseInt(e.target.value) || 0})}
-              className="input-field"
+              className="input-field w-full"
               min="0"
             />
           </div>
@@ -225,120 +226,147 @@ export function UnitMixForm({
         </div>
       </Card>
 
-      {/* Unit Mix Table */}
+      {/* Unit Mix Display - Responsive */}
       {unitMix.length > 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-neutral-800 mb-4">Current Unit Mix</h3>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Unit Type</th>
-                  <th>Count</th>
-                  <th>Sq Ft</th>
-                  <th>Current Rent</th>
-                  <th>Market Rent</th>
-                  <th>Monthly Gross Current</th>
-                  <th>Monthly Gross Market</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unitMix.map((unit) => {
-                  const monthlyCurrentGross = unit.currentRent * unit.count
-                  const monthlyMarketGross = unit.marketRent * unit.count
-                  
-                  return (
-                    <tr key={unit.id}>
-                      <td>
-                        <select
-                          value={unit.type}
-                          onChange={(e) => handleUpdateUnit(unit.id, 'type', e.target.value)}
-                          className="input-field text-sm"
-                        >
-                          {UNIT_TYPES.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
+          
+          {/* CARD LAYOUT - All Screen Sizes */}
+          <div className="space-y-4">
+            {unitMix.map((unit) => {
+              const monthlyCurrentGross = unit.currentRent * unit.count
+              const monthlyMarketGross = unit.marketRent * unit.count
+              
+              return (
+                <div key={unit.id} className="border border-neutral-200 rounded-lg p-4 bg-white relative">
+                  {/* Remove button - top right */}
+                  <button
+                    onClick={() => handleRemoveUnit(unit.id)}
+                    className="absolute top-2 right-2 text-error-600 hover:text-error-800 p-2"
+                    aria-label="Remove unit"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  {/* Unit Type */}
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-neutral-500 mb-1">
+                      Unit Type
+                    </label>
+                    <select
+                      value={unit.type}
+                      onChange={(e) => handleUpdateUnit(unit.id, 'type', e.target.value)}
+                      className="input-field text-sm w-full"
+                    >
+                      {UNIT_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Count and Sq Ft - side by side */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 mb-1">
+                        Count
+                      </label>
+                      <input
+                        type="number"
+                        value={unit.count}
+                        onChange={(e) => handleUpdateUnit(unit.id, 'count', parseInt(e.target.value) || 1)}
+                        className="input-field text-sm w-full"
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 mb-1">
+                        Sq Ft
+                      </label>
+                      <input
+                        type="number"
+                        value={unit.squareFootage}
+                        onChange={(e) => handleUpdateUnit(unit.id, 'squareFootage', parseInt(e.target.value) || 0)}
+                        className="input-field text-sm w-full"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Current Rent and Market Rent - side by side */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 mb-1">
+                        Current Rent
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                          <span className="text-neutral-500 text-sm">$</span>
+                        </div>
                         <input
                           type="number"
-                          value={unit.count}
-                          onChange={(e) => handleUpdateUnit(unit.id, 'count', parseInt(e.target.value) || 1)}
-                          className="input-field text-sm"
-                          min="1"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={unit.squareFootage}
-                          onChange={(e) => handleUpdateUnit(unit.id, 'squareFootage', parseInt(e.target.value) || 0)}
-                          className="input-field text-sm"
+                          value={unit.currentRent}
+                          onChange={(e) => handleUpdateUnit(unit.id, 'currentRent', parseInt(e.target.value) || 0)}
+                          className="input-field text-sm pl-6 w-full"
                           min="0"
                         />
-                      </td>
-                      <td>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                            <span className="text-neutral-500 text-sm">$</span>
-                          </div>
-                          <input
-                            type="number"
-                            value={unit.currentRent}
-                            onChange={(e) => handleUpdateUnit(unit.id, 'currentRent', parseInt(e.target.value) || 0)}
-                            className="input-field text-sm pl-6"
-                            min="0"
-                          />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-500 mb-1">
+                        Market Rent
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                          <span className="text-neutral-500 text-sm">$</span>
                         </div>
-                      </td>
-                      <td>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                            <span className="text-neutral-500 text-sm">$</span>
-                          </div>
-                          <input
-                            type="number"
-                            value={unit.marketRent}
-                            onChange={(e) => handleUpdateUnit(unit.id, 'marketRent', parseInt(e.target.value) || 0)}
-                            className="input-field text-sm pl-6"
-                            min="0"
-                          />
-                        </div>
-                      </td>
-                      <td className="font-medium">
+                        <input
+                          type="number"
+                          value={unit.marketRent}
+                          onChange={(e) => handleUpdateUnit(unit.id, 'marketRent', parseInt(e.target.value) || 0)}
+                          className="input-field text-sm pl-6 w-full"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculated values */}
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-neutral-100">
+                    <div>
+                      <div className="text-xs text-neutral-500">Monthly Gross Current</div>
+                      <div className="text-sm font-semibold text-neutral-900">
                         {formatCurrency(monthlyCurrentGross)}
-                      </td>
-                      <td className="font-medium">
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-neutral-500">Monthly Gross Market</div>
+                      <div className="text-sm font-semibold text-neutral-900">
                         {formatCurrency(monthlyMarketGross)}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleRemoveUnit(unit.id)}
-                          className="text-error-600 hover:text-error-800 text-sm font-medium"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {/* Total Row */}
-                <tr className="bg-neutral-50 font-semibold">
-                  <td colSpan={5} className="text-right pr-6">
-                    Totals (Gross):
-                  </td>
-                  <td className="font-bold">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Mobile Totals */}
+            <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
+              <div className="text-sm font-semibold text-primary-900 mb-3">Totals (Gross)</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-primary-700">Current</div>
+                  <div className="text-lg font-bold text-primary-900">
                     {formatCurrency(calculateTotalCurrentRent())}
-                  </td>
-                  <td className="font-bold">
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-primary-700">Market</div>
+                  <div className="text-lg font-bold text-primary-900">
                     {formatCurrency(calculateTotalMarketRent())}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </Card>
       )}
