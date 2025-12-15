@@ -193,4 +193,16 @@
   .progress-bar-fill {
     @apply h-2 bg-primary-600 transition-all duration-300;
   }
+
+  
+}
+
+/* Hide Clerk development mode badge */
+.__cl-internal-1s3ym2r {
+  display: none !important;
+}
+
+/* Alternative: Hide any Clerk badges */
+[class*="cl-internal"][class*="badge"] {
+  display: none !important;
 }

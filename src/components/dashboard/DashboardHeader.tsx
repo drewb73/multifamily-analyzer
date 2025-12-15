@@ -1,11 +1,16 @@
-'use client'
+import { getCurrentUser, getCurrentDbUser, getSubscriptionDisplayName, getSubscriptionBadge } from '@/lib/auth';
+import { UserButton } from '@clerk/nextjs';
+import Link from 'next/link';
+import { Bell, HelpCircle } from 'lucide-react';
 
-import { User, Bell, HelpCircle } from 'lucide-react'
-import { useState } from 'react'
+export default async function DashboardHeader() {
+  // Fetch user data from Clerk and MongoDB
+  const clerkUser = await getCurrentUser();
+  const dbUser = await getCurrentDbUser();
 
-export default function DashboardHeader() {
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  // Get display names for subscription
+  const displayName = getSubscriptionDisplayName(dbUser?.subscriptionStatus || null);
+  const badge = getSubscriptionBadge(dbUser?.subscriptionStatus || null);
 
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -31,63 +36,43 @@ export default function DashboardHeader() {
           </button>
 
           {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 text-neutral-500 hover:text-neutral-700 rounded-full hover:bg-neutral-100 relative"
-              title="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary-500"></span>
-            </button>
-            
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 rounded-lg border border-neutral-200 bg-white py-2 shadow-lg">
-                <div className="px-4 py-2">
-                  <div className="font-medium text-neutral-900">Notifications</div>
-                  <div className="text-sm text-neutral-500">No new notifications</div>
-                </div>
-              </div>
-            )}
-          </div>
+          <button
+            className="p-2 text-neutral-500 hover:text-neutral-700 rounded-full hover:bg-neutral-100 relative"
+            title="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary-500"></span>
+          </button>
 
-          {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-3 rounded-lg border border-neutral-200 px-3 py-2 hover:bg-neutral-50"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100">
-                <User className="h-5 w-5 text-primary-600" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-neutral-900">Trial User</div>
-                <div className="text-xs text-neutral-500">Free Trial</div>
-              </div>
-            </button>
-
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-lg border border-neutral-200 bg-white py-2 shadow-lg">
-                <div className="px-4 py-2 border-b border-neutral-100">
-                  <div className="text-sm font-medium text-neutral-900">Trial User</div>
-                  <div className="text-xs text-neutral-500">user@example.com</div>
-                </div>
-                <button className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50">
-                  Upgrade Account
-                </button>
-                <button className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50">
-                  Account Settings
-                </button>
-                <div className="border-t border-neutral-100">
-                  <button className="w-full px-4 py-2 text-left text-sm text-error-600 hover:bg-error-50">
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Clerk User Button with Custom Appearance */}
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "h-10 w-10",
+                userButtonPopoverCard: "shadow-xl border border-slate-200",
+                userButtonPopoverActionButton: "hover:bg-slate-50 text-slate-700",
+                userButtonPopoverActionButtonText: "text-slate-700",
+                userButtonPopoverActionButtonIcon: "text-slate-500",
+                userButtonPopoverFooter: "hidden", // Hide "Manage account" footer with Clerk branding
+              },
+            }}
+          >
+            {/* Add custom menu items */}
+            <UserButton.MenuItems>
+              <UserButton.Link
+                label="Upgrade Account"
+                labelIcon={<span>⭐</span>}
+                href="/pricing"
+              />
+              <UserButton.Link
+                label="Account Settings"
+                labelIcon={<span>⚙️</span>}
+                href="/dashboard/settings"
+              />
+            </UserButton.MenuItems>
+          </UserButton>
         </div>
       </div>
     </header>
-  )
+  );
 }

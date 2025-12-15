@@ -12,4 +12,4 @@ export { PropertyAnalysisForm } from './analysis/PropertyAnalysisForm'
 
 // Dashboard Components
 export { default as DashboardSidebar } from './dashboard/Sidebar'
-export { default as DashboardHeader } from './dashboard/DashboardHeader'
+// DashboardHeader removed - it's a Server Component and should be imported directly
