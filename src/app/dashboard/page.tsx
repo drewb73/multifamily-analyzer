@@ -1,6 +1,11 @@
 import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
+import { getCurrentDbUser } from '@/lib/auth';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // Fetch current user's subscription status from database
+  const dbUser = await getCurrentDbUser();
+  const subscriptionStatus = dbUser?.subscriptionStatus || null;
+
   return (
     <div>
       <div className="mb-8">
@@ -12,7 +17,7 @@ export default function DashboardPage() {
         </p>
       </div>
       
-      <PropertyAnalysisForm />
+      <PropertyAnalysisForm userSubscriptionStatus={subscriptionStatus} />
     </div>
   )
 }
