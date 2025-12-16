@@ -9,6 +9,7 @@ import { fetchAnalyses, deleteAnalysis as deleteAnalysisAPI } from '@/lib/api/an
 import { Group } from '@/lib/api/groups'
 import { GroupSidebar } from './GroupSidebar'
 import { CreateGroupModal } from './CreateGroupModal'
+import { GroupDropdown } from './GroupDropdown'
 import { DraftAnalysis } from '@/types'
 import Link from 'next/link'
 
@@ -18,7 +19,7 @@ interface SavedAnalysesClientProps {
 
 export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesClientProps) {
   const [analyses, setAnalyses] = useState<any[]>([])
-  const [allAnalysesCount, setAllAnalysesCount] = useState(0) // Track total count separately
+  const [allAnalysesCount, setAllAnalysesCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -123,6 +124,15 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     loadAnalyses()
   }
 
+  const handleGroupChanged = () => {
+    // Refresh analyses to show updated group
+    loadAnalyses()
+    // Refresh sidebar to update group counts
+    if (sidebarRef.current?.refreshGroups) {
+      sidebarRef.current.refreshGroups()
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="elevated-card p-12 text-center">
@@ -165,8 +175,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto h-full">
           {analyses.length === 0 ? (
-            <div className="p-6 md:p-12">
-              <div className="elevated-card p-8 md:p-12 text-center max-w-2xl mx-auto">
+            <div className="p-6 md:p-12 h-full flex items-center justify-center">
+              <div className="elevated-card p-8 md:p-12 text-center max-w-2xl">
                 <div className="text-6xl mb-4">📊</div>
                 <h2 className="text-2xl font-semibold text-neutral-800 mb-3">
                   {selectedGroupId ? 'No Analyses in This Group' : 'No Saved Analyses Yet'}
@@ -228,16 +238,15 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                             <h3 className="text-lg font-semibold text-neutral-900 truncate flex-1 min-w-0">
                               {analysis.name}
                             </h3>
-                            {analysis.group && (
-                              <span
-                                className="text-xs px-2 py-1 rounded-full flex-shrink-0"
-                                style={{
-                                  backgroundColor: `${analysis.group.color}20`,
-                                  color: analysis.group.color,
-                                }}
-                              >
-                                {analysis.group.name}
-                              </span>
+                            
+                            {/* Group Dropdown */}
+                            {isPremium && (
+                              <GroupDropdown
+                                analysisId={analysis.id}
+                                currentGroupId={analysis.groupId || null}
+                                currentGroupName={analysis.group?.name}
+                                onGroupChanged={handleGroupChanged}
+                              />
                             )}
                           </div>
                           

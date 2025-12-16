@@ -21,4 +21,5 @@ export { PropertyAnalysisForm } from './analysis/PropertyAnalysisForm'
 
 // Dashboard Components
 export { default as DashboardSidebar } from './dashboard/Sidebar'
+export { GroupDropdown } from './dashboard/GroupDropdown'
 // DashboardHeader removed - it's a Server Component and should be imported directly
