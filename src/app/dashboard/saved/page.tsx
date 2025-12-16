@@ -45,8 +45,8 @@ export default async function SavedAnalysesPage() {
       </div>
       
       {canViewSavedAnalyses ? (
-        // Premium user - show saved analyses
-        <SavedAnalysesClient />
+        // Premium user - show saved analyses with subscription status
+        <SavedAnalysesClient userSubscriptionStatus={effectiveStatus} />
       ) : (
         // Non-premium user - show locked feature
         <LockedFeatureWrapper canStartTrial={canStartTrial} />

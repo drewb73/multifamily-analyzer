@@ -5,43 +5,73 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components'
 import { FileText, Trash2, Calendar } from 'lucide-react'
 import { formatCurrency, formatTimeAgo, getStorageItem, STORAGE_KEYS } from '@/lib/utils'
+import { fetchAnalyses, deleteAnalysis as deleteAnalysisAPI } from '@/lib/api/analyses'
 import { DraftAnalysis } from '@/types'
 import Link from 'next/link'
 
-export function SavedAnalysesClient() {
-  const [analyses, setAnalyses] = useState<DraftAnalysis[]>([])
+interface SavedAnalysesClientProps {
+  userSubscriptionStatus: string | null
+}
+
+export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesClientProps) {
+  const [analyses, setAnalyses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Check if user is premium (can access database)
+  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
 
   useEffect(() => {
-    // Load analyses from localStorage
-    const loadAnalyses = () => {
-      try {
+    loadAnalyses()
+  }, [isPremium])
+
+  const loadAnalyses = async () => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      if (isPremium) {
+        // Premium user - fetch from database
+        const response = await fetchAnalyses({
+          isArchived: false,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        })
+        setAnalyses(response.analyses || [])
+      } else {
+        // Trial/Free user - load from localStorage (shouldn't reach here due to page lock)
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
-        // Filter to only show completed analyses (those with results)
         const completedAnalyses = savedAnalyses.filter(analysis => analysis.results)
         setAnalyses(completedAnalyses)
-      } catch (error) {
-        console.error('Error loading analyses:', error)
-      } finally {
-        setIsLoading(false)
       }
+    } catch (err: any) {
+      console.error('Error loading analyses:', err)
+      setError(err.message || 'Failed to load analyses')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (analysisId: string) => {
+    if (!confirm('Are you sure you want to delete this analysis?')) {
+      return
     }
 
-    loadAnalyses()
-  }, [])
-
-  const handleDelete = (analysisId: string) => {
-    if (confirm('Are you sure you want to delete this analysis?')) {
-      try {
+    try {
+      if (isPremium) {
+        // Premium user - delete from database
+        await deleteAnalysisAPI(analysisId)
+        setAnalyses(prev => prev.filter(a => a.id !== analysisId))
+      } else {
+        // Trial/Free user - delete from localStorage
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
         const updatedAnalyses = savedAnalyses.filter(a => a.id !== analysisId)
         localStorage.setItem(STORAGE_KEYS.DRAFTS, JSON.stringify(updatedAnalyses))
-        
-        // Update state
         setAnalyses(updatedAnalyses.filter(analysis => analysis.results))
-      } catch (error) {
-        console.error('Error deleting analysis:', error)
       }
+    } catch (error) {
+      console.error('Error deleting analysis:', error)
+      alert('Failed to delete analysis. Please try again.')
     }
   }
 
@@ -50,6 +80,21 @@ export function SavedAnalysesClient() {
       <div className="elevated-card p-12 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
         <p className="text-neutral-600">Loading your analyses...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="elevated-card p-12 text-center">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-semibold text-neutral-800 mb-3">
+          Error Loading Analyses
+        </h2>
+        <p className="text-neutral-600 mb-6">{error}</p>
+        <button onClick={loadAnalyses} className="btn-primary px-6 py-3">
+          Try Again
+        </button>
       </div>
     )
   }
@@ -81,16 +126,30 @@ export function SavedAnalysesClient() {
 
       <div className="grid gap-4">
         {analyses.map((analysis) => {
-          const property = analysis.data?.property
+          // Handle both database format and localStorage format
+          const property = analysis.data?.property || {
+            address: analysis.address,
+            city: analysis.city,
+            state: analysis.state,
+            zipCode: analysis.zipCode,
+            totalUnits: analysis.totalUnits,
+            purchasePrice: analysis.purchasePrice,
+          }
+          
           const results = analysis.results
           
           // Skip if no property data
           if (!property) return null
           
-          // Extract metrics safely - VALUES ARE STORED AS DECIMALS (0.0209 = 2.09%)
-          const capRate = results?.keyMetrics?.capRate || 0
-          const cashOnCashReturn = results?.keyMetrics?.cashOnCashReturn || 0
-          const annualCashFlow = results?.keyMetrics?.annualCashFlow || 0
+          // Extract metrics - multiply by 100 for percentages
+          const capRate = (analysis.capRate || results?.keyMetrics?.capRate || 0)
+          const cashOnCashReturn = (analysis.cashOnCashReturn || results?.keyMetrics?.cashOnCashReturn || 0)
+          const annualCashFlow = (analysis.cashFlow || results?.keyMetrics?.annualCashFlow || 0)
+          
+          // Format date
+          const savedDate = analysis.createdAt 
+            ? new Date(analysis.createdAt).getTime()
+            : analysis.lastModified || Date.now()
           
           return (
             <Card key={analysis.id} className="p-6 hover:shadow-lg transition-shadow">
@@ -111,12 +170,12 @@ export function SavedAnalysesClient() {
                     <p>🏢 {property.totalUnits} units • {formatCurrency(property.purchasePrice || 0)}</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      <span>Saved {formatTimeAgo(analysis.lastModified)}</span>
+                      <span>Saved {formatTimeAgo(savedDate)}</span>
                     </div>
                   </div>
 
                   {/* Key Metrics */}
-                  {results && results.keyMetrics && (
+                  {results && (
                     <div className="grid grid-cols-3 gap-4 mt-4">
                       <div className="bg-primary-50 rounded-lg p-3">
                         <div className="text-xs text-primary-600 mb-1">Cap Rate</div>

@@ -11,6 +11,7 @@ import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { formatTimeAgo } from '@/lib/utils'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
+import { saveAnalysisToDatabase } from '@/lib/api/analyses'
 import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 
 interface PropertyAnalysisFormProps {
@@ -252,8 +253,34 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
 
   const handleSaveAnalysis = async () => {
     try {
-      await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
-      alert('✅ Analysis saved successfully!')
+      // Determine if user is Premium (can save to database)
+      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      
+      if (isPremium && results) {
+        // Premium user - save to database
+        try {
+          const analysisName = `Analysis ${new Date().toLocaleDateString()}`
+          
+          const savedAnalysis = await saveAnalysisToDatabase({
+            name: analysisName,
+            data: formData as AnalysisInputs,
+            results: results,
+            notes: undefined,
+          })
+          
+          console.log('✅ Saved to database:', savedAnalysis)
+          alert('✅ Analysis saved to your account!')
+        } catch (dbError: any) {
+          console.error('Database save error:', dbError)
+          // Fallback to localStorage if database fails
+          await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
+          alert('⚠️ Saved locally (database error). Your analysis is still accessible.')
+        }
+      } else {
+        // Trial/Free user - save to localStorage only
+        await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
+        alert('✅ Analysis saved locally!')
+      }
     } catch (error) {
       console.error('Save error:', error)
       alert('❌ Error saving analysis. Please try again.')
@@ -405,7 +432,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
         )}
       </Card>
 
-      {/* Navigation Buttons - SIMPLIFIED (No duplicate buttons) */}
+      {/* Navigation Buttons */}
       <div className="flex justify-between">
         <div>
           {currentStep > 1 && currentStep < 4 && (
@@ -451,26 +478,6 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
           )}
         </div>
       </div>
-
-      {/* Debug info - shows current state in console */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-2 rounded-lg z-50 opacity-70 hover:opacity-100">
-          <div>Step: {currentStep}</div>
-          <div>Draft Step: {draft?.step || 'none'}</div>
-          <div>Has Data: {formData?.property?.address ? 'Yes' : 'No'}</div>
-          <div>Loaded: {hasLoadedInitialDraft ? 'Yes' : 'No'}</div>
-          <button 
-            onClick={() => {
-              console.log('Current formData:', formData)
-              console.log('Current draft:', draft)
-              console.log('localStorage current:', localStorage.getItem('multifamily_current_analysis'))
-            }}
-            className="mt-1 text-blue-300 hover:text-blue-100"
-          >
-            Debug Log
-          </button>
-        </div>
-      )}
     </div>
   )
 }
