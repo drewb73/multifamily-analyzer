@@ -43,13 +43,15 @@ model User {
   updatedAt DateTime @updatedAt
   
   // Relations
-  properties Property[]
-  analyses   Analysis[]
+  properties         Property[]
+  analyses           Analysis[]
+  propertyAnalyses   PropertyAnalysis[]
+  analysisGroups     AnalysisGroup[]
 
   @@map("users")
 }
 
-// Property - Store property data
+// Property - Store property data (LEGACY - keeping for backward compatibility)
 model Property {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
@@ -88,7 +90,7 @@ model Property {
   @@map("properties")
 }
 
-// Analysis - Store property analyses
+// Analysis - Store property analyses (LEGACY - keeping for backward compatibility)
 model Analysis {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   userId     String   @db.ObjectId
@@ -112,4 +114,95 @@ model Analysis {
   updatedAt DateTime @updatedAt
 
   @@map("analyses")
+}
+
+// ============================================
+// NEW MODELS - Property Analysis System
+// ============================================
+
+// PropertyAnalysis - Full property analysis with grouping and filtering
+model PropertyAnalysis {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   String?  @db.ObjectId  // Optional: belongs to a group
+  group     AnalysisGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  // Basic Info
+  name      String
+  notes     String?  // User notes about this analysis
+  
+  // Property Details (for filtering/searching)
+  address   String
+  city      String
+  state     String
+  zipCode   String
+  
+  purchasePrice    Float
+  totalUnits       Int
+  propertySize     Float
+  isCashPurchase   Boolean
+  downPayment      Float?
+  loanTerm         Int?
+  interestRate     Float?
+  
+  // Store complete analysis data as JSON
+  data      Json  // Full AnalysisInputs (property, unitMix, expenses, income)
+  results   Json  // Full AnalysisResults (keyMetrics, monthlyBreakdown, annualBreakdown)
+  
+  // Searchable/Filterable Key Metrics (extracted for indexing)
+  capRate              Float?
+  cashFlow             Float?
+  cashOnCashReturn     Float?
+  grossRentMultiplier  Float?
+  netOperatingIncome   Float?
+  totalInvestment      Float?
+  debtServiceCoverage  Float?
+  
+  // Status Flags
+  isArchived  Boolean  @default(false)
+  isFavorite  Boolean  @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("property_analyses")
+  @@index([userId, createdAt])
+  @@index([userId, groupId])
+  @@index([userId, isArchived])
+  @@index([userId, isFavorite])
+  @@index([zipCode])
+  @@index([city])
+  @@index([state])
+  @@index([capRate])
+  @@index([cashFlow])
+  @@index([totalUnits])
+  @@index([purchasePrice])
+}
+
+// AnalysisGroup - Organize analyses into named collections
+model AnalysisGroup {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Group Info
+  name        String
+  description String?
+  color       String?  // Hex color for UI (e.g., "#3B82F6")
+  icon        String?  // Icon name for UI (e.g., "Building", "TrendingUp")
+  
+  // Sort order (for custom ordering)
+  sortOrder   Int      @default(0)
+  
+  // Relations
+  analyses    PropertyAnalysis[]
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("analysis_groups")
+  @@index([userId, sortOrder])
 }
