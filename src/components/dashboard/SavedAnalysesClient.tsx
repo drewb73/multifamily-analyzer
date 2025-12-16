@@ -87,6 +87,12 @@ export function SavedAnalysesClient() {
           // Skip if no property data
           if (!property) return null
           
+          // Extract metrics safely
+          const capRate = results?.keyMetrics?.capRate || 0
+          const cashOnCashReturn = results?.keyMetrics?.cashOnCashReturn || 0
+          // Use ANNUAL cash flow, not monthly
+          const annualCashFlow = results?.keyMetrics?.annualCashFlow || 0
+          
           return (
             <Card key={analysis.id} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
@@ -116,23 +122,19 @@ export function SavedAnalysesClient() {
                       <div className="bg-primary-50 rounded-lg p-3">
                         <div className="text-xs text-primary-600 mb-1">Cap Rate</div>
                         <div className="text-lg font-bold text-primary-700">
-                          {results.keyMetrics.capRate ? `${results.keyMetrics.capRate.toFixed(2)}%` : 'N/A'}
+                          {capRate.toFixed(2)}%
                         </div>
                       </div>
                       <div className="bg-success-50 rounded-lg p-3">
-                        <div className="text-xs text-success-600 mb-1">Cash Flow</div>
+                        <div className="text-xs text-success-600 mb-1">Annual Cash Flow</div>
                         <div className="text-lg font-bold text-success-700">
-                          {results.monthlyBreakdown?.cashFlow 
-                            ? formatCurrency(results.monthlyBreakdown.cashFlow) 
-                            : 'N/A'}
+                          {formatCurrency(annualCashFlow)}
                         </div>
                       </div>
                       <div className="bg-secondary-50 rounded-lg p-3">
                         <div className="text-xs text-secondary-600 mb-1">CoC Return</div>
                         <div className="text-lg font-bold text-secondary-700">
-                          {results.keyMetrics.cashOnCashReturn 
-                            ? `${results.keyMetrics.cashOnCashReturn.toFixed(2)}%` 
-                            : 'N/A'}
+                          {cashOnCashReturn.toFixed(2)}%
                         </div>
                       </div>
                     </div>
