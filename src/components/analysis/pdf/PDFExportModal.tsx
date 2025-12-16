@@ -1,10 +1,14 @@
 // src/components/analysis/pdf/PDFExportModal.tsx
+// UPDATED FOR PHASE 2 - Replace the existing file with this
+
 'use client'
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { PDFExportState, PDFTabType } from '@/types/pdf'
 import { TabNavigation } from './TabNavigation'
+import { SectionsTab } from './SectionsTab'
+import { createDefaultSections } from './defaultSections'
 
 interface PDFExportModalProps {
   isOpen: boolean
@@ -12,6 +16,8 @@ interface PDFExportModalProps {
   propertyName: string
   userName?: string
   userEmail?: string
+  isCashPurchase?: boolean
+  hasMarketAnalysis?: boolean
 }
 
 export function PDFExportModal({
@@ -20,11 +26,13 @@ export function PDFExportModal({
   propertyName,
   userName = '',
   userEmail = '',
+  isCashPurchase = false,
+  hasMarketAnalysis = false,
 }: PDFExportModalProps) {
   // Initialize state with defaults
   const [pdfState, setPDFState] = useState<PDFExportState>({
-    // Sections state (will populate in Phase 2)
-    sections: [],
+    // Initialize sections based on property type
+    sections: createDefaultSections(isCashPurchase, hasMarketAnalysis),
     
     // Options
     includeCharts: true,
@@ -51,14 +59,65 @@ export function PDFExportModal({
     activeTab: 'sections',
     previewZoom: 75,
     isGenerating: false,
-    estimatedPages: 1,
-    estimatedSize: '1.0',
+    estimatedPages: 0,
+    estimatedSize: '0',
     showMobilePreview: false
   })
+
+  // Calculate estimated pages and file size whenever sections or options change
+  useEffect(() => {
+    const enabledSections = pdfState.sections.filter(s => s.enabled)
+    const totalPages = enabledSections.reduce((sum, s) => sum + s.estimatedPages, 0)
+    
+    // Add extra pages for options
+    let adjustedPages = totalPages
+    if (pdfState.includeCharts) adjustedPages += 0.5
+    if (pdfState.includeNotes) adjustedPages += 1
+    
+    // Round up to nearest page
+    const estimatedPages = Math.ceil(adjustedPages)
+    
+    // Estimate file size (rough calculation)
+    // Base: 0.5 MB per page, charts add 0.3 MB each
+    let sizeInMB = estimatedPages * 0.5
+    if (pdfState.includeCharts) {
+      const chartsCount = enabledSections.length * 0.5 // Rough estimate
+      sizeInMB += chartsCount * 0.3
+    }
+    
+    setPDFState(prev => ({
+      ...prev,
+      estimatedPages,
+      estimatedSize: sizeInMB.toFixed(1)
+    }))
+  }, [pdfState.sections, pdfState.includeCharts, pdfState.includeNotes])
 
   // Handle tab change
   const handleTabChange = (tab: PDFTabType) => {
     setPDFState(prev => ({ ...prev, activeTab: tab }))
+  }
+
+  // Handle section toggle
+  const handleSectionToggle = (sectionId: string, enabled: boolean) => {
+    setPDFState(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? { ...section, enabled }
+          : section
+      )
+    }))
+  }
+
+  // Handle option toggle
+  const handleOptionToggle = (
+    option: 'includeCharts' | 'includeNotes' | 'blackAndWhite',
+    value: boolean
+  ) => {
+    setPDFState(prev => ({
+      ...prev,
+      [option]: value
+    }))
   }
 
   // Handle close
@@ -163,11 +222,16 @@ export function PDFExportModal({
               {/* Tab Content - Scrollable */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {pdfState.activeTab === 'sections' && (
-                  <div className="space-y-4">
-                    <p className="text-neutral-600">
-                      Sections tab content coming in Phase 2...
-                    </p>
-                  </div>
+                  <SectionsTab
+                    sections={pdfState.sections}
+                    includeCharts={pdfState.includeCharts}
+                    includeNotes={pdfState.includeNotes}
+                    blackAndWhite={pdfState.blackAndWhite}
+                    onSectionToggle={handleSectionToggle}
+                    onOptionToggle={handleOptionToggle}
+                    estimatedPages={pdfState.estimatedPages}
+                    estimatedSize={pdfState.estimatedSize}
+                  />
                 )}
                 
                 {pdfState.activeTab === 'branding' && (
@@ -212,11 +276,16 @@ export function PDFExportModal({
                   {/* Tab Content - Scrollable */}
                   <div className="flex-1 overflow-y-auto px-4 py-4">
                     {pdfState.activeTab === 'sections' && (
-                      <div className="space-y-4">
-                        <p className="text-neutral-600">
-                          Sections tab content coming in Phase 2...
-                        </p>
-                      </div>
+                      <SectionsTab
+                        sections={pdfState.sections}
+                        includeCharts={pdfState.includeCharts}
+                        includeNotes={pdfState.includeNotes}
+                        blackAndWhite={pdfState.blackAndWhite}
+                        onSectionToggle={handleSectionToggle}
+                        onOptionToggle={handleOptionToggle}
+                        estimatedPages={pdfState.estimatedPages}
+                        estimatedSize={pdfState.estimatedSize}
+                      />
                     )}
                     
                     {pdfState.activeTab === 'branding' && (
@@ -300,7 +369,7 @@ export function PDFExportModal({
             <button
               onClick={() => {
                 // PDF generation coming in Phase 7
-                alert('PDF generation coming in Phase 7!')
+                alert(`PDF will include ${pdfState.sections.filter(s => s.enabled).length} sections\nEstimated: ${pdfState.estimatedPages} pages, ~${pdfState.estimatedSize} MB`)
               }}
               disabled={pdfState.isGenerating}
               className="

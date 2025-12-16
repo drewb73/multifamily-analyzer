@@ -673,6 +673,8 @@ export function AnalysisResults({
         propertyName={inputs.property.address || 'Untitled Property'}
         userName={user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : ''}
         userEmail={user?.primaryEmailAddress?.emailAddress || ''}
+        isCashPurchase={inputs.property.isCashPurchase}
+        hasMarketAnalysis={showMarketAnalysis} 
       />
     </div>
   )
