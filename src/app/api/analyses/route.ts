@@ -34,41 +34,65 @@ export async function GET(request: NextRequest) {
     const priceMax = searchParams.get('priceMax')
     const capRateMin = searchParams.get('capRateMin')
     const capRateMax = searchParams.get('capRateMax')
-    const isFavorite = searchParams.get('isFavorite') === 'true'
-    const isArchived = searchParams.get('isArchived') === 'true'
+    const isFavorite = searchParams.get('isFavorite')
+    const isArchived = searchParams.get('isArchived')
     const sortBy = searchParams.get('sortBy') || 'createdAt'
-    const sortOrder = searchParams.get('sortOrder') || 'desc'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
     // Build where clause
     const where: any = {
       userId: user.id,
-      isArchived,
     }
 
-    // Search in name, address, city, notes
+    // SEARCH - searches across multiple fields with OR
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { address: { contains: search, mode: 'insensitive' } },
         { city: { contains: search, mode: 'insensitive' } },
+        { state: { contains: search, mode: 'insensitive' } },
+        { zipCode: { contains: search, mode: 'insensitive' } },
         { notes: { contains: search, mode: 'insensitive' } },
       ]
     }
 
-    // Filters
+    // Specific filters (these work with search)
     if (groupId) where.groupId = groupId
-    if (zipCode) where.zipCode = zipCode
-    if (city) where.city = { contains: city, mode: 'insensitive' }
-    if (state) where.state = state
-    if (unitsMin) where.totalUnits = { ...where.totalUnits, gte: parseInt(unitsMin) }
-    if (unitsMax) where.totalUnits = { ...where.totalUnits, lte: parseInt(unitsMax) }
-    if (priceMin) where.purchasePrice = { ...where.purchasePrice, gte: parseFloat(priceMin) }
-    if (priceMax) where.purchasePrice = { ...where.purchasePrice, lte: parseFloat(priceMax) }
-    if (capRateMin) where.capRate = { ...where.capRate, gte: parseFloat(capRateMin) }
-    if (capRateMax) where.capRate = { ...where.capRate, lte: parseFloat(capRateMax) }
-    if (isFavorite) where.isFavorite = true
+    if (zipCode && !search) where.zipCode = zipCode
+    if (city && !search) where.city = { contains: city, mode: 'insensitive' }
+    if (state && !search) where.state = state
+    
+    // Unit count filters
+    if (unitsMin || unitsMax) {
+      where.totalUnits = {}
+      if (unitsMin) where.totalUnits.gte = parseInt(unitsMin)
+      if (unitsMax) where.totalUnits.lte = parseInt(unitsMax)
+    }
+    
+    // Price filters
+    if (priceMin || priceMax) {
+      where.purchasePrice = {}
+      if (priceMin) where.purchasePrice.gte = parseFloat(priceMin)
+      if (priceMax) where.purchasePrice.lte = parseFloat(priceMax)
+    }
+    
+    // Cap rate filters
+    if (capRateMin || capRateMax) {
+      where.capRate = {}
+      if (capRateMin) where.capRate.gte = parseFloat(capRateMin)
+      if (capRateMax) where.capRate.lte = parseFloat(capRateMax)
+    }
+    
+    // Boolean filters
+    if (isFavorite !== null) where.isFavorite = isFavorite === 'true'
+    if (isArchived !== null) {
+      where.isArchived = isArchived === 'true'
+    } else {
+      // Default to not archived if not specified
+      where.isArchived = false
+    }
 
     // Count total
     const total = await prisma.propertyAnalysis.count({ where })
