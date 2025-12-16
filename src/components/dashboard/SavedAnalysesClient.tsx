@@ -18,6 +18,7 @@ interface SavedAnalysesClientProps {
 
 export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesClientProps) {
   const [analyses, setAnalyses] = useState<any[]>([])
+  const [allAnalysesCount, setAllAnalysesCount] = useState(0) // Track total count separately
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -49,11 +50,22 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           groupId: selectedGroupId || undefined,
         })
         setAnalyses(response.analyses || [])
+        
+        // Also fetch total count for "All Analyses" display
+        if (selectedGroupId) {
+          const allResponse = await fetchAnalyses({
+            isArchived: false,
+          })
+          setAllAnalysesCount(allResponse.total || 0)
+        } else {
+          setAllAnalysesCount(response.total || 0)
+        }
       } else {
         // Trial/Free user - load from localStorage (shouldn't reach here due to page lock)
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
         const completedAnalyses = savedAnalyses.filter(analysis => analysis.results)
         setAnalyses(completedAnalyses)
+        setAllAnalysesCount(completedAnalyses.length)
       }
     } catch (err: any) {
       console.error('Error loading analyses:', err)
@@ -73,6 +85,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         // Premium user - delete from database
         await deleteAnalysisAPI(analysisId)
         setAnalyses(prev => prev.filter(a => a.id !== analysisId))
+        // Refresh to update counts
+        loadAnalyses()
+        // Refresh sidebar to update group counts
+        if (sidebarRef.current?.refreshGroups) {
+          sidebarRef.current.refreshGroups()
+        }
       } else {
         // Trial/Free user - delete from localStorage
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
@@ -138,32 +156,34 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
             ref={sidebarRef}
             selectedGroupId={selectedGroupId}
             onGroupSelect={setSelectedGroupId}
-            totalAnalysesCount={analyses.length}
+            totalAnalysesCount={allAnalysesCount}
             onCreateGroup={handleCreateGroup}
             onEditGroup={handleEditGroup}
           />
         )}
 
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto h-full">
           {analyses.length === 0 ? (
-            <div className="elevated-card p-12 text-center">
-              <div className="text-6xl mb-4">📊</div>
-              <h2 className="text-2xl font-semibold text-neutral-800 mb-3">
-                {selectedGroupId ? 'No Analyses in This Group' : 'No Saved Analyses Yet'}
-              </h2>
-              <p className="text-neutral-600 mb-6 max-w-md mx-auto">
-                {selectedGroupId
-                  ? 'This group is empty. Create an analysis and assign it to this group.'
-                  : 'Complete a property analysis to save it here. All your completed analyses will appear in this list.'
-                }
-              </p>
-              <Link href="/dashboard" className="btn-primary px-8 py-3 inline-block">
-                Analyze a Property
-              </Link>
+            <div className="p-6 md:p-12">
+              <div className="elevated-card p-8 md:p-12 text-center max-w-2xl mx-auto">
+                <div className="text-6xl mb-4">📊</div>
+                <h2 className="text-2xl font-semibold text-neutral-800 mb-3">
+                  {selectedGroupId ? 'No Analyses in This Group' : 'No Saved Analyses Yet'}
+                </h2>
+                <p className="text-neutral-600 mb-6 max-w-md mx-auto">
+                  {selectedGroupId
+                    ? 'This group is empty. Create an analysis and assign it to this group.'
+                    : 'Complete a property analysis to save it here. All your completed analyses will appear in this list.'
+                  }
+                </p>
+                <Link href="/dashboard" className="btn-primary px-8 py-3 inline-block">
+                  Analyze a Property
+                </Link>
+              </div>
             </div>
           ) : (
-            <div className="p-6 space-y-4">
+            <div className="p-4 md:p-6 space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <p className="text-sm text-neutral-600">
                   {analyses.length} {analyses.length === 1 ? 'analysis' : 'analyses'}
@@ -199,18 +219,18 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                     : analysis.lastModified || Date.now()
                   
                   return (
-                    <Card key={analysis.id} className="p-6 hover:shadow-lg transition-shadow">
-                      <div className="flex items-start justify-between">
+                    <Card key={analysis.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
+                      <div className="flex flex-col lg:flex-row items-start gap-4">
                         {/* Left side - Property info */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FileText className="w-5 h-5 text-primary-600" />
-                            <h3 className="text-lg font-semibold text-neutral-900">
+                        <div className="flex-1 w-full min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <FileText className="w-5 h-5 text-primary-600 flex-shrink-0" />
+                            <h3 className="text-lg font-semibold text-neutral-900 truncate flex-1 min-w-0">
                               {analysis.name}
                             </h3>
                             {analysis.group && (
                               <span
-                                className="text-xs px-2 py-1 rounded-full"
+                                className="text-xs px-2 py-1 rounded-full flex-shrink-0"
                                 style={{
                                   backgroundColor: `${analysis.group.color}20`,
                                   color: analysis.group.color,
@@ -223,33 +243,33 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                           
                           <div className="text-sm text-neutral-600 space-y-1 mb-4">
                             {property.address && (
-                              <p>📍 {property.address}, {property.city}, {property.state} {property.zipCode}</p>
+                              <p className="break-words">📍 {property.address}, {property.city}, {property.state} {property.zipCode}</p>
                             )}
                             <p>🏢 {property.totalUnits} units • {formatCurrency(property.purchasePrice || 0)}</p>
                             <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
+                              <Calendar className="w-3 h-3 flex-shrink-0" />
                               <span>Saved {formatTimeAgo(savedDate)}</span>
                             </div>
                           </div>
 
-                          {/* Key Metrics */}
+                          {/* Key Metrics - Responsive grid */}
                           {results && (
-                            <div className="grid grid-cols-3 gap-4 mt-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div className="bg-primary-50 rounded-lg p-3">
                                 <div className="text-xs text-primary-600 mb-1">Cap Rate</div>
-                                <div className="text-lg font-bold text-primary-700">
+                                <div className="text-base md:text-lg font-bold text-primary-700 break-words">
                                   {(capRate * 100).toFixed(2)}%
                                 </div>
                               </div>
                               <div className="bg-success-50 rounded-lg p-3">
                                 <div className="text-xs text-success-600 mb-1">Annual Cash Flow</div>
-                                <div className="text-lg font-bold text-success-700">
+                                <div className="text-base md:text-lg font-bold text-success-700 break-words">
                                   {formatCurrency(annualCashFlow)}
                                 </div>
                               </div>
                               <div className="bg-secondary-50 rounded-lg p-3">
                                 <div className="text-xs text-secondary-600 mb-1">CoC Return</div>
-                                <div className="text-lg font-bold text-secondary-700">
+                                <div className="text-base md:text-lg font-bold text-secondary-700 break-words">
                                   {(cashOnCashReturn * 100).toFixed(2)}%
                                 </div>
                               </div>
@@ -258,16 +278,16 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                         </div>
 
                         {/* Right side - Actions */}
-                        <div className="flex flex-col gap-2 ml-4">
+                        <div className="flex lg:flex-col gap-2 w-full lg:w-auto">
                           <Link
                             href={`/dashboard?analysisId=${analysis.id}`}
-                            className="btn-primary px-4 py-2 text-sm whitespace-nowrap"
+                            className="btn-primary px-4 py-2 text-sm whitespace-nowrap flex-1 lg:flex-initial text-center"
                           >
                             View Details
                           </Link>
                           <button
                             onClick={() => handleDelete(analysis.id)}
-                            className="btn-secondary px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap text-error-600 hover:bg-error-50"
+                            className="btn-secondary px-4 py-2 text-sm flex items-center justify-center gap-2 whitespace-nowrap text-error-600 hover:bg-error-50 flex-1 lg:flex-initial"
                           >
                             <Trash2 className="w-4 h-4" />
                             Delete

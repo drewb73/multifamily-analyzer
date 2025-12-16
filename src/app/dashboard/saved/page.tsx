@@ -26,8 +26,8 @@ export default async function SavedAnalysesPage() {
   const canStartTrial = effectiveStatus === 'free' && !dbUser.hasUsedTrial;
 
   return (
-    <div>
-      <div className="mb-8">
+    <div className="h-full flex flex-col">
+      <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-display font-bold text-neutral-900">
             Saved Analyses
@@ -44,13 +44,15 @@ export default async function SavedAnalysesPage() {
         </p>
       </div>
       
-      {canViewSavedAnalyses ? (
-        // Premium user - show saved analyses with subscription status
-        <SavedAnalysesClient userSubscriptionStatus={effectiveStatus} />
-      ) : (
-        // Non-premium user - show locked feature
-        <LockedFeatureWrapper canStartTrial={canStartTrial} />
-      )}
+      <div className="flex-1 overflow-hidden">
+        {canViewSavedAnalyses ? (
+          // Premium user - show saved analyses with subscription status
+          <SavedAnalysesClient userSubscriptionStatus={effectiveStatus} />
+        ) : (
+          // Non-premium user - show locked feature
+          <LockedFeatureWrapper canStartTrial={canStartTrial} />
+        )}
+      </div>
     </div>
   );
 }
