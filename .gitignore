@@ -50,3 +50,4 @@ next-env.d.ts
 # database
 multifamily-analyzer\prisma
 multifamily-analyzer\prisma
+multifamily-analyzer\prisma\schema.prisma
