@@ -87,10 +87,9 @@ export function SavedAnalysesClient() {
           // Skip if no property data
           if (!property) return null
           
-          // Extract metrics safely
+          // Extract metrics safely - VALUES ARE STORED AS DECIMALS (0.0209 = 2.09%)
           const capRate = results?.keyMetrics?.capRate || 0
           const cashOnCashReturn = results?.keyMetrics?.cashOnCashReturn || 0
-          // Use ANNUAL cash flow, not monthly
           const annualCashFlow = results?.keyMetrics?.annualCashFlow || 0
           
           return (
@@ -122,7 +121,7 @@ export function SavedAnalysesClient() {
                       <div className="bg-primary-50 rounded-lg p-3">
                         <div className="text-xs text-primary-600 mb-1">Cap Rate</div>
                         <div className="text-lg font-bold text-primary-700">
-                          {capRate.toFixed(2)}%
+                          {(capRate * 100).toFixed(2)}%
                         </div>
                       </div>
                       <div className="bg-success-50 rounded-lg p-3">
@@ -134,7 +133,7 @@ export function SavedAnalysesClient() {
                       <div className="bg-secondary-50 rounded-lg p-3">
                         <div className="text-xs text-secondary-600 mb-1">CoC Return</div>
                         <div className="text-lg font-bold text-secondary-700">
-                          {cashOnCashReturn.toFixed(2)}%
+                          {(cashOnCashReturn * 100).toFixed(2)}%
                         </div>
                       </div>
                     </div>
