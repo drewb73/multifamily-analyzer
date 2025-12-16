@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components'
-import { FileText, Trash2, Calendar, TrendingUp } from 'lucide-react'
+import { FileText, Trash2, Calendar } from 'lucide-react'
 import { formatCurrency, formatTimeAgo, getStorageItem, STORAGE_KEYS } from '@/lib/utils'
 import { DraftAnalysis } from '@/types'
 import Link from 'next/link'
@@ -81,8 +81,11 @@ export function SavedAnalysesClient() {
 
       <div className="grid gap-4">
         {analyses.map((analysis) => {
-          const property = analysis.data.property
+          const property = analysis.data?.property
           const results = analysis.results
+          
+          // Skip if no property data
+          if (!property) return null
           
           return (
             <Card key={analysis.id} className="p-6 hover:shadow-lg transition-shadow">
@@ -100,7 +103,7 @@ export function SavedAnalysesClient() {
                     {property.address && (
                       <p>📍 {property.address}, {property.city}, {property.state} {property.zipCode}</p>
                     )}
-                    <p>🏢 {property.totalUnits} units • {formatCurrency(property.purchasePrice)}</p>
+                    <p>🏢 {property.totalUnits} units • {formatCurrency(property.purchasePrice || 0)}</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       <span>Saved {formatTimeAgo(analysis.lastModified)}</span>
@@ -108,24 +111,28 @@ export function SavedAnalysesClient() {
                   </div>
 
                   {/* Key Metrics */}
-                  {results && (
+                  {results && results.keyMetrics && (
                     <div className="grid grid-cols-3 gap-4 mt-4">
                       <div className="bg-primary-50 rounded-lg p-3">
                         <div className="text-xs text-primary-600 mb-1">Cap Rate</div>
                         <div className="text-lg font-bold text-primary-700">
-                          {results.capRate ? `${results.capRate.toFixed(2)}%` : 'N/A'}
+                          {results.keyMetrics.capRate ? `${results.keyMetrics.capRate.toFixed(2)}%` : 'N/A'}
                         </div>
                       </div>
                       <div className="bg-success-50 rounded-lg p-3">
                         <div className="text-xs text-success-600 mb-1">Cash Flow</div>
                         <div className="text-lg font-bold text-success-700">
-                          {results.cashFlow ? formatCurrency(results.cashFlow) : 'N/A'}
+                          {results.monthlyBreakdown?.cashFlow 
+                            ? formatCurrency(results.monthlyBreakdown.cashFlow) 
+                            : 'N/A'}
                         </div>
                       </div>
                       <div className="bg-secondary-50 rounded-lg p-3">
                         <div className="text-xs text-secondary-600 mb-1">CoC Return</div>
                         <div className="text-lg font-bold text-secondary-700">
-                          {results.cashOnCashReturn ? `${results.cashOnCashReturn.toFixed(2)}%` : 'N/A'}
+                          {results.keyMetrics.cashOnCashReturn 
+                            ? `${results.keyMetrics.cashOnCashReturn.toFixed(2)}%` 
+                            : 'N/A'}
                         </div>
                       </div>
                     </div>

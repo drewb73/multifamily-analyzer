@@ -13,6 +13,9 @@ export { LockedFeature } from './dashboard/LockedFeature'
 // Dashboard Locked Feature Wrapper
 export { LockedFeatureWrapper } from './dashboard/LockedFeatureWrapper'
 
+// Saved Analyses Client
+export { SavedAnalysesClient } from './dashboard/SavedAnalysesClient'
+
 // Analysis Components
 export { PropertyAnalysisForm } from './analysis/PropertyAnalysisForm'
 
