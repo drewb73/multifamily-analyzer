@@ -1,3 +1,4 @@
+// src/components/dashboard/Sidebar.tsx
 'use client'
 
 import { useState } from 'react'
@@ -13,37 +14,49 @@ import {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const navItems = [
-  {
-    name: 'Analyze Property',
-    href: '/dashboard',
-    icon: Home,
-    current: true,
-  },
-  {
-    name: 'Saved Analyses',
-    href: '/dashboard/saved',
-    icon: FileText,
-    current: false,
-    locked: true,
-  },
-  {
-    name: 'Contact Support',
-    href: '/dashboard/contact',
-    icon: Mail,
-    current: false,
-  },
-  {
-    name: 'Settings',
-    href: '/dashboard/settings',
-    icon: Settings,
-    current: false,
-  },
-]
+interface DashboardSidebarProps {
+  userSubscriptionStatus: string | null
+  trialHoursRemaining?: number
+}
 
-export default function DashboardSidebar() {
+export default function DashboardSidebar({ 
+  userSubscriptionStatus,
+  trialHoursRemaining 
+}: DashboardSidebarProps) {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Determine what's locked based on subscription
+  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+  const isTrial = userSubscriptionStatus === 'trial'
+  const isFree = !isPremium && !isTrial
+
+  const navItems = [
+    {
+      name: 'Analyze Property',
+      href: '/dashboard',
+      icon: Home,
+      locked: isFree, // Lock for free users
+    },
+    {
+      name: 'Saved Analyses',
+      href: '/dashboard/saved',
+      icon: FileText,
+      locked: !isPremium, // Lock for non-premium users
+    },
+    {
+      name: 'Contact Support',
+      href: '/dashboard/contact',
+      icon: Mail,
+      locked: false,
+    },
+    {
+      name: 'Settings',
+      href: '/dashboard/settings',
+      icon: Settings,
+      locked: false,
+    },
+  ]
 
   return (
     <div className={`
@@ -120,18 +133,45 @@ export default function DashboardSidebar() {
         })}
       </nav>
 
-      {/* Trial Status Banner */}
+      {/* Subscription Status Banner */}
       {!isCollapsed && (
         <div className="absolute bottom-4 left-4 right-4">
-          <div className="rounded-lg bg-warning-50 border border-warning-200 p-3">
-            <div className="flex items-center">
-              <Lock className="h-4 w-4 text-warning-600 mr-2" />
-              <div className="text-xs">
-                <div className="font-medium text-warning-700">Free Trial</div>
-                <div className="text-warning-600">72 hours remaining</div>
+          {isTrial && trialHoursRemaining !== undefined && (
+            <div className="rounded-lg bg-warning-50 border border-warning-200 p-3">
+              <div className="flex items-center">
+                <Lock className="h-4 w-4 text-warning-600 mr-2" />
+                <div className="text-xs">
+                  <div className="font-medium text-warning-700">Free Trial</div>
+                  <div className="text-warning-600">
+                    {trialHoursRemaining} hour{trialHoursRemaining !== 1 ? 's' : ''} remaining
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+          
+          {isFree && (
+            <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3">
+              <div className="flex items-center">
+                <Lock className="h-4 w-4 text-neutral-600 mr-2" />
+                <div className="text-xs">
+                  <div className="font-medium text-neutral-700">Free Account</div>
+                  <div className="text-neutral-600">Upgrade to unlock features</div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {isPremium && (
+            <div className="rounded-lg bg-success-50 border border-success-200 p-3">
+              <div className="flex items-center">
+                <div className="text-xs">
+                  <div className="font-medium text-success-700">⭐ Premium Account</div>
+                  <div className="text-success-600">All features unlocked</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
