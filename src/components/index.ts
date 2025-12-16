@@ -7,6 +7,9 @@ export { MainLayout } from './layout/MainLayout'
 export { Button } from './ui/Button'
 export { Card } from './ui/Card'
 
+// Dashboard Locked Feature Component
+export { LockedFeature } from './dashboard/LockedFeature'
+
 // Analysis Components
 export { PropertyAnalysisForm } from './analysis/PropertyAnalysisForm'
 
