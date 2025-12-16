@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 // GET /api/analyses/[id] - Get single analysis
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
@@ -23,6 +23,8 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Await params in Next.js 15
+    const params = await context.params
     const analysis = await prisma.propertyAnalysis.findFirst({
       where: {
         id: params.id,
@@ -57,7 +59,7 @@ export async function GET(
 // PUT /api/analyses/[id] - Update analysis
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
@@ -73,6 +75,9 @@ export async function PUT(
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    // Await params in Next.js 15
+    const params = await context.params
 
     // Check ownership
     const existing = await prisma.propertyAnalysis.findFirst({
@@ -125,7 +130,7 @@ export async function PUT(
 // DELETE /api/analyses/[id] - Delete analysis
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
@@ -141,6 +146,9 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    // Await params in Next.js 15
+    const params = await context.params
 
     // Check ownership
     const existing = await prisma.propertyAnalysis.findFirst({
