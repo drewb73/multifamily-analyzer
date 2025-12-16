@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { IncomeCategory, ExpenseCategory } from '@/types'
 import { generateId, formatCurrency } from '@/lib/utils'
 import { Card } from '@/components'
+import { X } from 'lucide-react'
 
 interface IncomeExpenseFormProps {
   incomeData: IncomeCategory[]
@@ -204,7 +205,7 @@ export function IncomeExpenseForm({
       </div>
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-primary-600 mb-2">
             {formatCurrency(monthlyGrossIncome)}
@@ -242,9 +243,83 @@ export function IncomeExpenseForm({
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* MOBILE/TABLET - Card Layout (up to 1280px) */}
+        <div className="block xl:hidden space-y-4">
           {income.map((inc) => (
-            <div key={inc.id} className="grid md:grid-cols-4 gap-4 items-center">
+            <div key={inc.id} className="border border-neutral-200 rounded-lg p-4 bg-white relative">
+              {/* Remove button - top right */}
+              {!inc.isCalculated && (
+                <button
+                  onClick={() => removeIncome(inc.id)}
+                  className="absolute top-2 right-2 text-error-600 hover:text-error-800 p-2"
+                  aria-label="Remove income source"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Income Name */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-neutral-500 mb-1">
+                  Income Source Name
+                </label>
+                <input
+                  type="text"
+                  value={inc.name}
+                  onChange={(e) => handleIncomeChange(inc.id, 'name', e.target.value)}
+                  className={`input-field text-sm w-full ${inc.isCalculated ? 'bg-neutral-50' : ''}`}
+                  placeholder="Income source name"
+                  disabled={inc.isCalculated}
+                />
+                {inc.isCalculated && (
+                  <p className="text-xs text-primary-600 mt-1">Auto-calculated from unit mix</p>
+                )}
+              </div>
+
+              {/* Monthly Amount */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-neutral-500 mb-1">
+                  Monthly Amount
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-neutral-500">$</span>
+                  </div>
+                  <input
+                    type="number"
+                    value={inc.amount || ''}
+                    onChange={(e) => handleIncomeChange(inc.id, 'amount', parseFloat(e.target.value) || 0)}
+                    className={`input-field text-sm pl-7 w-full ${inc.isCalculated ? 'bg-neutral-50' : ''}`}
+                    placeholder="Monthly amount"
+                    min="0"
+                    disabled={inc.isCalculated}
+                  />
+                </div>
+              </div>
+
+              {/* Variable Checkbox */}
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={inc.isVariable}
+                    onChange={(e) => handleIncomeChange(inc.id, 'isVariable', e.target.checked)}
+                    className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                    disabled={inc.isCalculated}
+                  />
+                  <span className={`text-sm ${inc.isCalculated ? 'text-neutral-400' : 'text-neutral-700'}`}>
+                    Variable (based on occupancy)
+                  </span>
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* DESKTOP - Row Layout (1280px and up) */}
+        <div className="hidden xl:block space-y-4">
+          {income.map((inc) => (
+            <div key={inc.id} className="grid grid-cols-4 gap-4 items-center">
               <div>
                 <input
                   type="text"
@@ -318,12 +393,123 @@ export function IncomeExpenseForm({
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* MOBILE/TABLET - Card Layout (up to 1280px) */}
+        <div className="block xl:hidden space-y-4">
           {expenses.map((expense) => {
             const isPropertyTaxOrInsurance = expense.name === 'Property Taxes' || expense.name === 'Insurance'
             
             return (
-              <div key={expense.id} className="grid md:grid-cols-5 gap-4 items-center">
+              <div key={expense.id} className="border border-neutral-200 rounded-lg p-4 bg-white relative">
+                {/* Remove button - top right */}
+                <button
+                  onClick={() => removeExpense(expense.id)}
+                  className="absolute top-2 right-2 text-error-600 hover:text-error-800 p-2"
+                  aria-label="Remove expense"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Expense Name */}
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">
+                    Expense Name
+                  </label>
+                  <input
+                    type="text"
+                    value={expense.name}
+                    onChange={(e) => handleExpenseChange(expense.id, 'name', e.target.value)}
+                    className="input-field text-sm w-full"
+                    placeholder="Expense name"
+                  />
+                </div>
+
+                {/* Amount / Percentage */}
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">
+                    {expense.isPercentage ? 'Percentage' : 'Monthly Amount'}
+                  </label>
+                  <div className="relative">
+                    {expense.isPercentage ? (
+                      <>
+                        <input
+                          type="number"
+                          value={expense.amount || ''}
+                          onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="input-field text-sm pr-8 w-full"
+                          placeholder="Percentage"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-neutral-500">%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-neutral-500">$</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={expense.amount || ''}
+                          onChange={(e) => handleExpenseChange(expense.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="input-field text-sm pl-7 w-full"
+                          placeholder="Monthly amount"
+                          min="0"
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Is Percentage Checkbox */}
+                <div className="mb-3">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={expense.isPercentage}
+                      onChange={(e) => handleExpenseChange(expense.id, 'isPercentage', e.target.checked)}
+                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-neutral-700">Is Percentage</span>
+                  </label>
+                </div>
+
+                {/* Percentage Of Dropdown */}
+                {expense.isPercentage && (
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500 mb-1">
+                      Percentage Of
+                    </label>
+                    <select
+                      value={expense.percentageOf}
+                      onChange={(e) => handleExpenseChange(expense.id, 'percentageOf', e.target.value as 'income' | 'propertyValue' | 'rent')}
+                      className="input-field text-sm w-full"
+                    >
+                      {isPropertyTaxOrInsurance ? (
+                        <option value="propertyValue">of Property Value</option>
+                      ) : (
+                        <>
+                          <option value="rent">of Rent</option>
+                          <option value="income">of Gross Income</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* DESKTOP - Row Layout (1280px and up) */}
+        <div className="hidden xl:block space-y-4">
+          {expenses.map((expense) => {
+            const isPropertyTaxOrInsurance = expense.name === 'Property Taxes' || expense.name === 'Insurance'
+            
+            return (
+              <div key={expense.id} className="grid grid-cols-5 gap-4 items-center">
                 <div>
                   <input
                     type="text"
@@ -390,9 +576,7 @@ export function IncomeExpenseForm({
                     disabled={!expense.isPercentage}
                   >
                     {isPropertyTaxOrInsurance ? (
-                      <>
-                        <option value="propertyValue">of Property Value</option>
-                      </>
+                      <option value="propertyValue">of Property Value</option>
                     ) : (
                       <>
                         <option value="rent">of Rent</option>
