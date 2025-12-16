@@ -246,11 +246,11 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto h-full">
-          {/* Search Bar - Always visible at top */}
+          {/* Search and Sort - Stacked until lg breakpoint (1024px) */}
           <div className="p-4 md:p-6 pb-2">
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-              {/* Search Bar */}
-              <div className="flex-1">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {/* Search Bar - Full width on mobile/tablet, flexible on desktop */}
+              <div className="w-full lg:flex-1 lg:min-w-0 lg:max-w-2xl">
                 <SearchBar 
                   value={searchQuery}
                   onChange={handleSearchChange}
@@ -258,11 +258,13 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                 />
               </div>
               
-              {/* Sort Dropdown */}
-              <SortDropdown 
-                value={sortOption.value}
-                onChange={handleSortChange}
-              />
+              {/* Sort Dropdown - Full width on mobile/tablet, auto width on desktop */}
+              <div className="w-full lg:w-auto lg:flex-shrink-0">
+                <SortDropdown 
+                  value={sortOption.value}
+                  onChange={handleSortChange}
+                />
+              </div>
             </div>
           </div>
 
