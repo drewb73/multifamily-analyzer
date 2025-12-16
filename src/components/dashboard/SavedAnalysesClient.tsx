@@ -1,7 +1,7 @@
 // src/components/dashboard/SavedAnalysesClient.tsx
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card } from '@/components'
 import { FileText, Trash2, Calendar } from 'lucide-react'
 import { formatCurrency, formatTimeAgo, getStorageItem, STORAGE_KEYS } from '@/lib/utils'
@@ -31,15 +31,13 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   
   const sidebarRef = useRef<any>(null)
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if user is premium (can access database)
   const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
 
-  useEffect(() => {
-    loadAnalyses()
-  }, [isPremium, selectedGroupId, searchQuery])
-
-  const loadAnalyses = async () => {
+  // Debounced load function
+  const loadAnalyses = useCallback(async (search: string) => {
     setIsLoading(true)
     setError(null)
     
@@ -51,7 +49,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           sortBy: 'createdAt',
           sortOrder: 'desc',
           groupId: selectedGroupId || undefined,
-          search: searchQuery || undefined,
+          search: search || undefined,
         })
         setAnalyses(response.analyses || [])
         
@@ -59,7 +57,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         if (selectedGroupId) {
           const allResponse = await fetchAnalyses({
             isArchived: false,
-            search: searchQuery || undefined,
+            search: search || undefined,
           })
           setAllAnalysesCount(allResponse.total || 0)
         } else {
@@ -71,8 +69,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         let completedAnalyses = savedAnalyses.filter(analysis => analysis.results)
         
         // Apply local search filter
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase()
+        if (search) {
+          const query = search.toLowerCase()
           completedAnalyses = completedAnalyses.filter(analysis => 
             analysis.name?.toLowerCase().includes(query) ||
             analysis.data?.property?.address?.toLowerCase().includes(query) ||
@@ -91,7 +89,32 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isPremium, selectedGroupId])
+
+  // Initial load and when group changes
+  useEffect(() => {
+    loadAnalyses(searchQuery)
+  }, [isPremium, selectedGroupId])
+
+  // Debounce search input
+  useEffect(() => {
+    // Clear existing timer
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
+    // Set new timer for debounced search
+    searchDebounceRef.current = setTimeout(() => {
+      loadAnalyses(searchQuery)
+    }, 500)
+
+    // Cleanup
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [searchQuery, loadAnalyses])
 
   const handleDelete = async (analysisId: string) => {
     if (!confirm('Are you sure you want to delete this analysis?')) {
@@ -104,7 +127,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         await deleteAnalysisAPI(analysisId)
         setAnalyses(prev => prev.filter(a => a.id !== analysisId))
         // Refresh to update counts
-        loadAnalyses()
+        loadAnalyses(searchQuery)
         // Refresh sidebar to update group counts
         if (sidebarRef.current?.refreshGroups) {
           sidebarRef.current.refreshGroups()
@@ -138,23 +161,23 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
       sidebarRef.current.refreshGroups()
     }
     // Reload analyses to update group badges
-    loadAnalyses()
+    loadAnalyses(searchQuery)
   }
 
   const handleGroupChanged = () => {
     // Refresh analyses to show updated group
-    loadAnalyses()
+    loadAnalyses(searchQuery)
     // Refresh sidebar to update group counts
     if (sidebarRef.current?.refreshGroups) {
       sidebarRef.current.refreshGroups()
     }
   }
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
   }
 
-  if (isLoading) {
+  if (isLoading && !analyses.length) {
     return (
       <div className="elevated-card p-12 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
@@ -171,7 +194,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           Error Loading Analyses
         </h2>
         <p className="text-neutral-600 mb-6">{error}</p>
-        <button onClick={loadAnalyses} className="btn-primary px-6 py-3">
+        <button onClick={() => loadAnalyses(searchQuery)} className="btn-primary px-6 py-3">
           Try Again
         </button>
       </div>
@@ -195,8 +218,18 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto h-full">
+          {/* Search Bar - Always visible at top */}
+          <div className="p-4 md:p-6 pb-2">
+            <SearchBar 
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search by name, address, city, or zip..."
+            />
+          </div>
+
+          {/* Content Area */}
           {analyses.length === 0 && !searchQuery ? (
-            <div className="p-6 md:p-12 h-full flex items-center justify-center">
+            <div className="p-6 md:p-12 flex items-center justify-center">
               <div className="elevated-card p-8 md:p-12 text-center max-w-2xl">
                 <div className="text-6xl mb-4">📊</div>
                 <h2 className="text-2xl font-semibold text-neutral-800 mb-3">
@@ -214,16 +247,11 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
               </div>
             </div>
           ) : (
-            <div className="p-4 md:p-6 space-y-4">
-              {/* Search Bar */}
-              <SearchBar 
-                onSearch={handleSearch}
-                placeholder="Search by name, address, city, or zip..."
-              />
-              
+            <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
               {/* Analysis count */}
               <div className="flex justify-between items-center">
                 <p className="text-sm text-neutral-600">
+                  {isLoading && <span className="text-neutral-400">Searching... </span>}
                   {analyses.length} {analyses.length === 1 ? 'analysis' : 'analyses'}
                   {selectedGroupId && ' in this group'}
                   {searchQuery && ` matching "${searchQuery}"`}
@@ -254,7 +282,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
               {analyses.length > 0 && (
                 <div className="grid gap-4">
                   {analyses.map((analysis) => {
-                    // Handle both database format and localStorage format
                     const property = analysis.data?.property || {
                       address: analysis.address,
                       city: analysis.city,
@@ -265,16 +292,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                     }
                     
                     const results = analysis.results
-                    
-                    // Skip if no property data
                     if (!property) return null
                     
-                    // Extract metrics - multiply by 100 for percentages
                     const capRate = (analysis.capRate || results?.keyMetrics?.capRate || 0)
                     const cashOnCashReturn = (analysis.cashOnCashReturn || results?.keyMetrics?.cashOnCashReturn || 0)
                     const annualCashFlow = (analysis.cashFlow || results?.keyMetrics?.annualCashFlow || 0)
                     
-                    // Format date
                     const savedDate = analysis.createdAt 
                       ? new Date(analysis.createdAt).getTime()
                       : analysis.lastModified || Date.now()
@@ -282,7 +305,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                     return (
                       <Card key={analysis.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
                         <div className="flex flex-col lg:flex-row items-start gap-4">
-                          {/* Left side - Property info */}
                           <div className="flex-1 w-full min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <FileText className="w-5 h-5 text-primary-600 flex-shrink-0" />
@@ -290,7 +312,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                                 {analysis.name}
                               </h3>
                               
-                              {/* Group Dropdown */}
                               {isPremium && (
                                 <GroupDropdown
                                   analysisId={analysis.id}
@@ -312,7 +333,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                               </div>
                             </div>
 
-                            {/* Key Metrics - Responsive grid */}
                             {results && (
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="bg-primary-50 rounded-lg p-3">
@@ -337,7 +357,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                             )}
                           </div>
 
-                          {/* Right side - Actions */}
                           <div className="flex lg:flex-col gap-2 w-full lg:w-auto">
                             <Link
                               href={`/dashboard?analysisId=${analysis.id}`}
@@ -364,7 +383,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         </div>
       </div>
 
-      {/* Create/Edit Group Modal */}
       <CreateGroupModal
         isOpen={isModalOpen}
         onClose={() => {
