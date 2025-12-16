@@ -25,16 +25,9 @@ export function SectionsTab({
   estimatedPages,
   estimatedSize
 }: SectionsTabProps) {
-  // Filter out sections based on conditions
-  const visibleSections = sections.filter(section => {
-    // If section has a condition and it's false, don't show it
-    if (section.condition !== undefined && !section.condition) {
-      return false
-    }
-    return true
-  })
-
-  const enabledSections = visibleSections.filter(s => s.enabled)
+  // No filtering needed - sections array is already filtered by createDefaultSections
+  const visibleSections = sections
+  const enabledSections = sections.filter(s => s.enabled)
 
   return (
     <div className="space-y-6">

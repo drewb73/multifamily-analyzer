@@ -6,7 +6,9 @@ export const createDefaultSections = (
   isCashPurchase: boolean,
   hasMarketAnalysis: boolean
 ): PDFSectionConfig[] => {
-  return [
+  console.log('Creating sections with:', { isCashPurchase, hasMarketAnalysis }) // Debug log
+  
+  const sections: PDFSectionConfig[] = [
     {
       id: 'property',
       label: 'Property Details',
@@ -53,16 +55,6 @@ export const createDefaultSections = (
       estimatedPages: 0.3
     },
     {
-      id: 'financing',
-      label: 'Financing Details',
-      description: 'Loan terms, monthly payments, and debt service coverage ratio',
-      icon: '🏦',
-      required: false,
-      enabled: !isCashPurchase, // Auto-disable for cash purchases
-      estimatedPages: 0.4,
-      condition: !isCashPurchase // Only show if not cash purchase
-    },
-    {
       id: 'returns',
       label: 'Return Metrics',
       description: 'ROI, internal rate of return, and payback period',
@@ -70,26 +62,46 @@ export const createDefaultSections = (
       required: false,
       enabled: true,
       estimatedPages: 0.3
-    },
-    {
+    }
+  ]
+
+  // Only add financing section if NOT cash purchase
+  if (!isCashPurchase) {
+    sections.push({
+      id: 'financing',
+      label: 'Financing Details',
+      description: 'Loan terms, monthly payments, and debt service coverage ratio',
+      icon: '🏦',
+      required: false,
+      enabled: true,
+      estimatedPages: 0.4
+    })
+  }
+
+  // Only add market analysis section if available
+  if (hasMarketAnalysis) {
+    sections.push({
       id: 'market',
       label: 'Market Analysis',
       description: 'Current vs market rent comparison and upside potential',
       icon: '🎯',
       required: false,
-      enabled: false, // Disabled by default
-      estimatedPages: 0.5,
-      condition: hasMarketAnalysis // Only show if market analysis is available
-    },
-    {
-      id: 'sensitivity',
-      label: 'Sensitivity Analysis',
-      description: 'What-if scenarios and stress testing',
-      icon: '🔬',
-      required: false,
-      enabled: false,
-      estimatedPages: 0.5,
-      comingSoon: true // Not implemented yet
-    }
-  ]
+      enabled: false, // Disabled by default but available
+      estimatedPages: 0.5
+    })
+  }
+
+  // Always add sensitivity analysis (coming soon)
+  sections.push({
+    id: 'sensitivity',
+    label: 'Sensitivity Analysis',
+    description: 'What-if scenarios and stress testing',
+    icon: '🔬',
+    required: false,
+    enabled: false,
+    estimatedPages: 0.5,
+    comingSoon: true
+  })
+
+  return sections
 }
