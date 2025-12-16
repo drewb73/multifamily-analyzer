@@ -10,6 +10,9 @@ export { Card } from './ui/Card'
 // Dashboard Locked Feature Component
 export { LockedFeature } from './dashboard/LockedFeature'
 
+// Dashboard Locked Feature Wrapper
+export { LockedFeatureWrapper } from './dashboard/LockedFeatureWrapper'
+
 // Analysis Components
 export { PropertyAnalysisForm } from './analysis/PropertyAnalysisForm'
 

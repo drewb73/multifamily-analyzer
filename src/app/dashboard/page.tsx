@@ -1,6 +1,6 @@
 // src/app/dashboard/page.tsx
 import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
-import { LockedFeature } from '@/components/dashboard/LockedFeature';
+import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
 import { getCurrentDbUser } from '@/lib/auth';
 import { getEffectiveSubscriptionStatus, canUserPerformAction } from '@/lib/subscription';
 import { redirect } from 'next/navigation';
@@ -40,22 +40,7 @@ export default async function DashboardPage() {
         <PropertyAnalysisForm userSubscriptionStatus={effectiveStatus} />
       ) : (
         // User cannot analyze - show locked feature
-        <LockedFeature
-          title="Property Analysis Locked"
-          description={
-            canStartTrial
-              ? "Start your FREE 72-hour trial to unlock unlimited property analysis with no credit card required!"
-              : "Upgrade to Premium to unlock unlimited property analysis and advanced features."
-          }
-          canStartTrial={canStartTrial}
-          onStartTrial={() => {
-            // TODO: Implement start trial logic
-            window.location.href = '/dashboard/start-trial';
-          }}
-          onUpgrade={() => {
-            window.location.href = '/pricing';
-          }}
-        />
+        <LockedFeatureWrapper canStartTrial={canStartTrial} />
       )}
     </div>
   );
