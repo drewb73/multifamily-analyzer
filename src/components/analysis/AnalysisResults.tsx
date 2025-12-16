@@ -5,6 +5,8 @@ import { AnalysisInputs, AnalysisResults as AnalysisResultsType } from '@/types'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { Button } from '@/components'
 import { Download, Lock } from 'lucide-react'
+import { PDFExportModal } from './pdf/PDFExportModal'
+import { useUser } from '@clerk/nextjs'
 
 interface AnalysisResultsProps {
   inputs: AnalysisInputs
@@ -21,7 +23,11 @@ export function AnalysisResults({
 }: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [showPDFModal, setShowPDFModal] = useState(false)  // ← ADD THIS LINE
   const isCashPurchase = inputs.property.isCashPurchase
+  // Get user info for PDF modal
+  const { user } = useUser()  // ← ADD THIS LINE
+  
   
   // Check if user has access to premium features (PDF export and saved drafts)
   const isPremiumUser = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
@@ -169,44 +175,8 @@ export function AnalysisResults({
       return
     }
 
-    setIsExporting(true)
-    try {
-      // TODO: Implement actual PDF export
-      // This is a placeholder for the PDF export functionality
-      console.log('Starting PDF export with data:', { inputs, results: displayResults })
-      
-      // Simulate PDF generation delay
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Create a blob with the analysis data (for now, just download JSON)
-      const dataStr = JSON.stringify({
-        propertyAnalysis: {
-          inputs,
-          results: displayResults,
-          analysisMode: showMarketAnalysis ? 'market' : 'current',
-          generatedAt: new Date().toISOString(),
-          propertyName: inputs.property.address || 'Untitled Property'
-        }
-      }, null, 2)
-      
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = window.URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `property-analysis-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      
-      // Show success message
-      alert('✅ PDF export will be available soon! For now, data has been downloaded as JSON.')
-    } catch (error) {
-      console.error('PDF export error:', error)
-      alert('❌ Error exporting PDF. Please try again.')
-    } finally {
-      setIsExporting(false)
-    }
+    // Show PDF export modal
+    setShowPDFModal(true)
   }
 
   const handleViewSavedDrafts = () => {
@@ -696,6 +666,14 @@ export function AnalysisResults({
           {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
         </Button>
       </div>
+      {/* PDF Export Modal */}
+      <PDFExportModal
+        isOpen={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        propertyName={inputs.property.address || 'Untitled Property'}
+        userName={user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : ''}
+        userEmail={user?.primaryEmailAddress?.emailAddress || ''}
+      />
     </div>
   )
 }
