@@ -11,6 +11,7 @@ import { GroupSidebar } from './GroupSidebar'
 import { CreateGroupModal } from './CreateGroupModal'
 import { GroupDropdown } from './GroupDropdown'
 import { SearchBar } from './SearchBar'
+import { SortDropdown, SortOption } from './SortDropdown'
 import { DraftAnalysis } from '@/types'
 import Link from 'next/link'
 
@@ -25,6 +26,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>({
+    value: 'newest',
+    label: 'Newest First',
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
+  })
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -43,11 +50,11 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     
     try {
       if (isPremium) {
-        // Premium user - fetch from database with group filter AND search
+        // Premium user - fetch from database with group filter, search, AND sort
         const response = await fetchAnalyses({
           isArchived: false,
-          sortBy: 'createdAt',
-          sortOrder: 'desc',
+          sortBy: sortOption.sortBy,
+          sortOrder: sortOption.sortOrder,
           groupId: selectedGroupId || undefined,
           search: search || undefined,
         })
@@ -80,6 +87,23 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           )
         }
         
+        // Apply local sort - with proper null handling
+        completedAnalyses.sort((a, b) => {
+          const aValue = (a as any)[sortOption.sortBy]
+          const bValue = (b as any)[sortOption.sortBy]
+          
+          // Handle undefined/null values
+          if (aValue === undefined || aValue === null) return 1
+          if (bValue === undefined || bValue === null) return -1
+          
+          // Compare values
+          if (sortOption.sortOrder === 'asc') {
+            return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+          } else {
+            return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+          }
+        })
+        
         setAnalyses(completedAnalyses)
         setAllAnalysesCount(completedAnalyses.length)
       }
@@ -89,12 +113,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     } finally {
       setIsLoading(false)
     }
-  }, [isPremium, selectedGroupId])
+  }, [isPremium, selectedGroupId, sortOption])
 
-  // Initial load and when group changes
+  // Initial load and when group or sort changes
   useEffect(() => {
     loadAnalyses(searchQuery)
-  }, [isPremium, selectedGroupId])
+  }, [isPremium, selectedGroupId, sortOption])
 
   // Debounce search input
   useEffect(() => {
@@ -177,6 +201,10 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     setSearchQuery(value)
   }
 
+  const handleSortChange = (option: SortOption) => {
+    setSortOption(option)
+  }
+
   if (isLoading && !analyses.length) {
     return (
       <div className="elevated-card p-12 text-center">
@@ -220,11 +248,22 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         <div className="flex-1 overflow-y-auto h-full">
           {/* Search Bar - Always visible at top */}
           <div className="p-4 md:p-6 pb-2">
-            <SearchBar 
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search by name, address, city, or zip..."
-            />
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              {/* Search Bar */}
+              <div className="flex-1">
+                <SearchBar 
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  placeholder="Search by name, address, city, or zip..."
+                />
+              </div>
+              
+              {/* Sort Dropdown */}
+              <SortDropdown 
+                value={sortOption.value}
+                onChange={handleSortChange}
+              />
+            </div>
           </div>
 
           {/* Content Area */}
@@ -251,7 +290,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
               {/* Analysis count */}
               <div className="flex justify-between items-center">
                 <p className="text-sm text-neutral-600">
-                  {isLoading && <span className="text-neutral-400">Searching... </span>}
+                  {isLoading && <span className="text-neutral-400">Loading... </span>}
                   {analyses.length} {analyses.length === 1 ? 'analysis' : 'analyses'}
                   {selectedGroupId && ' in this group'}
                   {searchQuery && ` matching "${searchQuery}"`}
