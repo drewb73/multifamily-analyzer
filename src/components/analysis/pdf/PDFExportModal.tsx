@@ -1,13 +1,13 @@
 // src/components/analysis/pdf/PDFExportModal.tsx
-// UPDATED FOR PHASE 2 - Replace the existing file with this
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
-import { PDFExportState, PDFTabType } from '@/types/pdf'
+import { PDFExportState, PDFTabType, ContactInfo, BrandingColors } from '@/types/pdf'
 import { TabNavigation } from './TabNavigation'
 import { SectionsTab } from './SectionsTab'
+import { BrandingTab } from './BrandingTab'
 import { createDefaultSections } from './defaultSections'
 
 interface PDFExportModalProps {
@@ -78,10 +78,9 @@ export function PDFExportModal({
     const estimatedPages = Math.ceil(adjustedPages)
     
     // Estimate file size (rough calculation)
-    // Base: 0.5 MB per page, charts add 0.3 MB each
     let sizeInMB = estimatedPages * 0.5
     if (pdfState.includeCharts) {
-      const chartsCount = enabledSections.length * 0.5 // Rough estimate
+      const chartsCount = enabledSections.length * 0.5
       sizeInMB += chartsCount * 0.3
     }
     
@@ -117,6 +116,40 @@ export function PDFExportModal({
     setPDFState(prev => ({
       ...prev,
       [option]: value
+    }))
+  }
+
+  // Handle contact info change
+  const handleContactChange = (field: keyof ContactInfo, value: string | boolean) => {
+    setPDFState(prev => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        [field]: value
+      }
+    }))
+  }
+
+  // Handle color change
+  const handleColorChange = (field: keyof BrandingColors, value: string) => {
+    setPDFState(prev => ({
+      ...prev,
+      colors: {
+        ...prev.colors,
+        [field]: value
+      }
+    }))
+  }
+
+  // Handle preset color apply
+  const handlePresetApply = (bg: string, text: string, accent: string) => {
+    setPDFState(prev => ({
+      ...prev,
+      colors: {
+        headerFooterBg: bg,
+        headerFooterText: text,
+        accentColor: accent
+      }
     }))
   }
 
@@ -235,11 +268,13 @@ export function PDFExportModal({
                 )}
                 
                 {pdfState.activeTab === 'branding' && (
-                  <div className="space-y-4">
-                    <p className="text-neutral-600">
-                      Branding tab content coming in Phase 3...
-                    </p>
-                  </div>
+                  <BrandingTab
+                    contactInfo={pdfState.contactInfo}
+                    colors={pdfState.colors}
+                    onContactChange={handleContactChange}
+                    onColorChange={handleColorChange}
+                    onPresetApply={handlePresetApply}
+                  />
                 )}
               </div>
             </div>
@@ -289,11 +324,13 @@ export function PDFExportModal({
                     )}
                     
                     {pdfState.activeTab === 'branding' && (
-                      <div className="space-y-4">
-                        <p className="text-neutral-600">
-                          Branding tab content coming in Phase 3...
-                        </p>
-                      </div>
+                      <BrandingTab
+                        contactInfo={pdfState.contactInfo}
+                        colors={pdfState.colors}
+                        onContactChange={handleContactChange}
+                        onColorChange={handleColorChange}
+                        onPresetApply={handlePresetApply}
+                      />
                     )}
                   </div>
 
@@ -369,7 +406,19 @@ export function PDFExportModal({
             <button
               onClick={() => {
                 // PDF generation coming in Phase 7
-                alert(`PDF will include ${pdfState.sections.filter(s => s.enabled).length} sections\nEstimated: ${pdfState.estimatedPages} pages, ~${pdfState.estimatedSize} MB`)
+                const contactFields = [
+                  pdfState.contactInfo.showName && pdfState.contactInfo.name,
+                  pdfState.contactInfo.showEmail && pdfState.contactInfo.email,
+                  pdfState.contactInfo.showPhone && pdfState.contactInfo.phone
+                ].filter(Boolean)
+                
+                alert(`PDF will include:\n\n` +
+                  `Sections: ${pdfState.sections.filter(s => s.enabled).length}\n` +
+                  `Pages: ${pdfState.estimatedPages}\n` +
+                  `Size: ~${pdfState.estimatedSize} MB\n\n` +
+                  `Contact: ${contactFields.length > 0 ? contactFields.join(', ') : 'None'}\n` +
+                  `Position: ${pdfState.contactInfo.position}\n` +
+                  `Colors: ${pdfState.colors.headerFooterBg} / ${pdfState.colors.headerFooterText}`)
               }}
               disabled={pdfState.isGenerating}
               className="
