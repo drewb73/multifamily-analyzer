@@ -14,8 +14,8 @@ interface PDFExpenseBreakdownProps {
   totalAnnualExpenses: number
   accentColor: string
   purchasePrice?: number
-  monthlyGrossIncome?: number  // Total income (rental + other)
-  inputs?: any  // ADD THIS - to calculate rental income separately
+  monthlyGrossIncome?: number      // Total income (rental + other)
+  monthlyRentalIncome?: number     // NEW: Rental income only
 }
 
 export function PDFExpenseBreakdown({ 
@@ -25,7 +25,7 @@ export function PDFExpenseBreakdown({
   accentColor,
   purchasePrice = 0,
   monthlyGrossIncome = 0,
-  inputs  // ADD THIS
+  monthlyRentalIncome = 0  // NEW
 }: PDFExpenseBreakdownProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -35,12 +35,6 @@ export function PDFExpenseBreakdown({
       maximumFractionDigits: 0,
     }).format(value)
   }
-
-  // Calculate monthly RENTAL income (excluding other income like parking/laundry)
-  const monthlyRentalIncome = inputs?.unitMix?.reduce(
-    (sum: number, unit: any) => sum + (unit.currentRent * unit.count), 
-    0
-  ) || 0
 
   return (
     <div className="pdf-section">
@@ -68,7 +62,7 @@ export function PDFExpenseBreakdown({
                 // Calculate from purchase price
                 monthlyAmount = (purchasePrice * (expense.amount / 100)) / 12
               } else if (expense.percentageOf === 'rent') {
-                // Calculate from RENTAL income only (not total income)
+                // Calculate from RENTAL income only
                 monthlyAmount = monthlyRentalIncome * (expense.amount / 100)
               } else if (expense.percentageOf === 'income') {
                 // Calculate from TOTAL income (rental + other)

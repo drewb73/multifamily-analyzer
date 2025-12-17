@@ -110,6 +110,10 @@ export function PDFTemplatePreview({
         )
 
       case 'expenses':
+        // Calculate monthly rental income for percentage-based expenses
+        const monthlyRentalIncome = inputs.unitMix.reduce((sum: any, unit: any) => 
+          sum + (unit.currentRent * unit.count), 0
+        )
         return (
           <PDFExpenseBreakdown
             key={section.id}
@@ -119,6 +123,7 @@ export function PDFTemplatePreview({
             accentColor={accentColor}
             purchasePrice={inputs.property.purchasePrice}
             monthlyGrossIncome={results.monthlyBreakdown.grossIncome}
+            monthlyRentalIncome={monthlyRentalIncome}
           />
         )
 
