@@ -15,6 +15,8 @@ interface PreviewPanelProps {
   includeNotes: boolean
   blackAndWhite: boolean
   estimatedPages: number
+  inputs?: any      // ADD THIS
+  results?: any     // ADD THIS
 }
 
 export function PreviewPanel({
@@ -25,9 +27,11 @@ export function PreviewPanel({
   includeCharts,
   includeNotes,
   blackAndWhite,
-  estimatedPages
+  estimatedPages,
+  inputs,     // ADD THIS
+  results     // ADD THIS
 }: PreviewPanelProps) {
-  const [zoom, setZoom] = useState(75) // Default 75%
+  const [zoom, setZoom] = useState(75)
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 25, 150))
@@ -43,7 +47,6 @@ export function PreviewPanel({
 
   return (
     <div className="flex flex-col h-full bg-neutral-50">
-      {/* Header with Zoom Controls */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b flex-shrink-0">
         <h3 className="text-lg font-semibold text-neutral-900">
           Live Preview
@@ -53,11 +56,7 @@ export function PreviewPanel({
           <button
             onClick={handleZoomOut}
             disabled={zoom <= 50}
-            className="
-              p-2 rounded-lg border border-neutral-300
-              hover:bg-neutral-50 transition-colors
-              disabled:opacity-30 disabled:cursor-not-allowed
-            "
+            className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="Zoom out"
           >
             <ZoomOut className="w-4 h-4 text-neutral-600" />
@@ -65,11 +64,7 @@ export function PreviewPanel({
           
           <button
             onClick={handleZoomReset}
-            className="
-              px-3 py-1.5 text-sm font-medium
-              border border-neutral-300 rounded-lg
-              hover:bg-neutral-50 transition-colors
-            "
+            className="px-3 py-1.5 text-sm font-medium border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
           >
             {zoom}%
           </button>
@@ -77,11 +72,7 @@ export function PreviewPanel({
           <button
             onClick={handleZoomIn}
             disabled={zoom >= 150}
-            className="
-              p-2 rounded-lg border border-neutral-300
-              hover:bg-neutral-50 transition-colors
-              disabled:opacity-30 disabled:cursor-not-allowed
-            "
+            className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="Zoom in"
           >
             <ZoomIn className="w-4 h-4 text-neutral-600" />
@@ -89,7 +80,6 @@ export function PreviewPanel({
         </div>
       </div>
 
-      {/* Preview Content - Scrollable */}
       <div className="flex-1 overflow-auto p-6">
         <div className="flex justify-center">
           <div 
@@ -108,18 +98,17 @@ export function PreviewPanel({
               includeNotes={includeNotes}
               blackAndWhite={blackAndWhite}
               estimatedPages={estimatedPages}
+              inputs={inputs}      // ADD THIS
+              results={results}    // ADD THIS
             />
           </div>
         </div>
       </div>
 
-      {/* Footer Info */}
       <div className="px-6 py-3 bg-white border-t flex-shrink-0">
         <div className="flex items-center justify-center gap-2 text-sm text-neutral-600">
           <span>💡</span>
-          <span>
-            Changes update in real-time as you customize
-          </span>
+          <span>Changes update in real-time as you customize</span>
         </div>
       </div>
     </div>

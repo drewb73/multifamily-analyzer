@@ -1,0 +1,184 @@
+// src/components/analysis/pdf/sections/PDFReturnMetrics.tsx
+'use client'
+
+interface ReturnMetricsData {
+  capRate: number
+  cashOnCashReturn: number
+  annualCashFlow: number
+  totalInvestment: number
+  netOperatingIncome: number
+  purchasePrice: number
+}
+
+interface PDFReturnMetricsProps {
+  data: ReturnMetricsData
+  accentColor: string
+  isCashPurchase: boolean
+}
+
+export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFReturnMetricsProps) {
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value)
+  }
+
+  const formatPercent = (value: number) => {
+    return `${value.toFixed(2)}%`
+  }
+
+  // Calculate ROI
+  const roi = ((data.annualCashFlow / data.totalInvestment) * 100)
+  
+  // Calculate payback period (years)
+  const paybackPeriod = data.totalInvestment / data.annualCashFlow
+
+  // Project 5-year returns
+  const fiveYearCashFlow = data.annualCashFlow * 5
+  const fiveYearROI = (fiveYearCashFlow / data.totalInvestment) * 100
+
+  return (
+    <div className="pdf-section">
+      {/* Section Header */}
+      <div 
+        className="flex items-center gap-2 mb-4 pb-2 border-b-2"
+        style={{ borderColor: accentColor }}
+      >
+        <span className="text-2xl">📈</span>
+        <h2 className="text-xl font-bold text-neutral-900">Return Metrics</h2>
+      </div>
+
+      {/* Key Return Metrics */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-2 border-green-200">
+          <h3 className="text-sm font-semibold text-green-700 uppercase mb-2">
+            Cap Rate
+          </h3>
+          <p className="text-3xl font-bold text-green-900">
+            {formatPercent(data.capRate)}
+          </p>
+          <p className="text-xs text-green-700 mt-2">
+            NOI / Purchase Price
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-2 border-blue-200">
+          <h3 className="text-sm font-semibold text-blue-700 uppercase mb-2">
+            Cash on Cash Return
+          </h3>
+          <p className="text-3xl font-bold text-blue-900">
+            {formatPercent(data.cashOnCashReturn)}
+          </p>
+          <p className="text-xs text-blue-700 mt-2">
+            Annual Cash Flow / Total Investment
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-2 border-purple-200">
+          <h3 className="text-sm font-semibold text-purple-700 uppercase mb-2">
+            Return on Investment
+          </h3>
+          <p className="text-3xl font-bold text-purple-900">
+            {formatPercent(roi)}
+          </p>
+          <p className="text-xs text-purple-700 mt-2">
+            First year ROI
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-5 border-2 border-orange-200">
+          <h3 className="text-sm font-semibold text-orange-700 uppercase mb-2">
+            Payback Period
+          </h3>
+          <p className="text-3xl font-bold text-orange-900">
+            {paybackPeriod.toFixed(1)} yrs
+          </p>
+          <p className="text-xs text-orange-700 mt-2">
+            Time to recover investment
+          </p>
+        </div>
+      </div>
+
+      {/* Investment Summary */}
+      <div className="mb-6">
+        <h3 className="text-sm font-semibold text-neutral-700 uppercase mb-3">
+          Investment Summary
+        </h3>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+            <span className="text-neutral-700">Total Investment</span>
+            <span className="font-bold text-neutral-900">
+              {formatCurrency(data.totalInvestment)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+            <span className="text-neutral-700">Annual Cash Flow</span>
+            <span className="font-bold text-green-600">
+              {formatCurrency(data.annualCashFlow)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+            <span className="text-neutral-700">Net Operating Income</span>
+            <span className="font-bold text-neutral-900">
+              {formatCurrency(data.netOperatingIncome)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 5-Year Projection */}
+      <div className="bg-neutral-50 rounded-lg p-5 border-2" style={{ borderColor: accentColor }}>
+        <h3 className="text-sm font-semibold text-neutral-700 uppercase mb-4">
+          5-Year Projection
+        </h3>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <p className="text-sm text-neutral-600 mb-1">
+              Total Cash Flow
+            </p>
+            <p className="text-2xl font-bold" style={{ color: accentColor }}>
+              {formatCurrency(fiveYearCashFlow)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-neutral-600 mb-1">
+              5-Year ROI
+            </p>
+            <p className="text-2xl font-bold" style={{ color: accentColor }}>
+              {formatPercent(fiveYearROI)}
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-neutral-600 mt-3">
+          Based on current cash flow, assuming no appreciation or rent increases
+        </p>
+      </div>
+
+      {/* Performance Indicator */}
+      <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">✓</span>
+          <div>
+            <p className="font-semibold text-green-900 mb-1">
+              Investment Performance
+            </p>
+            <p className="text-sm text-green-800">
+              {data.cashOnCashReturn >= 8 ? (
+                <>Strong cash-on-cash return above 8% target. This property demonstrates solid income potential.</>
+              ) : data.cashOnCashReturn >= 5 ? (
+                <>Moderate cash-on-cash return. Consider opportunities for value-add improvements.</>
+              ) : (
+                <>Below typical 5% target. May be suitable for appreciation play or requires operational improvements.</>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
