@@ -18,6 +18,8 @@ interface PDFExportModalProps {
   userEmail?: string
   isCashPurchase?: boolean
   hasMarketAnalysis?: boolean
+  inputs?: any 
+  results?: any 
 }
 
 export function PDFExportModal({
@@ -28,6 +30,8 @@ export function PDFExportModal({
   userEmail = '',
   isCashPurchase = false,
   hasMarketAnalysis = false,
+  inputs,
+  results
 }: PDFExportModalProps) {
   // Initialize state with defaults
   const [pdfState, setPDFState] = useState<PDFExportState>({
@@ -232,6 +236,8 @@ export function PDFExportModal({
                 includeNotes={pdfState.includeNotes}
                 blackAndWhite={pdfState.blackAndWhite}
                 estimatedPages={pdfState.estimatedPages}
+                inputs={inputs}
+                results={results} 
               />
             </div>
 
@@ -317,6 +323,8 @@ export function PDFExportModal({
                       includeNotes={pdfState.includeNotes}
                       blackAndWhite={pdfState.blackAndWhite}
                       estimatedPages={pdfState.estimatedPages}
+                      inputs={inputs}
+                      results={results} 
                     />
                   </div>
                 </div>

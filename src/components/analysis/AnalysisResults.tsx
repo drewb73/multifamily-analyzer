@@ -674,7 +674,9 @@ export function AnalysisResults({
         userName={user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : ''}
         userEmail={user?.primaryEmailAddress?.emailAddress || ''}
         isCashPurchase={inputs.property.isCashPurchase}
-        hasMarketAnalysis={showMarketAnalysis} 
+        hasMarketAnalysis={showMarketAnalysis}
+        inputs={inputs}
+        results={displayResults}
       />
     </div>
   )
