@@ -27,18 +27,24 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
   }
 
   const formatPercent = (value: number) => {
+    // Value is already a percentage (e.g., 8.5), just format it
     return `${value.toFixed(2)}%`
   }
 
-  // Calculate ROI
-  const roi = ((data.annualCashFlow / data.totalInvestment) * 100)
+  // Calculate ROI - same as cash on cash return (already a percentage)
+  const roi = data.cashOnCashReturn
   
   // Calculate payback period (years)
-  const paybackPeriod = data.totalInvestment / data.annualCashFlow
+  // Avoid division by zero
+  const paybackPeriod = data.annualCashFlow > 0 
+    ? data.totalInvestment / data.annualCashFlow 
+    : 0
 
   // Project 5-year returns
   const fiveYearCashFlow = data.annualCashFlow * 5
-  const fiveYearROI = (fiveYearCashFlow / data.totalInvestment) * 100
+  const fiveYearROI = data.totalInvestment > 0
+    ? (fiveYearCashFlow / data.totalInvestment) * 100
+    : 0
 
   return (
     <div className="pdf-section">
@@ -94,10 +100,14 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
             Payback Period
           </h3>
           <p className="text-3xl font-bold text-orange-900">
-            {paybackPeriod.toFixed(1)} yrs
+            {paybackPeriod > 0 && paybackPeriod < 100 
+              ? `${paybackPeriod.toFixed(1)} yrs` 
+              : 'N/A'}
           </p>
           <p className="text-xs text-orange-700 mt-2">
-            Time to recover investment
+            {paybackPeriod > 0 && paybackPeriod < 100
+              ? 'Time to recover investment'
+              : 'Negative cash flow'}
           </p>
         </div>
       </div>
@@ -117,7 +127,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
 
           <div className="flex justify-between items-center py-2 border-b border-neutral-200">
             <span className="text-neutral-700">Annual Cash Flow</span>
-            <span className="font-bold text-green-600">
+            <span className={`font-bold ${data.annualCashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(data.annualCashFlow)}
             </span>
           </div>
@@ -162,7 +172,9 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
       {/* Performance Indicator */}
       <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">✓</span>
+          <span className="text-2xl">
+            {data.cashOnCashReturn >= 8 ? '✓' : data.cashOnCashReturn >= 5 ? '→' : '!'}
+          </span>
           <div>
             <p className="font-semibold text-green-900 mb-1">
               Investment Performance
@@ -172,8 +184,10 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
                 <>Strong cash-on-cash return above 8% target. This property demonstrates solid income potential.</>
               ) : data.cashOnCashReturn >= 5 ? (
                 <>Moderate cash-on-cash return. Consider opportunities for value-add improvements.</>
-              ) : (
+              ) : data.cashOnCashReturn >= 0 ? (
                 <>Below typical 5% target. May be suitable for appreciation play or requires operational improvements.</>
+              ) : (
+                <>Negative cash flow. Property requires significant improvements or market conditions to become profitable.</>
               )}
             </p>
           </div>

@@ -5,6 +5,7 @@ interface ExpenseCategory {
   name: string
   amount: number
   isPercentage: boolean
+  percentageOf?: 'income' | 'propertyValue' | 'rent'
 }
 
 interface PDFExpenseBreakdownProps {
@@ -12,13 +13,15 @@ interface PDFExpenseBreakdownProps {
   totalMonthlyExpenses: number
   totalAnnualExpenses: number
   accentColor: string
+  purchasePrice?: number  // ADD THIS - needed for propertyValue calculation
 }
 
 export function PDFExpenseBreakdown({ 
   expenses, 
   totalMonthlyExpenses,
   totalAnnualExpenses,
-  accentColor 
+  accentColor,
+  purchasePrice = 0  // ADD THIS
 }: PDFExpenseBreakdownProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -47,9 +50,28 @@ export function PDFExpenseBreakdown({
         </h3>
         <div className="space-y-2">
           {expenses.map((expense, index) => {
-            const monthlyAmount = expense.isPercentage 
-              ? expense.amount // Already monthly if percentage
-              : expense.amount
+            // Calculate monthly amount based on expense type
+            let monthlyAmount: number
+            
+            if (expense.isPercentage) {
+              // For percentage expenses, the amount in the results is already calculated
+              // But we need to show it properly in the PDF
+              // The expense.amount is the percentage (e.g., 1 for 1%)
+              // We need to calculate the actual dollar amount
+              
+              if (expense.percentageOf === 'propertyValue') {
+                // Calculate from purchase price
+                monthlyAmount = (purchasePrice * (expense.amount / 100)) / 12
+              } else {
+                // For income or rent based, use the amount as-is (already calculated in totalMonthlyExpenses)
+                // We'll extract it from the total or mark it as already included
+                monthlyAmount = expense.amount
+              }
+            } else {
+              // Fixed dollar amount
+              monthlyAmount = expense.amount
+            }
+            
             const annualAmount = monthlyAmount * 12
 
             return (
@@ -63,7 +85,7 @@ export function PDFExpenseBreakdown({
                   </span>
                   {expense.isPercentage && (
                     <span className="text-xs text-neutral-500 ml-2">
-                      ({expense.amount}% of income)
+                      ({expense.amount}% of {expense.percentageOf === 'propertyValue' ? 'property value' : expense.percentageOf})
                     </span>
                   )}
                 </div>

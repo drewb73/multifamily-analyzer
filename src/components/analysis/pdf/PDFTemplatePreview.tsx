@@ -117,6 +117,7 @@ export function PDFTemplatePreview({
             totalMonthlyExpenses={results.monthlyBreakdown.totalExpenses}
             totalAnnualExpenses={results.annualBreakdown.totalExpenses}
             accentColor={accentColor}
+            purchasePrice={inputs.property.purchasePrice}
           />
         )
 
