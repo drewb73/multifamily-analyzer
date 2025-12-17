@@ -14,7 +14,8 @@ interface PDFExpenseBreakdownProps {
   totalAnnualExpenses: number
   accentColor: string
   purchasePrice?: number
-  monthlyGrossIncome?: number  // ADD THIS - for rent/income based percentages
+  monthlyGrossIncome?: number  // Total income (rental + other)
+  inputs?: any  // ADD THIS - to calculate rental income separately
 }
 
 export function PDFExpenseBreakdown({ 
@@ -23,7 +24,8 @@ export function PDFExpenseBreakdown({
   totalAnnualExpenses,
   accentColor,
   purchasePrice = 0,
-  monthlyGrossIncome = 0  // ADD THIS
+  monthlyGrossIncome = 0,
+  inputs  // ADD THIS
 }: PDFExpenseBreakdownProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -33,6 +35,12 @@ export function PDFExpenseBreakdown({
       maximumFractionDigits: 0,
     }).format(value)
   }
+
+  // Calculate monthly RENTAL income (excluding other income like parking/laundry)
+  const monthlyRentalIncome = inputs?.unitMix?.reduce(
+    (sum: number, unit: any) => sum + (unit.currentRent * unit.count), 
+    0
+  ) || 0
 
   return (
     <div className="pdf-section">
@@ -58,14 +66,15 @@ export function PDFExpenseBreakdown({
             if (expense.isPercentage) {
               if (expense.percentageOf === 'propertyValue') {
                 // Calculate from purchase price
-                // expense.amount is the percentage (e.g., 1 for 1%)
                 monthlyAmount = (purchasePrice * (expense.amount / 100)) / 12
-              } else if (expense.percentageOf === 'rent' || expense.percentageOf === 'income') {
-                // Calculate from monthly gross income
-                // expense.amount is the percentage (e.g., 10 for 10%)
+              } else if (expense.percentageOf === 'rent') {
+                // Calculate from RENTAL income only (not total income)
+                monthlyAmount = monthlyRentalIncome * (expense.amount / 100)
+              } else if (expense.percentageOf === 'income') {
+                // Calculate from TOTAL income (rental + other)
                 monthlyAmount = monthlyGrossIncome * (expense.amount / 100)
               } else {
-                // Fallback - shouldn't happen
+                // Fallback
                 monthlyAmount = expense.amount
               }
             } else {
