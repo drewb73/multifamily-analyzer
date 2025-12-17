@@ -34,71 +34,108 @@ export async function generatePDFFromElement(
   } = options
 
   try {
-    // Step 1: Capture HTML as canvas (0-50%)
+    onProgress?.(5)
+
+    // Get the actual content dimensions
+    const contentWidth = element.scrollWidth
+    const contentHeight = element.scrollHeight
+
+    // Letter size in pixels at 96 DPI
+    const pdfWidthPx = 816  // 8.5 inches × 96 DPI
+    const pdfHeightPx = 1056 // 11 inches × 96 DPI
+
+    // Calculate scale to fit content to page width
+    const scaleToFit = pdfWidthPx / contentWidth
+
     onProgress?.(10)
     
+    // Capture HTML as canvas with proper scaling
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
+      width: contentWidth,
+      height: contentHeight,
+      windowWidth: contentWidth,
+      windowHeight: contentHeight,
       onclone: (clonedDoc) => {
-        // Remove any interactive elements from the clone
-        const clonedElement = clonedDoc.querySelector('[data-pdf-preview]')
+        // Find the cloned element
+        const clonedElement = clonedDoc.querySelector('[data-pdf-content]') as HTMLElement
         if (clonedElement) {
-          // Remove zoom controls, buttons, etc.
-          const controls = clonedElement.querySelectorAll('button, input')
-          controls.forEach(control => control.remove())
+          // Remove any transform/zoom applied by preview
+          clonedElement.style.transform = 'none'
+          clonedElement.style.width = '816px' // Set to PDF page width
+          
+          // Ensure proper sizing for all child elements
+          const allElements = clonedElement.querySelectorAll('*') as NodeListOf<HTMLElement>
+          allElements.forEach(el => {
+            // Remove any preview-specific styling
+            if (el.style.transform && el.style.transform.includes('scale')) {
+              el.style.transform = 'none'
+            }
+          })
         }
       }
     })
 
-    onProgress?.(50)
+    onProgress?.(60)
 
-    // Step 2: Create PDF (50-80%)
-    // Letter size: 8.5" x 11" = 215.9mm x 279.4mm
+    // Create PDF with Letter size
     const pdf = new jsPDF({
       orientation: 'portrait',
-      unit: 'mm',
-      format: 'letter',
+      unit: 'px',
+      format: [pdfWidthPx, pdfHeightPx],
       compress: true
     })
 
-    // Calculate dimensions
-    const imgWidth = 215.9 // Letter width in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-    const pageHeight = 279.4 // Letter height in mm
+    // Calculate how many pages we need
+    const imgWidth = pdfWidthPx
+    const imgHeight = (canvas.height * pdfWidthPx) / canvas.width
+    const pageHeight = pdfHeightPx
+    
+    let heightLeft = imgHeight
+    let position = 0
+    let page = 0
 
     // Convert canvas to image
     const imgData = canvas.toDataURL('image/jpeg', quality)
 
-    onProgress?.(70)
+    onProgress?.(80)
 
-    // Step 3: Add pages (80-95%)
-    let heightLeft = imgHeight
-    let position = 0
-
-    // First page
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-
-    // Additional pages if needed
+    // Add pages
     while (heightLeft > 0) {
-      position = heightLeft - imgHeight
-      pdf.addPage()
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+      if (page > 0) {
+        pdf.addPage()
+      }
+      
+      // Calculate position for this page
+      const yOffset = -page * pageHeight
+      
+      pdf.addImage(
+        imgData, 
+        'JPEG', 
+        0, 
+        yOffset, 
+        imgWidth, 
+        imgHeight,
+        undefined,
+        'FAST'
+      )
+      
       heightLeft -= pageHeight
+      page++
     }
 
     onProgress?.(95)
 
-    // Step 4: Save PDF (95-100%)
+    // Save PDF
     pdf.save(filename)
 
     onProgress?.(100)
 
-    // Calculate approximate file size (rough estimate)
-    const fileSize = canvas.width * canvas.height * 3 * quality / 1024 // KB
+    // Estimate file size
+    const fileSize = (canvas.width * canvas.height * 3 * quality) / 1024 // KB
 
     return {
       success: true,

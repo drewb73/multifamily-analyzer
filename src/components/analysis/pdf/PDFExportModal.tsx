@@ -34,8 +34,9 @@ export function PDFExportModal({
   inputs,
   results
 }: PDFExportModalProps) {
-  // Ref for the preview element
-  const previewRef = useRef<HTMLDivElement>(null)
+  // Refs for the actual PDF document content (not the preview wrapper)
+  const desktopPdfRef = useRef<HTMLDivElement>(null)
+  const mobilePdfRef = useRef<HTMLDivElement>(null)
 
   // Initialize state with defaults
   const [pdfState, setPDFState] = useState<PDFExportState>({
@@ -131,16 +132,20 @@ export function PDFExportModal({
   }
 
   const handleGeneratePDF = async () => {
+    // Use the appropriate ref based on current view
+    const pdfElement = pdfState.showMobilePreview ? mobilePdfRef.current : desktopPdfRef.current
+
     // Validate preview element
-    if (!previewRef.current) {
-      console.error('Preview element not found')
+    if (!pdfElement) {
+      console.error('PDF element not found')
+      alert('Error: PDF preview not found. Please try again.')
       return
     }
 
     // Check if any sections are enabled
     const enabledSections = pdfState.sections.filter(s => s.enabled)
     if (enabledSections.length === 0) {
-      console.error('No sections enabled')
+      alert('Please select at least one section to include in the PDF.')
       return
     }
 
@@ -152,7 +157,7 @@ export function PDFExportModal({
       const filename = generatePDFFilename(propertyName)
 
       // Generate PDF with progress
-      const result = await generatePDFFromElement(previewRef.current, {
+      const result = await generatePDFFromElement(pdfElement, {
         filename,
         quality: pdfState.blackAndWhite ? 0.85 : 0.92,
         scale: 2,
@@ -163,17 +168,15 @@ export function PDFExportModal({
 
       if (result.success) {
         console.log('PDF generated successfully:', result.filename)
-        // Optional: Show success toast/message
-        // toast.success('PDF generated successfully!')
+        // Optional: Show success message
+        // alert('PDF downloaded successfully!')
       } else {
         console.error('PDF generation failed:', result.error)
-        // Optional: Show error toast/message
-        // toast.error(`Failed to generate PDF: ${result.error}`)
+        alert(`Failed to generate PDF: ${result.error}`)
       }
     } catch (error) {
       console.error('PDF generation error:', error)
-      // Optional: Show error toast/message
-      // toast.error('An unexpected error occurred while generating the PDF')
+      alert('An unexpected error occurred while generating the PDF')
     } finally {
       setPDFState(prev => ({ ...prev, isGenerating: false }))
     }
@@ -280,20 +283,19 @@ export function PDFExportModal({
 
             {/* RIGHT SIDE - Preview Panel (Desktop & Tablet) */}
             <div className="hidden lg:flex lg:flex-col lg:w-[55%] overflow-hidden">
-              <div ref={previewRef} data-pdf-preview>
-                <PreviewPanel
-                  propertyName={propertyName}
-                  sections={pdfState.sections}
-                  contactInfo={pdfState.contactInfo}
-                  colors={pdfState.colors}
-                  includeCharts={pdfState.includeCharts}
-                  includeNotes={pdfState.includeNotes}
-                  blackAndWhite={pdfState.blackAndWhite}
-                  estimatedPages={pdfState.estimatedPages}
-                  inputs={inputs}
-                  results={results} 
-                />
-              </div>
+              <PreviewPanel
+                propertyName={propertyName}
+                sections={pdfState.sections}
+                contactInfo={pdfState.contactInfo}
+                colors={pdfState.colors}
+                includeCharts={pdfState.includeCharts}
+                includeNotes={pdfState.includeNotes}
+                blackAndWhite={pdfState.blackAndWhite}
+                estimatedPages={pdfState.estimatedPages}
+                inputs={inputs}
+                results={results}
+                pdfRef={desktopPdfRef}
+              />
             </div>
 
             {/* MOBILE LAYOUT */}
@@ -369,20 +371,19 @@ export function PDFExportModal({
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4">
-                    <div ref={previewRef} data-pdf-preview>
-                      <PreviewPanel
-                        propertyName={propertyName}
-                        sections={pdfState.sections}
-                        contactInfo={pdfState.contactInfo}
-                        colors={pdfState.colors}
-                        includeCharts={pdfState.includeCharts}
-                        includeNotes={pdfState.includeNotes}
-                        blackAndWhite={pdfState.blackAndWhite}
-                        estimatedPages={pdfState.estimatedPages}
-                        inputs={inputs}
-                        results={results} 
-                      />
-                    </div>
+                    <PreviewPanel
+                      propertyName={propertyName}
+                      sections={pdfState.sections}
+                      contactInfo={pdfState.contactInfo}
+                      colors={pdfState.colors}
+                      includeCharts={pdfState.includeCharts}
+                      includeNotes={pdfState.includeNotes}
+                      blackAndWhite={pdfState.blackAndWhite}
+                      estimatedPages={pdfState.estimatedPages}
+                      inputs={inputs}
+                      results={results}
+                      pdfRef={mobilePdfRef}
+                    />
                   </div>
                 </div>
               )}

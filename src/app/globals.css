@@ -206,3 +206,60 @@
 [class*="cl-internal"][class*="badge"] {
   display: none !important;
 }
+
+/* Add this to your global CSS or PDFTemplatePreview component styles */
+
+/* PDF Content Sizing */
+[data-pdf-content] {
+  width: 816px;
+  max-width: 816px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: white;
+}
+
+/* Ensure text doesn't overflow */
+[data-pdf-content] * {
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Fix section headers */
+[data-pdf-content] .pdf-section h2,
+[data-pdf-content] .pdf-section h3 {
+  font-size: clamp(14px, 1.2rem, 20px);
+  line-height: 1.4;
+}
+
+/* Fix body text */
+[data-pdf-content] .pdf-section p,
+[data-pdf-content] .pdf-section span {
+  font-size: clamp(11px, 0.9rem, 14px);
+  line-height: 1.5;
+}
+
+/* Ensure proper spacing */
+[data-pdf-content] .pdf-section {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* Fix metric cards */
+[data-pdf-content] .text-3xl {
+  font-size: 1.5rem !important;
+}
+
+[data-pdf-content] .text-2xl {
+  font-size: 1.25rem !important;
+}
+
+[data-pdf-content] .text-xl {
+  font-size: 1.1rem !important;
+}
+
+/* Prevent text overlap */
+[data-pdf-content] .flex,
+[data-pdf-content] .grid {
+  gap: 0.75rem;
+}

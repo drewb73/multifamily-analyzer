@@ -15,8 +15,9 @@ interface PreviewPanelProps {
   includeNotes: boolean
   blackAndWhite: boolean
   estimatedPages: number
-  inputs?: any      // ADD THIS
-  results?: any     // ADD THIS
+  inputs?: any
+  results?: any
+  pdfRef?: React.RefObject<HTMLDivElement | null>  // FIX: Allow null in type
 }
 
 export function PreviewPanel({
@@ -28,8 +29,9 @@ export function PreviewPanel({
   includeNotes,
   blackAndWhite,
   estimatedPages,
-  inputs,     // ADD THIS
-  results     // ADD THIS
+  inputs,
+  results,
+  pdfRef
 }: PreviewPanelProps) {
   const [zoom, setZoom] = useState(75)
 
@@ -47,6 +49,7 @@ export function PreviewPanel({
 
   return (
     <div className="flex flex-col h-full bg-neutral-50">
+      {/* Header with Zoom Controls - NOT included in PDF */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b flex-shrink-0">
         <h3 className="text-lg font-semibold text-neutral-900">
           Live Preview
@@ -80,6 +83,7 @@ export function PreviewPanel({
         </div>
       </div>
 
+      {/* Scrollable Preview Area */}
       <div className="flex-1 overflow-auto p-6">
         <div className="flex justify-center">
           <div 
@@ -89,26 +93,22 @@ export function PreviewPanel({
               width: `${(100 / zoom) * 100}%`
             }}
           >
-            <PDFTemplatePreview
-              propertyName={propertyName}
-              sections={sections}
-              contactInfo={contactInfo}
-              colors={colors}
-              includeCharts={includeCharts}
-              includeNotes={includeNotes}
-              blackAndWhite={blackAndWhite}
-              estimatedPages={estimatedPages}
-              inputs={inputs}      // ADD THIS
-              results={results}    // ADD THIS
-            />
+            {/* This is the actual PDF content that will be captured */}
+            <div ref={pdfRef} data-pdf-content>
+              <PDFTemplatePreview
+                propertyName={propertyName}
+                sections={sections}
+                contactInfo={contactInfo}
+                colors={colors}
+                includeCharts={includeCharts}
+                includeNotes={includeNotes}
+                blackAndWhite={blackAndWhite}
+                estimatedPages={estimatedPages}
+                inputs={inputs}
+                results={results}
+              />
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="px-6 py-3 bg-white border-t flex-shrink-0">
-        <div className="flex items-center justify-center gap-2 text-sm text-neutral-600">
-          <span>💡</span>
-          <span>Changes update in real-time as you customize</span>
         </div>
       </div>
     </div>
