@@ -27,11 +27,11 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
   }
 
   const formatPercent = (value: number) => {
-    // Value is already a percentage (e.g., 8.5), just format it
-    return `${value.toFixed(2)}%`
+    // Value is a decimal (e.g., 0.085), convert to percentage (8.5%)
+    return `${(value * 100).toFixed(2)}%`
   }
 
-  // Calculate ROI - same as cash on cash return (already a percentage)
+  // ROI is same as cash on cash return (already a decimal)
   const roi = data.cashOnCashReturn
   
   // Calculate payback period (years)
@@ -43,7 +43,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
   // Project 5-year returns
   const fiveYearCashFlow = data.annualCashFlow * 5
   const fiveYearROI = data.totalInvestment > 0
-    ? (fiveYearCashFlow / data.totalInvestment) * 100
+    ? (fiveYearCashFlow / data.totalInvestment)  // This is a decimal
     : 0
 
   return (
@@ -107,7 +107,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
           <p className="text-xs text-orange-700 mt-2">
             {paybackPeriod > 0 && paybackPeriod < 100
               ? 'Time to recover investment'
-              : 'Negative cash flow'}
+              : 'Negative or zero cash flow'}
           </p>
         </div>
       </div>
@@ -173,16 +173,16 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
       <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
         <div className="flex items-start gap-3">
           <span className="text-2xl">
-            {data.cashOnCashReturn >= 8 ? '✓' : data.cashOnCashReturn >= 5 ? '→' : '!'}
+            {data.cashOnCashReturn >= 0.08 ? '✓' : data.cashOnCashReturn >= 0.05 ? '→' : '!'}
           </span>
           <div>
             <p className="font-semibold text-green-900 mb-1">
               Investment Performance
             </p>
             <p className="text-sm text-green-800">
-              {data.cashOnCashReturn >= 8 ? (
+              {data.cashOnCashReturn >= 0.08 ? (
                 <>Strong cash-on-cash return above 8% target. This property demonstrates solid income potential.</>
-              ) : data.cashOnCashReturn >= 5 ? (
+              ) : data.cashOnCashReturn >= 0.05 ? (
                 <>Moderate cash-on-cash return. Consider opportunities for value-add improvements.</>
               ) : data.cashOnCashReturn >= 0 ? (
                 <>Below typical 5% target. May be suitable for appreciation play or requires operational improvements.</>

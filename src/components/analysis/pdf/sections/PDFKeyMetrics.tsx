@@ -28,8 +28,8 @@ export function PDFKeyMetrics({ data, accentColor, isCashPurchase }: PDFKeyMetri
   }
 
   const formatPercent = (value: number) => {
-    // Value is already a percentage (e.g., 3.35), just format it
-    return `${value.toFixed(2)}%`
+    // Value is a decimal (e.g., 0.0335), convert to percentage (3.35%)
+    return `${(value * 100).toFixed(2)}%`
   }
 
   return (
