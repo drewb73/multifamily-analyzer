@@ -1,14 +1,15 @@
 // src/components/analysis/pdf/PDFExportModal.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Download, Loader2 } from 'lucide-react'
 import { PDFExportState, PDFTabType, ContactInfo, BrandingColors } from '@/types/pdf'
 import { TabNavigation } from './TabNavigation'
 import { SectionsTab } from './SectionsTab'
 import { BrandingTab } from './BrandingTab'
 import { PreviewPanel } from './PreviewPanel'
 import { createDefaultSections } from './defaultSections'
+import { generatePDFFromElement, generatePDFFilename } from '@/lib/pdfGenerator'
 
 interface PDFExportModalProps {
   isOpen: boolean
@@ -33,6 +34,9 @@ export function PDFExportModal({
   inputs,
   results
 }: PDFExportModalProps) {
+  // Ref for the preview element
+  const previewRef = useRef<HTMLDivElement>(null)
+
   // Initialize state with defaults
   const [pdfState, setPDFState] = useState<PDFExportState>({
     sections: createDefaultSections(isCashPurchase, hasMarketAnalysis),
@@ -124,6 +128,55 @@ export function PDFExportModal({
       ...prev,
       colors: { headerFooterBg: bg, headerFooterText: text, accentColor: accent }
     }))
+  }
+
+  const handleGeneratePDF = async () => {
+    // Validate preview element
+    if (!previewRef.current) {
+      console.error('Preview element not found')
+      return
+    }
+
+    // Check if any sections are enabled
+    const enabledSections = pdfState.sections.filter(s => s.enabled)
+    if (enabledSections.length === 0) {
+      console.error('No sections enabled')
+      return
+    }
+
+    // Set generating state
+    setPDFState(prev => ({ ...prev, isGenerating: true }))
+
+    try {
+      // Generate filename
+      const filename = generatePDFFilename(propertyName)
+
+      // Generate PDF with progress
+      const result = await generatePDFFromElement(previewRef.current, {
+        filename,
+        quality: pdfState.blackAndWhite ? 0.85 : 0.92,
+        scale: 2,
+        onProgress: (progress) => {
+          console.log(`PDF Generation: ${progress}%`)
+        }
+      })
+
+      if (result.success) {
+        console.log('PDF generated successfully:', result.filename)
+        // Optional: Show success toast/message
+        // toast.success('PDF generated successfully!')
+      } else {
+        console.error('PDF generation failed:', result.error)
+        // Optional: Show error toast/message
+        // toast.error(`Failed to generate PDF: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      // Optional: Show error toast/message
+      // toast.error('An unexpected error occurred while generating the PDF')
+    } finally {
+      setPDFState(prev => ({ ...prev, isGenerating: false }))
+    }
   }
 
   const handleClose = () => {
@@ -227,18 +280,20 @@ export function PDFExportModal({
 
             {/* RIGHT SIDE - Preview Panel (Desktop & Tablet) */}
             <div className="hidden lg:flex lg:flex-col lg:w-[55%] overflow-hidden">
-              <PreviewPanel
-                propertyName={propertyName}
-                sections={pdfState.sections}
-                contactInfo={pdfState.contactInfo}
-                colors={pdfState.colors}
-                includeCharts={pdfState.includeCharts}
-                includeNotes={pdfState.includeNotes}
-                blackAndWhite={pdfState.blackAndWhite}
-                estimatedPages={pdfState.estimatedPages}
-                inputs={inputs}
-                results={results} 
-              />
+              <div ref={previewRef} data-pdf-preview>
+                <PreviewPanel
+                  propertyName={propertyName}
+                  sections={pdfState.sections}
+                  contactInfo={pdfState.contactInfo}
+                  colors={pdfState.colors}
+                  includeCharts={pdfState.includeCharts}
+                  includeNotes={pdfState.includeNotes}
+                  blackAndWhite={pdfState.blackAndWhite}
+                  estimatedPages={pdfState.estimatedPages}
+                  inputs={inputs}
+                  results={results} 
+                />
+              </div>
             </div>
 
             {/* MOBILE LAYOUT */}
@@ -314,18 +369,20 @@ export function PDFExportModal({
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4">
-                    <PreviewPanel
-                      propertyName={propertyName}
-                      sections={pdfState.sections}
-                      contactInfo={pdfState.contactInfo}
-                      colors={pdfState.colors}
-                      includeCharts={pdfState.includeCharts}
-                      includeNotes={pdfState.includeNotes}
-                      blackAndWhite={pdfState.blackAndWhite}
-                      estimatedPages={pdfState.estimatedPages}
-                      inputs={inputs}
-                      results={results} 
-                    />
+                    <div ref={previewRef} data-pdf-preview>
+                      <PreviewPanel
+                        propertyName={propertyName}
+                        sections={pdfState.sections}
+                        contactInfo={pdfState.contactInfo}
+                        colors={pdfState.colors}
+                        includeCharts={pdfState.includeCharts}
+                        includeNotes={pdfState.includeNotes}
+                        blackAndWhite={pdfState.blackAndWhite}
+                        estimatedPages={pdfState.estimatedPages}
+                        inputs={inputs}
+                        results={results} 
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -333,48 +390,36 @@ export function PDFExportModal({
           </div>
 
           {/* Footer - Action Buttons */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t flex-shrink-0 bg-white">
-            <button
-              onClick={handleClose}
-              disabled={pdfState.isGenerating}
-              className="px-6 py-2.5 rounded-lg border border-neutral-300 text-neutral-700 font-semibold hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-            
-            <button
-              onClick={() => {
-                const contactFields = [
-                  pdfState.contactInfo.showName && pdfState.contactInfo.name,
-                  pdfState.contactInfo.showEmail && pdfState.contactInfo.email,
-                  pdfState.contactInfo.showPhone && pdfState.contactInfo.phone
-                ].filter(Boolean)
-                
-                alert(`PDF will include:\n\n` +
-                  `Sections: ${pdfState.sections.filter(s => s.enabled).length}\n` +
-                  `Pages: ${pdfState.estimatedPages}\n` +
-                  `Size: ~${pdfState.estimatedSize} MB\n\n` +
-                  `Contact: ${contactFields.length > 0 ? contactFields.join(', ') : 'None'}\n` +
-                  `Position: ${pdfState.contactInfo.position}\n` +
-                  `Colors: ${pdfState.colors.headerFooterBg} / ${pdfState.colors.headerFooterText}`)
-              }}
-              disabled={pdfState.isGenerating}
-              className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {pdfState.isGenerating ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download PDF
-                </>
-              )}
-            </button>
+          <div className="flex items-center justify-between px-6 py-4 bg-neutral-50 border-t flex-shrink-0">
+            <div className="text-sm text-neutral-600">
+              Estimated: {pdfState.estimatedPages} pages • ~{pdfState.estimatedSize}MB
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleClose}
+                disabled={pdfState.isGenerating}
+                className="px-4 py-2 text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleGeneratePDF}
+                disabled={pdfState.isGenerating || pdfState.sections.filter(s => s.enabled).length === 0}
+                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {pdfState.isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Generate PDF
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
