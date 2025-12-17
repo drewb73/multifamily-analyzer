@@ -1,5 +1,4 @@
 // src/lib/pdfGenerator.ts
-// ULTRA-SIMPLE VERSION THAT JUST WORKS
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
@@ -25,7 +24,7 @@ export async function generatePDFFromElement(
     filename = 'Property_Analysis.pdf',
     onProgress,
     quality = 0.95,
-    scale = 1.5  // Lower scale = smaller file, faster
+    scale = 2  // Higher scale for better quality
   } = options
 
   try {
@@ -38,7 +37,7 @@ export async function generatePDFFromElement(
       scrollHeight: element.scrollHeight
     })
 
-    // Simple canvas capture
+    // Capture the element
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
@@ -54,44 +53,41 @@ export async function generatePDFFromElement(
 
     onProgress?.(60)
 
-    // Create PDF
+    // Create PDF - Letter size
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'letter'
+      format: 'letter',
+      compress: true
     })
 
-    // Calculate dimensions to fit page
-    const pdfWidth = 215.9  // Letter width in mm
-    const pdfHeight = 279.4 // Letter height in mm
+    // Letter dimensions in mm
+    const pdfWidth = 215.9   // 8.5 inches
+    const pdfHeight = 279.4  // 11 inches
     
-    const canvasWidth = canvas.width
-    const canvasHeight = canvas.height
-    const ratio = canvasWidth / canvasHeight
+    // Calculate image dimensions to FILL the page width
+    const canvasAspectRatio = canvas.height / canvas.width
+    
+    // Image spans full page width
+    const imgWidth = pdfWidth
+    const imgHeight = pdfWidth * canvasAspectRatio
 
-    let imgWidth = pdfWidth
-    let imgHeight = pdfWidth / ratio
-
-    // If too tall, scale down to fit
-    if (imgHeight > pdfHeight) {
-      imgHeight = pdfHeight
-      imgWidth = pdfHeight * ratio
-    }
-
+    // Convert canvas to image
     const imgData = canvas.toDataURL('image/jpeg', quality)
 
     onProgress?.(80)
 
-    // Add image to PDF
-    let position = 0
+    // Add pages
     let heightLeft = imgHeight
+    let position = 0
 
+    // First page
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
     heightLeft -= pdfHeight
 
-    // Add more pages if needed
+    // Add more pages if content is longer than one page
     while (heightLeft > 0) {
-      position = heightLeft - imgHeight
+      position = -(imgHeight - heightLeft)
       pdf.addPage()
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
       heightLeft -= pdfHeight
