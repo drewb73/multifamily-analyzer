@@ -212,221 +212,68 @@
 /* PDF Content Styling - Simplified */
 
 /* ============================================
-   PDF CONTENT STYLING - FINAL VERSION
-   Add this to your globals.css
+   PDF CONTENT CSS - FULL WIDTH VERSION
+   Replace the [data-pdf-content] section in globals.css
    ============================================ */
 
-/* Base PDF Content Container */
+/* Full-width container for PDF content */
 [data-pdf-content] {
-  max-width: 850px;
-  margin: 0 auto;
   background: white;
-  padding: 20px;
+  padding: 24px;
+  min-height: 100px;
+  width: 100%;       /* FULL WIDTH */
+  max-width: 100%;   /* NO CONSTRAINT */
   box-sizing: border-box;
 }
 
-/* ============================================
-   TYPOGRAPHY - Sized for PDF
-   ============================================ */
+/* REDUCED FONT SIZES - Prevent overlap at 100% zoom */
+[data-pdf-content] h1 { font-size: 20px !important; }
+[data-pdf-content] h2 { font-size: 16px !important; }
+[data-pdf-content] h3 { font-size: 14px !important; }
+[data-pdf-content] h4 { font-size: 13px !important; }
 
-/* Headers - Reduced sizes to prevent overlap */
-[data-pdf-content] h1 { 
-  font-size: 26px !important; 
-  line-height: 1.2 !important;
-  margin-bottom: 8px !important;
-}
+/* Tailwind text classes - REDUCED */
+[data-pdf-content] .text-5xl,
+[data-pdf-content] .text-4xl { font-size: 18px !important; }
+[data-pdf-content] .text-3xl { font-size: 16px !important; }
+[data-pdf-content] .text-2xl { font-size: 15px !important; }
+[data-pdf-content] .text-xl { font-size: 14px !important; }
+[data-pdf-content] .text-lg { font-size: 13px !important; }
+[data-pdf-content] .text-base { font-size: 12px !important; }
+[data-pdf-content] .text-sm { font-size: 11px !important; }
+[data-pdf-content] .text-xs { font-size: 10px !important; }
 
-[data-pdf-content] h2 { 
-  font-size: 18px !important; 
-  line-height: 1.3 !important;
-  margin-bottom: 8px !important;
-}
-
-[data-pdf-content] h3 { 
-  font-size: 16px !important; 
-  line-height: 1.3 !important;
-  margin-bottom: 6px !important;
-}
-
-[data-pdf-content] h4 { 
-  font-size: 14px !important; 
-  line-height: 1.4 !important;
-}
-
-/* Text Size Classes - Override Tailwind */
-[data-pdf-content] .text-5xl { font-size: 28px !important; }
-[data-pdf-content] .text-4xl { font-size: 24px !important; }
-[data-pdf-content] .text-3xl { font-size: 20px !important; }
-[data-pdf-content] .text-2xl { font-size: 18px !important; }
-[data-pdf-content] .text-xl { font-size: 16px !important; }
-[data-pdf-content] .text-lg { font-size: 15px !important; }
-[data-pdf-content] .text-base { font-size: 13px !important; }
-[data-pdf-content] .text-sm { font-size: 12px !important; }
-[data-pdf-content] .text-xs { font-size: 11px !important; }
-
-/* Body text defaults */
+/* All text elements */
 [data-pdf-content] p,
 [data-pdf-content] span,
 [data-pdf-content] div,
 [data-pdf-content] td,
-[data-pdf-content] th {
-  font-size: 13px !important;
-  line-height: 1.5 !important;
+[data-pdf-content] th,
+[data-pdf-content] label {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
 }
 
-/* ============================================
-   SECTIONS & SPACING
-   ============================================ */
+/* Tighter spacing */
+[data-pdf-content] .space-y-4 > * + * { margin-top: 6px !important; }
+[data-pdf-content] .space-y-6 > * + * { margin-top: 8px !important; }
+[data-pdf-content] .gap-4 { gap: 6px !important; }
+[data-pdf-content] .gap-6 { gap: 8px !important; }
 
-/* Section containers */
-[data-pdf-content] .pdf-section,
-[data-pdf-content] section {
-  padding: 12px 16px !important;
-  margin-bottom: 12px !important;
-}
-
-/* Prevent excessive spacing */
-[data-pdf-content] .space-y-4 > * + * {
-  margin-top: 8px !important;
-}
-
-[data-pdf-content] .space-y-6 > * + * {
-  margin-top: 12px !important;
-}
-
-[data-pdf-content] .space-y-8 > * + * {
-  margin-top: 16px !important;
-}
-
-/* Gap utilities */
-[data-pdf-content] .gap-4 { gap: 8px !important; }
-[data-pdf-content] .gap-6 { gap: 12px !important; }
-[data-pdf-content] .gap-8 { gap: 16px !important; }
-
-/* ============================================
-   METRIC CARDS & DATA DISPLAYS
-   ============================================ */
-
-/* Metric card containers */
-[data-pdf-content] .metric-card,
-[data-pdf-content] [class*="metric"] {
+/* Sections */
+[data-pdf-content] section,
+[data-pdf-content] [class*="section"] {
   padding: 10px !important;
-  margin-bottom: 8px !important;
+  margin-bottom: 10px !important;
 }
 
-/* Large metric values */
-[data-pdf-content] .metric-value,
-[data-pdf-content] [class*="value"] {
-  font-size: 20px !important;
-  line-height: 1.2 !important;
-}
+/* Tables */
+[data-pdf-content] table { font-size: 10px !important; }
+[data-pdf-content] th { font-size: 9px !important; padding: 4px !important; }
+[data-pdf-content] td { font-size: 10px !important; padding: 4px !important; }
 
-/* Metric labels */
-[data-pdf-content] .metric-label,
-[data-pdf-content] [class*="label"] {
-  font-size: 11px !important;
-  line-height: 1.3 !important;
-}
-
-/* ============================================
-   TABLES
-   ============================================ */
-
-[data-pdf-content] table {
-  font-size: 12px !important;
-  width: 100% !important;
-  border-collapse: collapse !important;
-}
-
-[data-pdf-content] table th {
-  font-size: 11px !important;
-  padding: 6px 8px !important;
-  font-weight: 600 !important;
-}
-
-[data-pdf-content] table td {
-  font-size: 12px !important;
-  padding: 6px 8px !important;
-}
-
-/* ============================================
-   HEADER & FOOTER
-   ============================================ */
-
-/* PDF Header */
-[data-pdf-content] [class*="header"],
-[data-pdf-content] header {
-  padding: 16px !important;
-  margin-bottom: 16px !important;
-}
-
-/* PDF Footer */
-[data-pdf-content] [class*="footer"],
-[data-pdf-content] footer {
-  padding: 12px 16px !important;
-  margin-top: 16px !important;
-  font-size: 11px !important;
-}
-
-/* ============================================
-   UTILITIES
-   ============================================ */
-
-/* Prevent text overflow */
+/* Prevent overflow */
 [data-pdf-content] * {
   box-sizing: border-box !important;
   word-wrap: break-word !important;
-  overflow-wrap: break-word !important;
-}
-
-/* Ensure images fit */
-[data-pdf-content] img {
-  max-width: 100% !important;
-  height: auto !important;
-}
-
-/* Badge sizing */
-[data-pdf-content] .badge,
-[data-pdf-content] [class*="badge"] {
-  font-size: 10px !important;
-  padding: 2px 6px !important;
-}
-
-/* Button sizing (if any in PDF) */
-[data-pdf-content] button,
-[data-pdf-content] .btn {
-  font-size: 12px !important;
-  padding: 6px 12px !important;
-}
-
-/* Icon sizing */
-[data-pdf-content] svg {
-  width: 16px !important;
-  height: 16px !important;
-}
-
-/* ============================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================ */
-
-/* On very small previews, maintain readability */
-@media (max-width: 640px) {
-  [data-pdf-content] {
-    padding: 12px !important;
-  }
-  
-  [data-pdf-content] h1 { font-size: 22px !important; }
-  [data-pdf-content] h2 { font-size: 16px !important; }
-  [data-pdf-content] .text-3xl { font-size: 18px !important; }
-}
-
-/* ============================================
-   PRINT OPTIMIZATION (Bonus)
-   ============================================ */
-
-@media print {
-  [data-pdf-content] {
-    max-width: 100% !important;
-    padding: 0 !important;
-  }
 }

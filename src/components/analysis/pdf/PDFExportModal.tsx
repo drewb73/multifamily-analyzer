@@ -132,13 +132,32 @@ export function PDFExportModal({
   }
 
   const handleGeneratePDF = async () => {
-    // Use the appropriate ref based on current view
-    const pdfElement = pdfState.showMobilePreview ? mobilePdfRef.current : desktopPdfRef.current
+    // Determine which ref to use based on what's actually visible
+    let pdfElement: HTMLElement | null = null
+    
+    // Try desktop ref first (check if it's visible in the DOM)
+    if (desktopPdfRef.current && desktopPdfRef.current.offsetParent !== null) {
+      pdfElement = desktopPdfRef.current
+    } 
+    // Fall back to mobile ref if desktop isn't visible
+    else if (mobilePdfRef.current && mobilePdfRef.current.offsetParent !== null) {
+      pdfElement = mobilePdfRef.current
+    }
 
-    // Validate preview element
+    // Validate we found a visible element
     if (!pdfElement) {
-      console.error('PDF element not found')
-      alert('Error: PDF preview not found. Please try again.')
+      console.error('PDF element not found or not visible')
+      alert('Error: PDF preview not found. Please make sure the preview is visible and try again.')
+      return
+    }
+
+    // Validate element has dimensions
+    if (pdfElement.offsetHeight === 0 || pdfElement.offsetWidth === 0) {
+      console.error('PDF element has no dimensions:', {
+        height: pdfElement.offsetHeight,
+        width: pdfElement.offsetWidth
+      })
+      alert('Error: PDF content has no dimensions. Please try again.')
       return
     }
 

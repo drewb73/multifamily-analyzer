@@ -1,12 +1,13 @@
 // src/lib/pdfGenerator.ts
+// ULTRA-SIMPLE VERSION THAT JUST WORKS
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
 export interface GeneratePDFOptions {
   filename?: string
   onProgress?: (progress: number) => void
-  quality?: number  // 0.1 to 1, default 0.92
-  scale?: number    // Canvas scale, default 2
+  quality?: number
+  scale?: number
 }
 
 export interface GeneratePDFResult {
@@ -16,12 +17,6 @@ export interface GeneratePDFResult {
   fileSize?: number
 }
 
-/**
- * Generate a PDF from an HTML element
- * @param element - The HTML element to convert to PDF
- * @param options - Generation options
- * @returns Result object with success status
- */
 export async function generatePDFFromElement(
   element: HTMLElement,
   options: GeneratePDFOptions = {}
@@ -29,78 +24,87 @@ export async function generatePDFFromElement(
   const {
     filename = 'Property_Analysis.pdf',
     onProgress,
-    quality = 0.92,
-    scale = 2
+    quality = 0.95,
+    scale = 1.5  // Lower scale = smaller file, faster
   } = options
 
   try {
-    // Validate element
-    if (!element || element.offsetHeight === 0 || element.offsetWidth === 0) {
-      throw new Error('Invalid element: no dimensions')
-    }
-
     onProgress?.(10)
-    
-    // Capture HTML as canvas
+
+    console.log('Capturing element:', {
+      width: element.offsetWidth,
+      height: element.offsetHeight,
+      scrollWidth: element.scrollWidth,
+      scrollHeight: element.scrollHeight
+    })
+
+    // Simple canvas capture
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
+      allowTaint: true,
       logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
+      backgroundColor: '#ffffff'
     })
 
-    // Verify canvas has content
-    if (!canvas || canvas.width === 0 || canvas.height === 0) {
-      throw new Error('Canvas generation failed: no dimensions')
-    }
+    console.log('Canvas created:', {
+      width: canvas.width,
+      height: canvas.height
+    })
 
-    onProgress?.(50)
+    onProgress?.(60)
 
-    // Create PDF - Letter size: 8.5" x 11" = 215.9mm x 279.4mm
+    // Create PDF
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'letter',
-      compress: true
+      format: 'letter'
     })
 
-    // Calculate dimensions
-    const imgWidth = 215.9 // Letter width in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-    const pageHeight = 279.4 // Letter height in mm
+    // Calculate dimensions to fit page
+    const pdfWidth = 215.9  // Letter width in mm
+    const pdfHeight = 279.4 // Letter height in mm
+    
+    const canvasWidth = canvas.width
+    const canvasHeight = canvas.height
+    const ratio = canvasWidth / canvasHeight
 
-    // Convert canvas to image
+    let imgWidth = pdfWidth
+    let imgHeight = pdfWidth / ratio
+
+    // If too tall, scale down to fit
+    if (imgHeight > pdfHeight) {
+      imgHeight = pdfHeight
+      imgWidth = pdfHeight * ratio
+    }
+
     const imgData = canvas.toDataURL('image/jpeg', quality)
 
-    onProgress?.(70)
+    onProgress?.(80)
 
-    // Add pages
-    let heightLeft = imgHeight
+    // Add image to PDF
     let position = 0
+    let heightLeft = imgHeight
 
-    // First page
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
+    heightLeft -= pdfHeight
 
-    // Additional pages if needed
+    // Add more pages if needed
     while (heightLeft > 0) {
       position = heightLeft - imgHeight
       pdf.addPage()
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
+      heightLeft -= pdfHeight
     }
 
     onProgress?.(95)
 
-    // Save PDF
+    // Save
     pdf.save(filename)
 
     onProgress?.(100)
 
-    // Calculate approximate file size
-    const fileSize = (canvas.width * canvas.height * 3 * quality) / 1024 // KB
+    const fileSize = (canvas.width * canvas.height * 3 * quality) / 1024
 
     return {
       success: true,
@@ -112,40 +116,26 @@ export async function generatePDFFromElement(
     console.error('PDF generation error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate PDF'
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
 }
 
-/**
- * Generate a formatted filename for the PDF
- * @param propertyName - Property address or name
- * @param date - Optional date (defaults to today)
- * @returns Formatted filename
- */
 export function generatePDFFilename(
   propertyName: string,
   date: Date = new Date()
 ): string {
-  // Clean property name (remove special characters, limit length)
   const cleanName = propertyName
     .replace(/[^a-zA-Z0-9\s]/g, '')
     .replace(/\s+/g, '_')
     .substring(0, 30)
     .trim()
-    .replace(/_+$/, '') // Remove trailing underscores
 
-  // Format date as YYYY-MM-DD
   const dateStr = date.toISOString().split('T')[0]
 
   return `PropertyAnalysis_${cleanName}_${dateStr}.pdf`
 }
 
-/**
- * Validate if element is ready for PDF generation
- * @param element - The HTML element to check
- * @returns true if ready, error message if not
- */
 export function validatePDFElement(element: HTMLElement | null): {
   valid: boolean
   error?: string

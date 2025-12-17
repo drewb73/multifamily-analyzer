@@ -17,7 +17,7 @@ interface PreviewPanelProps {
   estimatedPages: number
   inputs?: any
   results?: any
-  pdfRef?: React.RefObject<HTMLDivElement | null>  // FIX: Allow null in type
+  pdfRef?: React.RefObject<HTMLDivElement | null>
 }
 
 export function PreviewPanel({
@@ -33,54 +33,26 @@ export function PreviewPanel({
   results,
   pdfRef
 }: PreviewPanelProps) {
-  const [zoom, setZoom] = useState(75)
+  // LOCK ZOOM AT 100% - Don't allow user to change
+  const [zoom] = useState(100)
 
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 25, 150))
-  }
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 25, 50))
-  }
-
-  const handleZoomReset = () => {
-    setZoom(75)
-  }
+  // Remove zoom handlers since user can't change zoom
+  // const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 150))
+  // const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50))
+  // const handleZoomReset = () => setZoom(100)
 
   return (
     <div className="flex flex-col h-full bg-neutral-50">
-      {/* Header with Zoom Controls - NOT included in PDF */}
+      {/* Header - Zoom controls removed */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b flex-shrink-0">
         <h3 className="text-lg font-semibold text-neutral-900">
           Live Preview
         </h3>
         
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleZoomOut}
-            disabled={zoom <= 50}
-            className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Zoom out"
-          >
-            <ZoomOut className="w-4 h-4 text-neutral-600" />
-          </button>
-          
-          <button
-            onClick={handleZoomReset}
-            className="px-3 py-1.5 text-sm font-medium border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
-          >
-            {zoom}%
-          </button>
-          
-          <button
-            onClick={handleZoomIn}
-            disabled={zoom >= 150}
-            className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Zoom in"
-          >
-            <ZoomIn className="w-4 h-4 text-neutral-600" />
-          </button>
-        </div>
+        {/* Show scale info instead of controls */}
+        <span className="text-sm text-neutral-500">
+          100% Scale (Actual Size)
+        </span>
       </div>
 
       {/* Scrollable Preview Area */}
