@@ -34,97 +34,62 @@ export async function generatePDFFromElement(
   } = options
 
   try {
-    onProgress?.(5)
-
-    // Get the actual content dimensions
-    const contentWidth = element.scrollWidth
-    const contentHeight = element.scrollHeight
-
-    // Letter size in pixels at 96 DPI
-    const pdfWidthPx = 816  // 8.5 inches × 96 DPI
-    const pdfHeightPx = 1056 // 11 inches × 96 DPI
-
-    // Calculate scale to fit content to page width
-    const scaleToFit = pdfWidthPx / contentWidth
+    // Validate element
+    if (!element || element.offsetHeight === 0 || element.offsetWidth === 0) {
+      throw new Error('Invalid element: no dimensions')
+    }
 
     onProgress?.(10)
     
-    // Capture HTML as canvas with proper scaling
+    // Capture HTML as canvas
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      width: contentWidth,
-      height: contentHeight,
-      windowWidth: contentWidth,
-      windowHeight: contentHeight,
-      onclone: (clonedDoc) => {
-        // Find the cloned element
-        const clonedElement = clonedDoc.querySelector('[data-pdf-content]') as HTMLElement
-        if (clonedElement) {
-          // Remove any transform/zoom applied by preview
-          clonedElement.style.transform = 'none'
-          clonedElement.style.width = '816px' // Set to PDF page width
-          
-          // Ensure proper sizing for all child elements
-          const allElements = clonedElement.querySelectorAll('*') as NodeListOf<HTMLElement>
-          allElements.forEach(el => {
-            // Remove any preview-specific styling
-            if (el.style.transform && el.style.transform.includes('scale')) {
-              el.style.transform = 'none'
-            }
-          })
-        }
-      }
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
     })
 
-    onProgress?.(60)
+    // Verify canvas has content
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      throw new Error('Canvas generation failed: no dimensions')
+    }
 
-    // Create PDF with Letter size
+    onProgress?.(50)
+
+    // Create PDF - Letter size: 8.5" x 11" = 215.9mm x 279.4mm
     const pdf = new jsPDF({
       orientation: 'portrait',
-      unit: 'px',
-      format: [pdfWidthPx, pdfHeightPx],
+      unit: 'mm',
+      format: 'letter',
       compress: true
     })
 
-    // Calculate how many pages we need
-    const imgWidth = pdfWidthPx
-    const imgHeight = (canvas.height * pdfWidthPx) / canvas.width
-    const pageHeight = pdfHeightPx
-    
-    let heightLeft = imgHeight
-    let position = 0
-    let page = 0
+    // Calculate dimensions
+    const imgWidth = 215.9 // Letter width in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    const pageHeight = 279.4 // Letter height in mm
 
     // Convert canvas to image
     const imgData = canvas.toDataURL('image/jpeg', quality)
 
-    onProgress?.(80)
+    onProgress?.(70)
 
     // Add pages
+    let heightLeft = imgHeight
+    let position = 0
+
+    // First page
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+    heightLeft -= pageHeight
+
+    // Additional pages if needed
     while (heightLeft > 0) {
-      if (page > 0) {
-        pdf.addPage()
-      }
-      
-      // Calculate position for this page
-      const yOffset = -page * pageHeight
-      
-      pdf.addImage(
-        imgData, 
-        'JPEG', 
-        0, 
-        yOffset, 
-        imgWidth, 
-        imgHeight,
-        undefined,
-        'FAST'
-      )
-      
+      position = heightLeft - imgHeight
+      pdf.addPage()
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
-      page++
     }
 
     onProgress?.(95)
@@ -134,7 +99,7 @@ export async function generatePDFFromElement(
 
     onProgress?.(100)
 
-    // Estimate file size
+    // Calculate approximate file size
     const fileSize = (canvas.width * canvas.height * 3 * quality) / 1024 // KB
 
     return {
