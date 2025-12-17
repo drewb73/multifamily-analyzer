@@ -195,7 +195,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
 
     const monthlyCashFlow = netOperatingIncome - monthlyMortgagePayment
     const propertyValue = formData.property?.purchasePrice || 0
-    const totalInvestment = formData.property?.downPayment || 0
+    const totalInvestment = formData.property?.isCashPurchase ? propertyValue : (formData.property?.downPayment || 0)
     const annualCashFlow = monthlyCashFlow * 12
     const annualNOI = netOperatingIncome * 12
     

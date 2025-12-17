@@ -27,15 +27,15 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
   }
 
   const formatPercent = (value: number) => {
-    // Value is a decimal (e.g., 0.085), convert to percentage (8.5%)
+    // Value is a decimal (e.g., 0.0335), convert to percentage (3.35%)
     return `${(value * 100).toFixed(2)}%`
   }
 
-  // ROI is same as cash on cash return (already a decimal)
+  // Calculate ROI - same as Cash on Cash for year 1
+  // (In future could add appreciation, tax benefits, etc.)
   const roi = data.cashOnCashReturn
   
   // Calculate payback period (years)
-  // Avoid division by zero
   const paybackPeriod = data.annualCashFlow > 0 
     ? data.totalInvestment / data.annualCashFlow 
     : 0
@@ -43,7 +43,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
   // Project 5-year returns
   const fiveYearCashFlow = data.annualCashFlow * 5
   const fiveYearROI = data.totalInvestment > 0
-    ? (fiveYearCashFlow / data.totalInvestment)  // This is a decimal
+    ? (fiveYearCashFlow / data.totalInvestment)
     : 0
 
   return (
@@ -79,7 +79,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
             {formatPercent(data.cashOnCashReturn)}
           </p>
           <p className="text-xs text-blue-700 mt-2">
-            Annual Cash Flow / Total Investment
+            Annual Cash Flow / {isCashPurchase ? 'Purchase Price' : 'Down Payment'}
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
             {formatPercent(roi)}
           </p>
           <p className="text-xs text-purple-700 mt-2">
-            First year ROI
+            First year cash return
           </p>
         </div>
 
@@ -107,7 +107,9 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
           <p className="text-xs text-orange-700 mt-2">
             {paybackPeriod > 0 && paybackPeriod < 100
               ? 'Time to recover investment'
-              : 'Negative or zero cash flow'}
+              : data.annualCashFlow <= 0 
+                ? 'Negative cash flow' 
+                : 'Very long payback'}
           </p>
         </div>
       </div>
@@ -170,24 +172,54 @@ export function PDFReturnMetrics({ data, accentColor, isCashPurchase }: PDFRetur
       </div>
 
       {/* Performance Indicator */}
-      <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+      <div className={`mt-6 p-4 rounded-lg border ${
+        data.cashOnCashReturn >= 0.08 
+          ? 'bg-green-50 border-green-200' 
+          : data.cashOnCashReturn >= 0.05 
+          ? 'bg-yellow-50 border-yellow-200'
+          : data.cashOnCashReturn >= 0
+          ? 'bg-orange-50 border-orange-200'
+          : 'bg-red-50 border-red-200'
+      }`}>
         <div className="flex items-start gap-3">
           <span className="text-2xl">
-            {data.cashOnCashReturn >= 0.08 ? '✓' : data.cashOnCashReturn >= 0.05 ? '→' : '!'}
+            {data.cashOnCashReturn >= 0.08 
+              ? '✓' 
+              : data.cashOnCashReturn >= 0.05 
+              ? '→' 
+              : data.cashOnCashReturn >= 0
+              ? '⚠'
+              : '!'}
           </span>
           <div>
-            <p className="font-semibold text-green-900 mb-1">
+            <p className={`font-semibold mb-1 ${
+              data.cashOnCashReturn >= 0.08 
+                ? 'text-green-900' 
+                : data.cashOnCashReturn >= 0.05 
+                ? 'text-yellow-900'
+                : data.cashOnCashReturn >= 0
+                ? 'text-orange-900'
+                : 'text-red-900'
+            }`}>
               Investment Performance
             </p>
-            <p className="text-sm text-green-800">
+            <p className={`text-sm ${
+              data.cashOnCashReturn >= 0.08 
+                ? 'text-green-800' 
+                : data.cashOnCashReturn >= 0.05 
+                ? 'text-yellow-800'
+                : data.cashOnCashReturn >= 0
+                ? 'text-orange-800'
+                : 'text-red-800'
+            }`}>
               {data.cashOnCashReturn >= 0.08 ? (
                 <>Strong cash-on-cash return above 8% target. This property demonstrates solid income potential.</>
               ) : data.cashOnCashReturn >= 0.05 ? (
-                <>Moderate cash-on-cash return. Consider opportunities for value-add improvements.</>
+                <>Moderate cash-on-cash return between 5-8%. Consider opportunities for value-add improvements.</>
               ) : data.cashOnCashReturn >= 0 ? (
                 <>Below typical 5% target. May be suitable for appreciation play or requires operational improvements.</>
               ) : (
-                <>Negative cash flow. Property requires significant improvements or market conditions to become profitable.</>
+                <>Negative cash flow. Property requires significant improvements or better market conditions to become profitable.</>
               )}
             </p>
           </div>
