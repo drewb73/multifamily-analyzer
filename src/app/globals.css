@@ -277,3 +277,69 @@
   box-sizing: border-box !important;
   word-wrap: break-word !important;
 }
+
+/* ============================================
+   ADD THIS TO END OF YOUR PDF STYLES IN globals.css
+   Fixes header/footer position and page breaks
+   ============================================ */
+
+/* Header positioning - always at top */
+[data-pdf-content] header,
+[data-pdf-content] [data-header],
+[data-pdf-content] [class*="pdf-header"] {
+  position: relative !important;
+  width: 100% !important;
+  margin: 0 0 20px 0 !important;
+  page-break-after: avoid !important;
+}
+
+/* Footer positioning - always at bottom */
+[data-pdf-content] footer,
+[data-pdf-content] [data-footer],
+[data-pdf-content] [class*="pdf-footer"] {
+  position: relative !important;
+  width: 100% !important;
+  margin: 20px 0 0 0 !important;
+  page-break-before: avoid !important;
+}
+
+/* Prevent sections from breaking across pages */
+[data-pdf-content] section,
+[data-pdf-content] [class*="section"] {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* Keep metric cards together */
+[data-pdf-content] [class*="metric"],
+[data-pdf-content] [class*="card"] {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* Keep tables together */
+[data-pdf-content] table {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* Keep bordered/boxed content together */
+[data-pdf-content] [class*="border"],
+[data-pdf-content] [class*="box"],
+[data-pdf-content] [class*="rounded"] {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* Keep grid and flex layouts together */
+[data-pdf-content] .grid,
+[data-pdf-content] .flex {
+  page-break-inside: avoid !important;
+}
+
+/* Allow breaks between major sections (good spacing) */
+[data-pdf-content] section + section,
+[data-pdf-content] [class*="section"] + [class*="section"] {
+  page-break-before: auto !important;
+  margin-top: 16px !important;
+}
