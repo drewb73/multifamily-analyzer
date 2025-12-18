@@ -214,7 +214,7 @@
 /* Full-width container for PDF content */
 [data-pdf-content] {
   background: white;
-  padding: 24px;
+  padding: 0;
   min-height: 100px;
   width: 100%;
   max-width: 100%;
