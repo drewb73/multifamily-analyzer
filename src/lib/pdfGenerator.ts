@@ -138,7 +138,7 @@ export async function generatePDFFromElement(
       currentPage++
       console.log(`Capturing page ${currentPage}/${totalPages}: ${group.join(', ')}`)
 
-      // Create temporary container - NO PADDING for full-width header/footer
+      // Create temporary container - NO PADDING
       const pageContainer = document.createElement('div')
       pageContainer.style.cssText = `
         width: ${FIXED_WIDTH}px;
@@ -155,7 +155,7 @@ export async function generatePDFFromElement(
         flex-direction: column;
       `
 
-      // Add header ONLY on first page - FULL WIDTH
+      // Add header ONLY on first page - components handle their own padding
       if (isFirstPage && header) {
         const headerClone = cloneWithStyles(header)
         headerClone.style.width = '100%'
@@ -182,7 +182,7 @@ export async function generatePDFFromElement(
 
       pageContainer.appendChild(contentWrapper)
 
-      // Add footer ONLY on last page - FULL WIDTH
+      // Add footer ONLY on last page - components handle their own padding
       if (isLastPage && footer) {
         const footerClone = cloneWithStyles(footer)
         footerClone.style.width = '100%'

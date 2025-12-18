@@ -34,41 +34,46 @@ export function PDFHeader({
       style={{
         backgroundColor: colors.headerFooterBg,
         color: colors.headerFooterText,
-        padding: '20px 0',
-        borderBottom: `3px solid ${colors.accentColor}`
+        borderBottom: `3px solid ${colors.accentColor}`,
+        width: '100%',
+        margin: 0,
+        padding: 0
       }}
     >
-      <div className="flex justify-between items-start px-[30px]">
-        {/* Left: Property Name */}
-        <div className="flex-1">
-          <h1 className="text-xl font-bold mb-1">
-            {propertyName}
-          </h1>
-          <p className="text-sm opacity-90">
-            Property Analysis Report
-          </p>
-        </div>
-
-        {/* Right: Contact Info (if enabled) */}
-        {showContact && contactFields.length > 0 && (
-          <div className="text-right text-sm">
-            {contactInfo.showName && contactInfo.name && (
-              <div className="font-semibold mb-0.5">
-                {contactInfo.name}
-              </div>
-            )}
-            {contactInfo.showEmail && contactInfo.email && (
-              <div className="opacity-90 mb-0.5">
-                {contactInfo.email}
-              </div>
-            )}
-            {contactInfo.showPhone && contactInfo.phone && (
-              <div className="opacity-90">
-                {contactInfo.phone}
-              </div>
-            )}
+      {/* Inner wrapper with padding for content */}
+      <div style={{ padding: '20px 30px' }}>
+        <div className="flex justify-between items-start">
+          {/* Left: Property Name */}
+          <div className="flex-1">
+            <h1 className="text-xl font-bold mb-1">
+              {propertyName}
+            </h1>
+            <p className="text-sm opacity-90">
+              Property Analysis Report
+            </p>
           </div>
-        )}
+
+          {/* Right: Contact Info (if enabled) */}
+          {showContact && contactFields.length > 0 && (
+            <div className="text-right text-sm">
+              {contactInfo.showName && contactInfo.name && (
+                <div className="font-semibold mb-0.5">
+                  {contactInfo.name}
+                </div>
+              )}
+              {contactInfo.showEmail && contactInfo.email && (
+                <div className="opacity-90 mb-0.5">
+                  {contactInfo.email}
+                </div>
+              )}
+              {contactInfo.showPhone && contactInfo.phone && (
+                <div className="opacity-90">
+                  {contactInfo.phone}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
