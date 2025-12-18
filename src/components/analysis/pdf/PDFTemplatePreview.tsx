@@ -244,12 +244,6 @@ export function PDFTemplatePreview({
       />
 
       <div className="p-8 space-y-8 min-h-[400px]">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-neutral-900 mb-2">
-            Property Analysis Report
-          </h2>
-          <p className="text-neutral-600">{propertyName}</p>
-        </div>
 
         {enabledSections.length > 0 ? (
           enabledSections.map(section => renderSection(section))
