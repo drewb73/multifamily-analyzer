@@ -1,5 +1,4 @@
 // src/lib/pdfGenerator.ts
-// IMPROVED SECTION CAPTURE - No repeated headers/footers, consistent sizing
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
@@ -46,7 +45,7 @@ export async function generatePDFFromElement(
       return await generatePDFFallback(element, options)
     }
 
-    // Define page grouping - which sections go on which page
+    // Define page grouping
     const pageGroups = [
       ['property', 'metrics'],           // Page 1
       ['income-expense'],                // Page 2
@@ -55,7 +54,7 @@ export async function generatePDFFromElement(
       ['market'],                        // Page 5 (if exists)
     ]
 
-    // Get header and footer ONCE
+    // Get header and footer
     const header = element.querySelector('[class*="pdf-header"]') as HTMLElement | null
     const footer = element.querySelector('[class*="pdf-footer"]') as HTMLElement | null
 
@@ -88,9 +87,42 @@ export async function generatePDFFromElement(
     const pdfHeight = 279.4 // Letter height in mm
     const FIXED_WIDTH = 850 // Fixed capture width
     const PADDING = 24      // Padding in pixels
+    
+    // Calculate target page height with extra space to prevent cutoff
+    const TARGET_PAGE_HEIGHT_PX = Math.floor((pdfHeight / pdfWidth) * FIXED_WIDTH * 1.1) // 10% extra
 
     let currentPage = 0
     const totalPages = validGroups.length
+
+    // Helper function to preserve inline styles when cloning
+    const cloneWithStyles = (element: HTMLElement): HTMLElement => {
+      const clone = element.cloneNode(true) as HTMLElement
+      
+      // Copy computed styles for elements with inline styles
+      const copyStyles = (original: HTMLElement, cloned: HTMLElement) => {
+        // Get all style properties
+        const computedStyle = window.getComputedStyle(original)
+        const inlineStyles = original.style.cssText
+        
+        // If element has inline styles, preserve them
+        if (inlineStyles) {
+          cloned.style.cssText = inlineStyles
+        }
+        
+        // Recursively copy for children
+        const originalChildren = original.children
+        const clonedChildren = cloned.children
+        
+        for (let i = 0; i < originalChildren.length; i++) {
+          if (originalChildren[i] instanceof HTMLElement && clonedChildren[i] instanceof HTMLElement) {
+            copyStyles(originalChildren[i] as HTMLElement, clonedChildren[i] as HTMLElement)
+          }
+        }
+      }
+      
+      copyStyles(element, clone)
+      return clone
+    }
 
     // Process each page group
     for (let i = 0; i < validGroups.length; i++) {
@@ -113,35 +145,46 @@ export async function generatePDFFromElement(
         width: ${FIXED_WIDTH}px;
         min-width: ${FIXED_WIDTH}px;
         max-width: ${FIXED_WIDTH}px;
+        min-height: ${TARGET_PAGE_HEIGHT_PX}px;
         background-color: white;
         padding: ${PADDING}px;
         box-sizing: border-box;
         position: absolute;
         left: -9999px;
         top: 0;
+        display: flex;
+        flex-direction: column;
       `
+
+      // Content wrapper (will push footer to bottom)
+      const contentWrapper = document.createElement('div')
+      contentWrapper.style.cssText = 'flex: 1; display: flex; flex-direction: column;'
 
       // Add header ONLY on first page
       if (isFirstPage && header) {
-        const headerClone = header.cloneNode(true) as HTMLElement
+        const headerClone = cloneWithStyles(header)
         headerClone.style.width = '100%'
         headerClone.style.marginBottom = '20px'
-        pageContainer.appendChild(headerClone)
+        contentWrapper.appendChild(headerClone)
       }
 
-      // Add sections with consistent spacing
+      // Add sections
       sectionsInGroup.forEach((section, idx) => {
-        const sectionClone = section.cloneNode(true) as HTMLElement
+        const sectionClone = cloneWithStyles(section)
         sectionClone.style.width = '100%'
-        sectionClone.style.marginBottom = idx < sectionsInGroup.length - 1 ? '20px' : '0'
-        pageContainer.appendChild(sectionClone)
+        sectionClone.style.marginBottom = idx < sectionsInGroup.length - 1 ? '15px' : '0'
+        contentWrapper.appendChild(sectionClone)
       })
 
-      // Add footer ONLY on last page
+      pageContainer.appendChild(contentWrapper)
+
+      // Add footer ONLY on last page - positioned at bottom with preserved styles
       if (isLastPage && footer) {
-        const footerClone = footer.cloneNode(true) as HTMLElement
+        const footerClone = cloneWithStyles(footer)
         footerClone.style.width = '100%'
-        footerClone.style.marginTop = '20px'
+        footerClone.style.marginTop = 'auto'
+        // Ensure footer styles are preserved
+        footerClone.style.display = 'block'
         pageContainer.appendChild(footerClone)
       }
 
@@ -149,7 +192,7 @@ export async function generatePDFFromElement(
       document.body.appendChild(pageContainer)
 
       // Wait for layout
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       // Capture this page
       const canvas = await html2canvas(pageContainer, {
@@ -168,7 +211,7 @@ export async function generatePDFFromElement(
       // Calculate dimensions
       const canvasAspectRatio = canvas.height / canvas.width
       const imgWidth = pdfWidth
-      const imgHeight = pdfWidth * canvasAspectRatio
+      let imgHeight = pdfWidth * canvasAspectRatio
 
       // Add new page if not first
       if (currentPage > 1) {
@@ -178,14 +221,13 @@ export async function generatePDFFromElement(
       // Convert canvas to image
       const imgData = canvas.toDataURL('image/jpeg', quality)
 
-      // Add image to PDF, fitting to page
+      // Add image to PDF, fitting to page height if needed
       if (imgHeight > pdfHeight) {
-        // Scale down to fit
-        const scaleFactor = pdfHeight / imgHeight
-        const scaledWidth = imgWidth * scaleFactor
-        const scaledHeight = pdfHeight
+        // Scale down to fit page
+        imgHeight = pdfHeight
+        const scaledWidth = imgHeight / canvasAspectRatio
         const xOffset = (pdfWidth - scaledWidth) / 2
-        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, scaledHeight)
+        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, imgHeight)
       } else {
         // Use full width, top-aligned
         pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight)
@@ -234,7 +276,6 @@ async function generatePDFFallback(
     
     const FIXED_PDF_WIDTH = 850
 
-    // Store original styles
     const originalStyles = {
       width: element.style.width,
       minWidth: element.style.minWidth,
@@ -242,7 +283,6 @@ async function generatePDFFallback(
       boxSizing: element.style.boxSizing
     }
 
-    // Force fixed width
     element.style.width = `${FIXED_PDF_WIDTH}px`
     element.style.minWidth = `${FIXED_PDF_WIDTH}px`
     element.style.maxWidth = `${FIXED_PDF_WIDTH}px`
@@ -251,7 +291,6 @@ async function generatePDFFallback(
     void element.offsetHeight
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // Capture
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
@@ -260,7 +299,6 @@ async function generatePDFFallback(
       backgroundColor: '#ffffff'
     })
 
-    // Restore styles
     element.style.width = originalStyles.width
     element.style.minWidth = originalStyles.minWidth
     element.style.maxWidth = originalStyles.maxWidth
@@ -268,7 +306,6 @@ async function generatePDFFallback(
 
     onProgress?.(60)
 
-    // Create PDF
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -286,7 +323,6 @@ async function generatePDFFallback(
 
     onProgress?.(80)
 
-    // Add pages
     let heightLeft = imgHeight
     let position = 0
 

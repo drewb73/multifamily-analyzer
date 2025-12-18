@@ -29,22 +29,14 @@ export const createDefaultSections = (
     },
     {
       id: 'income',
-      label: 'Income & Expense Statement',
-      description: 'Combined P&L with income, expenses, NOI, and cash flow',
+      label: 'P&L Statement',
+      description: 'Income, expenses, NOI, debt service, and cash flow',
       icon: '📊',
       required: false,
       enabled: true,
       estimatedPages: 0.75
     },
-    {
-      id: 'expenses',
-      label: 'Income & Expense Statement',
-      description: '(Combined with Income section - enable Income to show P&L)',
-      icon: '📊',
-      required: false,
-      enabled: false,
-      estimatedPages: 0
-    },
+    // NOTE: 'expenses' section removed - now combined with income as P&L
     {
       id: 'cashflow',
       label: 'Cash Flow Summary',
