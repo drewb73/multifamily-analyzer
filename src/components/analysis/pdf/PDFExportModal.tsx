@@ -168,6 +168,17 @@ export function PDFExportModal({
   }
 
   const handleGeneratePDF = async () => {
+    // On mobile, if preview isn't shown, show it first then generate
+    const isMobile = window.innerWidth < 1024 // lg breakpoint
+    
+    if (isMobile && !pdfState.showMobilePreview) {
+      // Show mobile preview first
+      setPDFState(prev => ({ ...prev, showMobilePreview: true }))
+      
+      // Wait for preview to render
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
     // Determine which ref to use based on what's actually visible
     let pdfElement: HTMLElement | null = null
     
