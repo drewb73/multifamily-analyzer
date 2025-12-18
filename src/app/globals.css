@@ -221,51 +221,73 @@
   box-sizing: border-box;
 }
 
-/* REDUCED FONT SIZES - Prevent overlap at 100% zoom */
-[data-pdf-content] h1 { font-size: 20px !important; }
-[data-pdf-content] h2 { font-size: 16px !important; }
-[data-pdf-content] h3 { font-size: 14px !important; }
-[data-pdf-content] h4 { font-size: 13px !important; }
+/* SMALLER FONT SIZES - Better fit and readability */
+[data-pdf-content] h1 { font-size: 16px !important; }
+[data-pdf-content] h2 { font-size: 14px !important; }
+[data-pdf-content] h3 { font-size: 12px !important; }
+[data-pdf-content] h4 { font-size: 11px !important; }
 
-/* Tailwind text classes - REDUCED */
+/* Tailwind text classes - SMALLER */
 [data-pdf-content] .text-5xl,
-[data-pdf-content] .text-4xl { font-size: 18px !important; }
-[data-pdf-content] .text-3xl { font-size: 16px !important; }
-[data-pdf-content] .text-2xl { font-size: 15px !important; }
-[data-pdf-content] .text-xl { font-size: 14px !important; }
-[data-pdf-content] .text-lg { font-size: 13px !important; }
-[data-pdf-content] .text-base { font-size: 12px !important; }
-[data-pdf-content] .text-sm { font-size: 11px !important; }
-[data-pdf-content] .text-xs { font-size: 10px !important; }
+[data-pdf-content] .text-4xl { font-size: 15px !important; }
+[data-pdf-content] .text-3xl { font-size: 14px !important; }
+[data-pdf-content] .text-2xl { font-size: 13px !important; }
+[data-pdf-content] .text-xl { font-size: 12px !important; }
+[data-pdf-content] .text-lg { font-size: 11px !important; }
+[data-pdf-content] .text-base { font-size: 10px !important; }
+[data-pdf-content] .text-sm { font-size: 9px !important; }
+[data-pdf-content] .text-xs { font-size: 8px !important; }
 
-/* All text elements */
+/* All text elements - SMALLER */
 [data-pdf-content] p,
 [data-pdf-content] span,
 [data-pdf-content] div,
 [data-pdf-content] td,
 [data-pdf-content] th,
 [data-pdf-content] label {
-  font-size: 11px !important;
-  line-height: 1.4 !important;
+  font-size: 9px !important;
+  line-height: 1.3 !important;
 }
 
-/* Tighter spacing */
-[data-pdf-content] .space-y-4 > * + * { margin-top: 6px !important; }
-[data-pdf-content] .space-y-6 > * + * { margin-top: 8px !important; }
-[data-pdf-content] .gap-4 { gap: 6px !important; }
-[data-pdf-content] .gap-6 { gap: 8px !important; }
+/* Tables - SMALLER */
+[data-pdf-content] table { font-size: 9px !important; }
+[data-pdf-content] th { font-size: 8px !important; padding: 3px !important; }
+[data-pdf-content] td { font-size: 9px !important; padding: 3px !important; }
 
-/* Sections */
+/* Tighter spacing to fit more content */
+[data-pdf-content] .space-y-4 > * + * { margin-top: 4px !important; }
+[data-pdf-content] .space-y-6 > * + * { margin-top: 6px !important; }
+[data-pdf-content] .space-y-8 > * + * { margin-top: 8px !important; }
+[data-pdf-content] .gap-4 { gap: 4px !important; }
+[data-pdf-content] .gap-6 { gap: 6px !important; }
+
+/* Section spacing - tighter */
 [data-pdf-content] section,
-[data-pdf-content] [class*="section"] {
-  padding: 10px !important;
-  margin-bottom: 10px !important;
+[data-pdf-content] [class*="section"],
+[data-pdf-content] .pdf-section {
+  padding: 8px !important;
+  margin-bottom: 8px !important;
 }
 
-/* Tables */
-[data-pdf-content] table { font-size: 10px !important; }
-[data-pdf-content] th { font-size: 9px !important; padding: 4px !important; }
-[data-pdf-content] td { font-size: 10px !important; padding: 4px !important; }
+/* Reduce padding in boxes and cards */
+[data-pdf-content] [class*="p-4"] { padding: 8px !important; }
+[data-pdf-content] [class*="p-6"] { padding: 10px !important; }
+[data-pdf-content] [class*="p-8"] { padding: 12px !important; }
+
+[data-pdf-content] [class*="py-4"] { padding-top: 6px !important; padding-bottom: 6px !important; }
+[data-pdf-content] [class*="py-6"] { padding-top: 8px !important; padding-bottom: 8px !important; }
+
+[data-pdf-content] [class*="px-4"] { padding-left: 8px !important; padding-right: 8px !important; }
+[data-pdf-content] [class*="px-6"] { padding-left: 10px !important; padding-right: 10px !important; }
+
+/* Reduce margins */
+[data-pdf-content] [class*="mb-4"] { margin-bottom: 6px !important; }
+[data-pdf-content] [class*="mb-6"] { margin-bottom: 8px !important; }
+[data-pdf-content] [class*="mb-8"] { margin-bottom: 10px !important; }
+
+[data-pdf-content] [class*="mt-4"] { margin-top: 6px !important; }
+[data-pdf-content] [class*="mt-6"] { margin-top: 8px !important; }
+[data-pdf-content] [class*="mt-8"] { margin-top: 10px !important; }
 
 /* Prevent overflow */
 [data-pdf-content] * {
@@ -298,10 +320,10 @@
 }
 
 /* ============================================
-   CONTROLLED PAGE BREAKS
+   PAGE BREAK CONTROLS
    ============================================ */
 
-/* PREVENT breaks inside sections */
+/* Prevent sections from breaking across pages */
 [data-pdf-content] section,
 [data-pdf-content] [class*="section"],
 [data-pdf-content] .pdf-section,
@@ -332,43 +354,6 @@
   page-break-inside: avoid !important;
 }
 
-/* FORCE page breaks BEFORE specific sections */
-
-/* Income & Expense Statement - Start new page */
-[data-pdf-content] [data-section-id="income-expense"] {
-  page-break-before: always !important;
-}
-
-/* Cash Flow Summary - Start new page */
-[data-pdf-content] [data-section-id="cashflow"] {
-  page-break-before: always !important;
-}
-
-/* Financing Details - Start new page */
-[data-pdf-content] [data-section-id="financing"] {
-  page-break-before: always !important;
-}
-
-/* KEEP TOGETHER on same page */
-
-/* Property Details + Key Metrics stay together (Page 1) */
-[data-pdf-content] [data-section-id="property"] {
-  page-break-after: avoid !important;
-}
-
-[data-pdf-content] [data-section-id="metrics"] {
-  page-break-before: avoid !important;
-}
-
-/* Cash Flow + Return Metrics try to stay together (Page 3) */
-[data-pdf-content] [data-section-id="cashflow"] {
-  page-break-after: avoid !important;
-}
-
-[data-pdf-content] [data-section-id="returns"] {
-  page-break-before: avoid !important;
-}
-
 /* Prevent orphaned headings */
 [data-pdf-content] h2,
 [data-pdf-content] h3 {
@@ -377,4 +362,11 @@
 
 [data-pdf-content] .border-b-2 {
   page-break-after: avoid !important;
+}
+
+/* Allow breaks between major sections */
+[data-pdf-content] section + section,
+[data-pdf-content] [class*="section"] + [class*="section"] {
+  page-break-before: auto !important;
+  margin-top: 12px !important;
 }

@@ -47,36 +47,29 @@ export function PDFFooter({
       }}
     >
       <div className="flex justify-between items-center text-sm">
-        {/* Left: Page Number */}
-        <div className="font-medium">
-          Page {pageNumber} of {totalPages}
-        </div>
-
-        {/* Center: Contact Info (if enabled) */}
+        {/* Left: Contact Info (if enabled) */}
         {showContact && contactFields.length > 0 ? (
-          <div className="text-center flex-1 mx-4">
-            <div className="flex items-center justify-center gap-2">
-              {contactInfo.showName && contactInfo.name && (
-                <span className="font-semibold">
-                  {contactInfo.name}
-                </span>
-              )}
-              {(contactInfo.showEmail || contactInfo.showPhone) && (
-                <span className="opacity-75">
-                  {[
-                    contactInfo.showEmail && contactInfo.email,
-                    contactInfo.showPhone && contactInfo.phone
-                  ].filter(Boolean).join(' • ')}
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            {contactInfo.showName && contactInfo.name && (
+              <span className="font-semibold">
+                {contactInfo.name}
+              </span>
+            )}
+            {(contactInfo.showEmail || contactInfo.showPhone) && (
+              <span className="opacity-75">
+                {[
+                  contactInfo.showEmail && contactInfo.email,
+                  contactInfo.showPhone && contactInfo.phone
+                ].filter(Boolean).join(' • ')}
+              </span>
+            )}
           </div>
         ) : (
-          <div className="flex-1" />
+          <div />
         )}
 
         {/* Right: Generated Date */}
-        <div className="opacity-90 text-right whitespace-nowrap">
+        <div className="opacity-90 text-right whitespace-nowrap ml-auto">
           {currentDate}
         </div>
       </div>
