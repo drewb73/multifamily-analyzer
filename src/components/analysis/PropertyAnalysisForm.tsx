@@ -7,11 +7,12 @@ import { PropertyDetailsForm } from './PropertyDetailsForm'
 import { UnitMixForm } from './UnitMixForm'
 import { IncomeExpenseForm } from './IncomeExpenseForm'
 import { AnalysisResults } from './AnalysisResults'
+import { SaveAnalysisModal, SaveOptions } from './SaveAnalysisModal'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { formatTimeAgo } from '@/lib/utils'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
-import { saveAnalysisToDatabase } from '@/lib/api/analyses'
+import { saveAnalysisToDatabase, updateAnalysis } from '@/lib/api/analyses'
 import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 
 interface PropertyAnalysisFormProps {
@@ -52,6 +53,8 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     income: [],
   })
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
+  const [pendingCalculation, setPendingCalculation] = useState<AnalysisResultsType | null>(null)
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
@@ -232,14 +235,59 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
       },
     }
 
-    console.log('✅ Calculated results, moving to step 4')
+    console.log('✅ Calculated results, opening save modal')
     
-    // Update local state
-    setResults(calculatedResults)
-    setCurrentStep(4)
+    // Store pending calculation and open modal
+    setPendingCalculation(calculatedResults)
+    setIsSaveModalOpen(true)
+  }
+
+  const handleSaveConfirm = async (saveOptions: SaveOptions) => {
+    if (!pendingCalculation) return
     
-    // Save with step 4
-    await saveDraft(formData, 4, calculatedResults)
+    try {
+      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      
+      if (isPremium) {
+        // Premium user - save to database
+        if (saveOptions.overrideExisting && saveOptions.existingAnalysisId) {
+          // Update existing analysis
+          await updateAnalysis(saveOptions.existingAnalysisId, {
+            name: saveOptions.propertyName,
+            data: formData as AnalysisInputs,
+            results: pendingCalculation,
+            groupId: saveOptions.groupId || undefined,
+          })
+          console.log('✅ Updated existing analysis in database')
+        } else {
+          // Create new analysis
+          await saveAnalysisToDatabase({
+            name: saveOptions.propertyName,
+            data: formData as AnalysisInputs,
+            results: pendingCalculation,
+            groupId: saveOptions.groupId || undefined,
+          })
+          console.log('✅ Saved new analysis to database')
+        }
+      } else {
+        // Trial/Free user - save to localStorage
+        await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
+        console.log('✅ Saved analysis to localStorage')
+      }
+
+      // Update local state and navigate to results
+      setResults(pendingCalculation)
+      setCurrentStep(4)
+      setIsSaveModalOpen(false)
+      setPendingCalculation(null)
+      
+      // Save current state
+      await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
+      
+    } catch (error) {
+      console.error('Save error:', error)
+      alert('❌ Error saving analysis. Please try again.')
+    }
   }
 
   const handleStartNewAnalysis = () => {
@@ -336,6 +384,18 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
 
   return (
     <div className="space-y-8">
+      {/* Save Analysis Modal */}
+      <SaveAnalysisModal
+        isOpen={isSaveModalOpen}
+        onClose={() => {
+          setIsSaveModalOpen(false)
+          setPendingCalculation(null)
+        }}
+        onConfirm={handleSaveConfirm}
+        propertyAddress={formData.property?.address || ''}
+        isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'}
+      />
+
       {/* Header with Save Status */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

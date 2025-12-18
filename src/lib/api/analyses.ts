@@ -76,7 +76,7 @@ export async function fetchAnalyses(params?: {
 }
 
 /**
- * Update analysis (name, group, favorite, archived)
+ * Update analysis (name, group, favorite, archived, data, results)
  */
 export async function updateAnalysis(
   id: string,
@@ -86,6 +86,8 @@ export async function updateAnalysis(
     notes?: string
     isFavorite?: boolean
     isArchived?: boolean
+    data?: AnalysisInputs
+    results?: any
   }
 ) {
   const response = await fetch(`/api/analyses/${id}`, {
