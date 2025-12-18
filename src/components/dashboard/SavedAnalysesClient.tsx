@@ -140,6 +140,19 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     }
   }, [searchQuery, loadAnalyses])
 
+  // Auto-refresh when user returns to page (e.g., from editing an analysis)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page visible - refreshing analyses')
+        loadAnalyses(searchQuery)
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loadAnalyses, searchQuery])
+
   const handleDelete = async (analysisId: string) => {
     if (!confirm('Are you sure you want to delete this analysis?')) {
       return

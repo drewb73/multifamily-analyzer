@@ -65,7 +65,12 @@ export async function fetchAnalyses(params?: {
     })
   }
 
-  const response = await fetch(`/api/analyses?${searchParams.toString()}`)
+  const response = await fetch(`/api/analyses?${searchParams.toString()}`, {
+    cache: 'no-store', // Disable caching to always get fresh data
+    headers: {
+      'Cache-Control': 'no-cache'
+    }
+  })
 
   if (!response.ok) {
     const error = await response.json()

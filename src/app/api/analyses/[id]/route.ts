@@ -92,7 +92,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, groupId, notes, isFavorite, isArchived } = body
+    const { name, groupId, notes, isFavorite, isArchived, data, results } = body
 
     // Update only allowed fields
     const updateData: any = {}
@@ -101,6 +101,8 @@ export async function PUT(
     if (notes !== undefined) updateData.notes = notes
     if (isFavorite !== undefined) updateData.isFavorite = isFavorite
     if (isArchived !== undefined) updateData.isArchived = isArchived
+    if (data !== undefined) updateData.data = data
+    if (results !== undefined) updateData.results = results
 
     const analysis = await prisma.propertyAnalysis.update({
       where: { id: params.id },
