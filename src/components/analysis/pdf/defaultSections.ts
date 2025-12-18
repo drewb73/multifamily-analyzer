@@ -29,21 +29,21 @@ export const createDefaultSections = (
     },
     {
       id: 'income',
-      label: 'Income Analysis',
-      description: 'Rental income breakdown, vacancy loss, and effective gross income',
-      icon: '💰',
+      label: 'Income & Expense Statement',
+      description: 'Combined P&L with income, expenses, NOI, and cash flow',
+      icon: '📊',
       required: false,
       enabled: true,
-      estimatedPages: 0.5
+      estimatedPages: 0.75
     },
     {
       id: 'expenses',
-      label: 'Expense Breakdown',
-      description: 'Operating expenses, taxes, insurance, and maintenance costs',
-      icon: '💸',
+      label: 'Income & Expense Statement',
+      description: '(Combined with Income section - enable Income to show P&L)',
+      icon: '📊',
       required: false,
-      enabled: true,
-      estimatedPages: 0.5
+      enabled: false,
+      estimatedPages: 0
     },
     {
       id: 'cashflow',

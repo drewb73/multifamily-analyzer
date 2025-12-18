@@ -6,13 +6,11 @@ import { PDFHeader } from './PDFHeader'
 import { PDFFooter } from './PDFFooter'
 import { PDFPropertyDetails } from './sections/PDFPropertyDetails'
 import { PDFKeyMetrics } from './sections/PDFKeyMetrics'
-import { PDFIncomeAnalysis } from './sections/PDFIncomeAnalysis'
-import { PDFExpenseBreakdown } from './sections/PDFExpenseBreakdown'
+import { PDFIncomeExpensePL } from './sections/PDFIncomeExpensePL'
 import { PDFCashFlowSummary } from './sections/PDFCashFlowSummary'
 import { PDFFinancingDetails } from './sections/PDFFinancingDetails'
 import { PDFReturnMetrics } from './sections/PDFReturnMetrics'
 import { PDFMarketAnalysis } from './sections/PDFMarketAnalysis'
-import { PDFIncomeExpensePL } from './sections/PDFIncomeExpensePL'
 
 interface PDFTemplatePreviewProps {
   propertyName: string
@@ -91,40 +89,43 @@ export function PDFTemplatePreview({
         )
 
       case 'income':
-        // Calculate income data
+      case 'expenses':
+        // Combined P&L Statement
         const otherIncome = inputs.income?.filter((inc: any) => !inc.isCalculated) || []
         const vacancyExpense = inputs.expenses?.find((exp: any) => 
           exp.name.toLowerCase().includes('vacancy')
         )
         const vacancyRate = vacancyExpense?.isPercentage ? vacancyExpense.amount : inputs.overallVacancyRate || 0
         
+        const monthlyRentalIncome = inputs.unitMix.reduce((sum: any, unit: any) => 
+          sum + (unit.currentRent * unit.count), 0
+        )
+
+        // Only render once - skip if expenses is enabled and income already rendered
+        const alreadyRendered = section.id === 'expenses' && 
+          enabledSections.some(s => s.id === 'income' && s.enabled)
+        
+        if (alreadyRendered) return null
+
         return (
-          <PDFIncomeAnalysis
-            key={section.id}
+          <PDFIncomeExpensePL
+            key="income-expense-pl"
             unitMix={inputs.unitMix}
             otherIncome={otherIncome}
             vacancyRate={vacancyRate}
             grossIncome={results.annualBreakdown.grossIncome}
             effectiveGrossIncome={results.annualBreakdown.grossIncome * (1 - vacancyRate / 100)}
-            accentColor={accentColor}
-          />
-        )
-
-      case 'expenses':
-        // Calculate monthly rental income for percentage-based expenses
-        const monthlyRentalIncome = inputs.unitMix.reduce((sum: any, unit: any) => 
-          sum + (unit.currentRent * unit.count), 0
-        )
-        return (
-          <PDFExpenseBreakdown
-            key={section.id}
             expenses={inputs.expenses}
             totalMonthlyExpenses={results.monthlyBreakdown.totalExpenses}
             totalAnnualExpenses={results.annualBreakdown.totalExpenses}
-            accentColor={accentColor}
             purchasePrice={inputs.property.purchasePrice}
             monthlyGrossIncome={results.monthlyBreakdown.grossIncome}
             monthlyRentalIncome={monthlyRentalIncome}
+            netOperatingIncome={results.annualBreakdown.netOperatingIncome}
+            debtService={results.annualBreakdown.debtService || 0}
+            cashFlow={results.annualBreakdown.cashFlow || 0}
+            isCashPurchase={inputs.property.isCashPurchase}
+            accentColor={accentColor}
           />
         )
 
