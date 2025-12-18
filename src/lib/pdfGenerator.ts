@@ -138,7 +138,7 @@ export async function generatePDFFromElement(
       currentPage++
       console.log(`Capturing page ${currentPage}/${totalPages}: ${group.join(', ')}`)
 
-      // Create temporary container - NO PADDING
+      // Create temporary container
       const pageContainer = document.createElement('div')
       pageContainer.style.cssText = `
         width: ${FIXED_WIDTH}px;
@@ -155,7 +155,7 @@ export async function generatePDFFromElement(
         flex-direction: column;
       `
 
-      // Add header ONLY on first page - components handle their own padding
+      // Add header ONLY on first page
       if (isFirstPage && header) {
         const headerClone = cloneWithStyles(header)
         headerClone.style.width = '100%'
@@ -182,7 +182,7 @@ export async function generatePDFFromElement(
 
       pageContainer.appendChild(contentWrapper)
 
-      // Add footer ONLY on last page - components handle their own padding
+      // Add footer ONLY on last page
       if (isLastPage && footer) {
         const footerClone = cloneWithStyles(footer)
         footerClone.style.width = '100%'
@@ -211,11 +211,6 @@ export async function generatePDFFromElement(
       // Remove temporary container
       document.body.removeChild(pageContainer)
 
-      // Calculate dimensions
-      const canvasAspectRatio = canvas.height / canvas.width
-      const imgWidth = pdfWidth
-      let imgHeight = pdfWidth * canvasAspectRatio
-
       // Add new page if not first
       if (currentPage > 1) {
         pdf.addPage()
@@ -224,17 +219,19 @@ export async function generatePDFFromElement(
       // Convert canvas to image
       const imgData = canvas.toDataURL('image/jpeg', quality)
 
-      // Add image to PDF, fitting to page height if needed
+      // REFINED: Stretch WIDTH to full page, maintain proper HEIGHT
+      const canvasAspectRatio = canvas.height / canvas.width
+      let imgHeight = pdfWidth * canvasAspectRatio
+      
+      // If height exceeds page, scale down to fit
       if (imgHeight > pdfHeight) {
-        // Scale down to fit page
         imgHeight = pdfHeight
-        const scaledWidth = imgHeight / canvasAspectRatio
-        const xOffset = (pdfWidth - scaledWidth) / 2
-        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, imgHeight)
-      } else {
-        // Use full width, top-aligned
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight)
       }
+      
+      // ALWAYS use full width for edge-to-edge horizontal coverage
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight)
+
+      console.log(`Page ${currentPage}: Image ${pdfWidth}mm x ${imgHeight}mm`)
 
       // Update progress
       const progress = 10 + (currentPage / totalPages) * 85
@@ -319,25 +316,19 @@ async function generatePDFFallback(
     const pdfWidth = 215.9
     const pdfHeight = 279.4
     const canvasAspectRatio = canvas.height / canvas.width
-    const imgWidth = pdfWidth
-    const imgHeight = pdfWidth * canvasAspectRatio
+    let imgHeight = pdfWidth * canvasAspectRatio
+
+    // Limit to page height if needed
+    if (imgHeight > pdfHeight) {
+      imgHeight = pdfHeight
+    }
 
     const imgData = canvas.toDataURL('image/jpeg', quality)
 
     onProgress?.(80)
 
-    let heightLeft = imgHeight
-    let position = 0
-
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pdfHeight
-
-    while (heightLeft > 0) {
-      position = -(imgHeight - heightLeft)
-      pdf.addPage()
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pdfHeight
-    }
+    // Full width, proper height
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight)
 
     onProgress?.(95)
     pdf.save(filename)

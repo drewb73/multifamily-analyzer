@@ -253,7 +253,7 @@ export function PDFTemplatePreview({
   }
 
   return (
-    <div className="pdf-template-preview bg-white shadow-xl rounded-lg overflow-hidden">
+    <div className="pdf-template-preview bg-white shadow-xl overflow-hidden" style={{ borderRadius: 0 }}>
       <PDFHeader
         propertyName={propertyName}
         contactInfo={contactInfo}
