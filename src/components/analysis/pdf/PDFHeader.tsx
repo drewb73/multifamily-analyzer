@@ -34,11 +34,11 @@ export function PDFHeader({
       style={{
         backgroundColor: colors.headerFooterBg,
         color: colors.headerFooterText,
-        padding: '20px 30px',
+        padding: '20px 0',
         borderBottom: `3px solid ${colors.accentColor}`
       }}
     >
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start px-[30px]">
         {/* Left: Property Name */}
         <div className="flex-1">
           <h1 className="text-xl font-bold mb-1">

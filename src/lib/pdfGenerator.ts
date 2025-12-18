@@ -86,7 +86,7 @@ export async function generatePDFFromElement(
     const pdfWidth = 215.9  // Letter width in mm
     const pdfHeight = 279.4 // Letter height in mm
     const FIXED_WIDTH = 850 // Fixed capture width
-    const PADDING = 24      // Padding in pixels
+    const CONTENT_PADDING = 24  // Padding only for content sections
     
     // Calculate target page height with extra space to prevent cutoff
     const TARGET_PAGE_HEIGHT_PX = Math.floor((pdfHeight / pdfWidth) * FIXED_WIDTH * 1.1) // 10% extra
@@ -101,7 +101,6 @@ export async function generatePDFFromElement(
       // Copy computed styles for elements with inline styles
       const copyStyles = (original: HTMLElement, cloned: HTMLElement) => {
         // Get all style properties
-        const computedStyle = window.getComputedStyle(original)
         const inlineStyles = original.style.cssText
         
         // If element has inline styles, preserve them
@@ -139,7 +138,7 @@ export async function generatePDFFromElement(
       currentPage++
       console.log(`Capturing page ${currentPage}/${totalPages}: ${group.join(', ')}`)
 
-      // Create temporary container
+      // Create temporary container - NO PADDING for full-width header/footer
       const pageContainer = document.createElement('div')
       pageContainer.style.cssText = `
         width: ${FIXED_WIDTH}px;
@@ -147,7 +146,7 @@ export async function generatePDFFromElement(
         max-width: ${FIXED_WIDTH}px;
         min-height: ${TARGET_PAGE_HEIGHT_PX}px;
         background-color: white;
-        padding: ${PADDING}px;
+        padding: 0;
         box-sizing: border-box;
         position: absolute;
         left: -9999px;
@@ -156,17 +155,22 @@ export async function generatePDFFromElement(
         flex-direction: column;
       `
 
-      // Content wrapper (will push footer to bottom)
-      const contentWrapper = document.createElement('div')
-      contentWrapper.style.cssText = 'flex: 1; display: flex; flex-direction: column;'
-
-      // Add header ONLY on first page
+      // Add header ONLY on first page - FULL WIDTH
       if (isFirstPage && header) {
         const headerClone = cloneWithStyles(header)
         headerClone.style.width = '100%'
-        headerClone.style.marginBottom = '20px'
-        contentWrapper.appendChild(headerClone)
+        headerClone.style.margin = '0'
+        pageContainer.appendChild(headerClone)
       }
+
+      // Content wrapper with padding (will push footer to bottom)
+      const contentWrapper = document.createElement('div')
+      contentWrapper.style.cssText = `
+        flex: 1; 
+        display: flex; 
+        flex-direction: column;
+        padding: ${CONTENT_PADDING}px;
+      `
 
       // Add sections
       sectionsInGroup.forEach((section, idx) => {
@@ -178,12 +182,11 @@ export async function generatePDFFromElement(
 
       pageContainer.appendChild(contentWrapper)
 
-      // Add footer ONLY on last page - positioned at bottom with preserved styles
+      // Add footer ONLY on last page - FULL WIDTH
       if (isLastPage && footer) {
         const footerClone = cloneWithStyles(footer)
         footerClone.style.width = '100%'
-        footerClone.style.marginTop = 'auto'
-        // Ensure footer styles are preserved
+        footerClone.style.margin = '0'
         footerClone.style.display = 'block'
         pageContainer.appendChild(footerClone)
       }

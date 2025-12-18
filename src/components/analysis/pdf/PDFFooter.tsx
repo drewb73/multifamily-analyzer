@@ -42,11 +42,11 @@ export function PDFFooter({
       style={{
         backgroundColor: colors.headerFooterBg,
         color: colors.headerFooterText,
-        padding: '15px 30px',
+        padding: '15px 0',
         borderTop: `3px solid ${colors.accentColor}`
       }}
     >
-      <div className="flex justify-between items-center text-sm">
+      <div className="flex justify-between items-center text-sm px-[30px]">
         {/* Left: Contact Info (if enabled) */}
         {showContact && contactFields.length > 0 ? (
           <div className="flex items-center gap-2">
