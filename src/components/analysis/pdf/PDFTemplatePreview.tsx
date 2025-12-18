@@ -43,27 +43,35 @@ export function PDFTemplatePreview({
   const showInFooter = contactInfo.position === 'footer' || contactInfo.position === 'both'
   const accentColor = blackAndWhite ? '#6B7280' : colors.accentColor
 
+  // Wrapper for page break control
+  const SectionWrapper = ({ children, id }: { children: React.ReactNode; id: string }) => (
+    <div data-section-id={id} className="pdf-section-wrapper">
+      {children}
+    </div>
+  )
+
   // Render section component based on ID
   const renderSection = (section: PDFSectionConfig) => {
     // If no data provided, show placeholder
     if (!inputs || !results) {
       return (
-        <div 
-          key={section.id}
-          className="border-l-4 pl-4 py-2"
-          style={{ borderColor: accentColor }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl">{section.icon}</span>
-            <h3 className="font-semibold text-neutral-900">{section.label}</h3>
-          </div>
-          <p className="text-sm text-neutral-600">{section.description}</p>
-          {includeCharts && section.id !== 'property' && (
-            <div className="mt-2 text-xs text-neutral-500 italic">
-              + Charts and graphs
+        <SectionWrapper key={section.id} id={section.id}>
+          <div 
+            className="border-l-4 pl-4 py-2"
+            style={{ borderColor: accentColor }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl">{section.icon}</span>
+              <h3 className="font-semibold text-neutral-900">{section.label}</h3>
             </div>
-          )}
-        </div>
+            <p className="text-sm text-neutral-600">{section.description}</p>
+            {includeCharts && section.id !== 'property' && (
+              <div className="mt-2 text-xs text-neutral-500 italic">
+                + Charts and graphs
+              </div>
+            )}
+          </div>
+        </SectionWrapper>
       )
     }
 
@@ -71,21 +79,23 @@ export function PDFTemplatePreview({
     switch (section.id) {
       case 'property':
         return (
-          <PDFPropertyDetails
-            key={section.id}
-            data={inputs.property}
-            accentColor={accentColor}
-          />
+          <SectionWrapper key={section.id} id="property">
+            <PDFPropertyDetails
+              data={inputs.property}
+              accentColor={accentColor}
+            />
+          </SectionWrapper>
         )
 
       case 'metrics':
         return (
-          <PDFKeyMetrics
-            key={section.id}
-            data={results.keyMetrics}
-            accentColor={accentColor}
-            isCashPurchase={inputs.property.isCashPurchase}
-          />
+          <SectionWrapper key={section.id} id="metrics">
+            <PDFKeyMetrics
+              data={results.keyMetrics}
+              accentColor={accentColor}
+              isCashPurchase={inputs.property.isCashPurchase}
+            />
+          </SectionWrapper>
         )
 
       case 'income':
@@ -108,46 +118,48 @@ export function PDFTemplatePreview({
         if (alreadyRendered) return null
 
         return (
-          <PDFIncomeExpensePL
-            key="income-expense-pl"
-            unitMix={inputs.unitMix}
-            otherIncome={otherIncome}
-            vacancyRate={vacancyRate}
-            grossIncome={results.annualBreakdown.grossIncome}
-            effectiveGrossIncome={results.annualBreakdown.grossIncome * (1 - vacancyRate / 100)}
-            expenses={inputs.expenses}
-            totalMonthlyExpenses={results.monthlyBreakdown.totalExpenses}
-            totalAnnualExpenses={results.annualBreakdown.totalExpenses}
-            purchasePrice={inputs.property.purchasePrice}
-            monthlyGrossIncome={results.monthlyBreakdown.grossIncome}
-            monthlyRentalIncome={monthlyRentalIncome}
-            netOperatingIncome={results.annualBreakdown.netOperatingIncome}
-            debtService={results.annualBreakdown.debtService || 0}
-            cashFlow={results.annualBreakdown.cashFlow || 0}
-            isCashPurchase={inputs.property.isCashPurchase}
-            accentColor={accentColor}
-          />
+          <SectionWrapper key="income-expense-pl" id="income-expense">
+            <PDFIncomeExpensePL
+              unitMix={inputs.unitMix}
+              otherIncome={otherIncome}
+              vacancyRate={vacancyRate}
+              grossIncome={results.annualBreakdown.grossIncome}
+              effectiveGrossIncome={results.annualBreakdown.grossIncome * (1 - vacancyRate / 100)}
+              expenses={inputs.expenses}
+              totalMonthlyExpenses={results.monthlyBreakdown.totalExpenses}
+              totalAnnualExpenses={results.annualBreakdown.totalExpenses}
+              purchasePrice={inputs.property.purchasePrice}
+              monthlyGrossIncome={results.monthlyBreakdown.grossIncome}
+              monthlyRentalIncome={monthlyRentalIncome}
+              netOperatingIncome={results.annualBreakdown.netOperatingIncome}
+              debtService={results.annualBreakdown.debtService || 0}
+              cashFlow={results.annualBreakdown.cashFlow || 0}
+              isCashPurchase={inputs.property.isCashPurchase}
+              accentColor={accentColor}
+            />
+          </SectionWrapper>
         )
 
       case 'cashflow':
         return (
-          <PDFCashFlowSummary
-            key={section.id}
-            data={{
-              monthlyGrossIncome: results.monthlyBreakdown.grossIncome,
-              monthlyExpenses: results.monthlyBreakdown.totalExpenses,
-              monthlyNOI: results.monthlyBreakdown.netOperatingIncome,
-              monthlyMortgage: results.monthlyBreakdown.mortgagePayment,
-              monthlyCashFlow: results.monthlyBreakdown.cashFlow,
-              annualGrossIncome: results.annualBreakdown.grossIncome,
-              annualExpenses: results.annualBreakdown.totalExpenses,
-              annualNOI: results.annualBreakdown.netOperatingIncome,
-              annualDebtService: results.annualBreakdown.debtService,
-              annualCashFlow: results.annualBreakdown.cashFlow
-            }}
-            accentColor={accentColor}
-            isCashPurchase={inputs.property.isCashPurchase}
-          />
+          <SectionWrapper key={section.id} id="cashflow">
+            <PDFCashFlowSummary
+              data={{
+                monthlyGrossIncome: results.monthlyBreakdown.grossIncome,
+                monthlyExpenses: results.monthlyBreakdown.totalExpenses,
+                monthlyNOI: results.monthlyBreakdown.netOperatingIncome,
+                monthlyMortgage: results.monthlyBreakdown.mortgagePayment,
+                monthlyCashFlow: results.monthlyBreakdown.cashFlow,
+                annualGrossIncome: results.annualBreakdown.grossIncome,
+                annualExpenses: results.annualBreakdown.totalExpenses,
+                annualNOI: results.annualBreakdown.netOperatingIncome,
+                annualDebtService: results.annualBreakdown.debtService,
+                annualCashFlow: results.annualBreakdown.cashFlow
+              }}
+              accentColor={accentColor}
+              isCashPurchase={inputs.property.isCashPurchase}
+            />
+          </SectionWrapper>
         )
 
       case 'financing':
@@ -161,37 +173,39 @@ export function PDFTemplatePreview({
         const totalInterest = (monthlyPayment * numPayments) - loanAmount
         
         return (
-          <PDFFinancingDetails
-            key={section.id}
-            data={{
-              purchasePrice: inputs.property.purchasePrice,
-              downPayment: inputs.property.downPayment,
-              loanAmount,
-              interestRate: inputs.property.interestRate,
-              loanTerm: inputs.property.loanTerm,
-              monthlyPayment,
-              totalInterest,
-              debtServiceCoverageRatio: results.keyMetrics.debtServiceCoverageRatio
-            }}
-            accentColor={accentColor}
-          />
+          <SectionWrapper key={section.id} id="financing">
+            <PDFFinancingDetails
+              data={{
+                purchasePrice: inputs.property.purchasePrice,
+                downPayment: inputs.property.downPayment,
+                loanAmount,
+                interestRate: inputs.property.interestRate,
+                loanTerm: inputs.property.loanTerm,
+                monthlyPayment,
+                totalInterest,
+                debtServiceCoverageRatio: results.keyMetrics.debtServiceCoverageRatio
+              }}
+              accentColor={accentColor}
+            />
+          </SectionWrapper>
         )
 
       case 'returns':
         return (
-          <PDFReturnMetrics
-            key={section.id}
-            data={{
-              capRate: results.keyMetrics.capRate,
-              cashOnCashReturn: results.keyMetrics.cashOnCashReturn,
-              annualCashFlow: results.keyMetrics.annualCashFlow,
-              totalInvestment: results.keyMetrics.totalInvestment,
-              netOperatingIncome: results.keyMetrics.netOperatingIncome,
-              purchasePrice: inputs.property.purchasePrice
-            }}
-            accentColor={accentColor}
-            isCashPurchase={inputs.property.isCashPurchase}
-          />
+          <SectionWrapper key={section.id} id="returns">
+            <PDFReturnMetrics
+              data={{
+                capRate: results.keyMetrics.capRate,
+                cashOnCashReturn: results.keyMetrics.cashOnCashReturn,
+                annualCashFlow: results.keyMetrics.annualCashFlow,
+                totalInvestment: results.keyMetrics.totalInvestment,
+                netOperatingIncome: results.keyMetrics.netOperatingIncome,
+                purchasePrice: inputs.property.purchasePrice
+              }}
+              accentColor={accentColor}
+              isCashPurchase={inputs.property.isCashPurchase}
+            />
+          </SectionWrapper>
         )
 
       case 'market':
@@ -203,32 +217,34 @@ export function PDFTemplatePreview({
         )
         
         return (
-          <PDFMarketAnalysis
-            key={section.id}
-            unitMix={inputs.unitMix}
-            currentGrossIncome={currentGrossIncome}
-            marketGrossIncome={marketGrossIncome}
-            accentColor={accentColor}
-          />
+          <SectionWrapper key={section.id} id="market">
+            <PDFMarketAnalysis
+              unitMix={inputs.unitMix}
+              currentGrossIncome={currentGrossIncome}
+              marketGrossIncome={marketGrossIncome}
+              accentColor={accentColor}
+            />
+          </SectionWrapper>
         )
 
       case 'sensitivity':
         // Coming soon placeholder
         return (
-          <div 
-            key={section.id}
-            className="border-l-4 pl-4 py-2 bg-yellow-50"
-            style={{ borderColor: accentColor }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">{section.icon}</span>
-              <h3 className="font-semibold text-neutral-900">{section.label}</h3>
-              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded">
-                Coming Soon
-              </span>
+          <SectionWrapper key={section.id} id="sensitivity">
+            <div 
+              className="border-l-4 pl-4 py-2 bg-yellow-50"
+              style={{ borderColor: accentColor }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">{section.icon}</span>
+                <h3 className="font-semibold text-neutral-900">{section.label}</h3>
+                <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded">
+                  Coming Soon
+                </span>
+              </div>
+              <p className="text-sm text-neutral-600">{section.description}</p>
             </div>
-            <p className="text-sm text-neutral-600">{section.description}</p>
-          </div>
+          </SectionWrapper>
         )
 
       default:
@@ -260,7 +276,8 @@ export function PDFTemplatePreview({
 
         {includeNotes && (
           <div 
-            className="border-l-4 pl-4 py-2"
+            data-section-id="notes"
+            className="pdf-section-wrapper border-l-4 pl-4 py-2"
             style={{ borderColor: accentColor }}
           >
             <div className="flex items-center gap-2 mb-1">

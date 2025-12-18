@@ -207,13 +207,8 @@
   display: none !important;
 }
 
-/* Add this to your global CSS or PDFTemplatePreview component styles */
-
-/* PDF Content Styling - Simplified */
-
 /* ============================================
-   PDF CONTENT CSS - FULL WIDTH VERSION
-   Replace the [data-pdf-content] section in globals.css
+   PDF CONTENT STYLES
    ============================================ */
 
 /* Full-width container for PDF content */
@@ -221,8 +216,8 @@
   background: white;
   padding: 24px;
   min-height: 100px;
-  width: 100%;       /* FULL WIDTH */
-  max-width: 100%;   /* NO CONSTRAINT */
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -279,8 +274,7 @@
 }
 
 /* ============================================
-   ADD THIS TO END OF YOUR PDF STYLES IN globals.css
-   Fixes header/footer position and page breaks
+   HEADER & FOOTER POSITIONING
    ============================================ */
 
 /* Header positioning - always at top */
@@ -303,21 +297,22 @@
   page-break-before: avoid !important;
 }
 
-/* Prevent sections from breaking across pages */
+/* ============================================
+   CONTROLLED PAGE BREAKS
+   ============================================ */
+
+/* PREVENT breaks inside sections */
 [data-pdf-content] section,
-[data-pdf-content] [class*="section"] {
+[data-pdf-content] [class*="section"],
+[data-pdf-content] .pdf-section,
+[data-pdf-content] .pdf-section-wrapper {
   page-break-inside: avoid !important;
   break-inside: avoid !important;
 }
 
-/* Keep metric cards together */
+/* Keep metric cards and tables together */
 [data-pdf-content] [class*="metric"],
-[data-pdf-content] [class*="card"] {
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-/* Keep tables together */
+[data-pdf-content] [class*="card"],
 [data-pdf-content] table {
   page-break-inside: avoid !important;
   break-inside: avoid !important;
@@ -337,9 +332,49 @@
   page-break-inside: avoid !important;
 }
 
-/* Allow breaks between major sections (good spacing) */
-[data-pdf-content] section + section,
-[data-pdf-content] [class*="section"] + [class*="section"] {
-  page-break-before: auto !important;
-  margin-top: 16px !important;
+/* FORCE page breaks BEFORE specific sections */
+
+/* Income & Expense Statement - Start new page */
+[data-pdf-content] [data-section-id="income-expense"] {
+  page-break-before: always !important;
+}
+
+/* Cash Flow Summary - Start new page */
+[data-pdf-content] [data-section-id="cashflow"] {
+  page-break-before: always !important;
+}
+
+/* Financing Details - Start new page */
+[data-pdf-content] [data-section-id="financing"] {
+  page-break-before: always !important;
+}
+
+/* KEEP TOGETHER on same page */
+
+/* Property Details + Key Metrics stay together (Page 1) */
+[data-pdf-content] [data-section-id="property"] {
+  page-break-after: avoid !important;
+}
+
+[data-pdf-content] [data-section-id="metrics"] {
+  page-break-before: avoid !important;
+}
+
+/* Cash Flow + Return Metrics try to stay together (Page 3) */
+[data-pdf-content] [data-section-id="cashflow"] {
+  page-break-after: avoid !important;
+}
+
+[data-pdf-content] [data-section-id="returns"] {
+  page-break-before: avoid !important;
+}
+
+/* Prevent orphaned headings */
+[data-pdf-content] h2,
+[data-pdf-content] h3 {
+  page-break-after: avoid !important;
+}
+
+[data-pdf-content] .border-b-2 {
+  page-break-after: avoid !important;
 }
