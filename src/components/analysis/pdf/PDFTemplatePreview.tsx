@@ -12,6 +12,7 @@ import { PDFCashFlowSummary } from './sections/PDFCashFlowSummary'
 import { PDFFinancingDetails } from './sections/PDFFinancingDetails'
 import { PDFReturnMetrics } from './sections/PDFReturnMetrics'
 import { PDFMarketAnalysis } from './sections/PDFMarketAnalysis'
+import { PDFIncomeExpensePL } from './sections/PDFIncomeExpensePL'
 
 interface PDFTemplatePreviewProps {
   propertyName: string
