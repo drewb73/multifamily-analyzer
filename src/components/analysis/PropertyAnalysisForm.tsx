@@ -295,7 +295,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
             results: pendingCalculation,
-            groupId: saveOptions.groupId || undefined,
+            groupId: saveOptions.groupId, // Pass null explicitly to clear group
           })
           console.log('✅ Updated existing analysis in database')
         } else {
@@ -304,7 +304,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
             results: pendingCalculation,
-            groupId: saveOptions.groupId || undefined,
+            groupId: saveOptions.groupId, // Pass null explicitly for no group
           })
           console.log('✅ Saved new analysis to database')
         }
