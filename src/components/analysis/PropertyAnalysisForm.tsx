@@ -10,10 +10,8 @@ import { AnalysisResults } from './AnalysisResults'
 import { SaveAnalysisModal, SaveOptions } from './SaveAnalysisModal'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
-import { formatTimeAgo } from '@/lib/utils'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
 import { saveAnalysisToDatabase, updateAnalysis, getAnalysis } from '@/lib/api/analyses'
-import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 
 interface PropertyAnalysisFormProps {
   draftId?: string
@@ -340,79 +338,6 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     setHasLoadedInitialDraft(true) // Mark as loaded since we have a new draft
   }
 
-  const handleSaveAnalysis = async () => {
-    try {
-      // Determine if user is Premium (can save to database)
-      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
-      
-      if (isPremium && results) {
-        // Premium user - save to database
-        try {
-          const analysisName = `Analysis ${new Date().toLocaleDateString()}`
-          
-          const savedAnalysis = await saveAnalysisToDatabase({
-            name: analysisName,
-            data: formData as AnalysisInputs,
-            results: results,
-            notes: undefined,
-          })
-          
-          console.log('✅ Saved to database:', savedAnalysis)
-          alert('✅ Analysis saved to your account!')
-        } catch (dbError: any) {
-          console.error('Database save error:', dbError)
-          // Fallback to localStorage if database fails
-          await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
-          alert('⚠️ Saved locally (database error). Your analysis is still accessible.')
-        }
-      } else {
-        // Trial/Free user - save to localStorage only
-        await saveDraft(formData, currentStep, results, `Saved Analysis ${new Date().toLocaleDateString()}`)
-        alert('✅ Analysis saved locally!')
-      }
-    } catch (error) {
-      console.error('Save error:', error)
-      alert('❌ Error saving analysis. Please try again.')
-    }
-  }
-
-  // Save status indicator
-  const SaveStatusIndicator = () => {
-    if (saveStatus === 'saving') {
-      return (
-        <div className="flex items-center gap-2 text-primary-600">
-          <Clock className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Saving...</span>
-        </div>
-      )
-    }
-    
-    if (saveStatus === 'saved' && lastSaved) {
-      return (
-        <div className="flex items-center gap-2 text-success-600">
-          <Check className="w-4 h-4" />
-          <span className="text-sm">Saved {formatTimeAgo(lastSaved)}</span>
-        </div>
-      )
-    }
-    
-    if (saveStatus === 'error') {
-      return (
-        <div className="flex items-center gap-2 text-error-600">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-sm">Save failed</span>
-        </div>
-      )
-    }
-    
-    return (
-      <div className="flex items-center gap-2 text-warning-600">
-        <Save className="w-4 h-4" />
-        <span className="text-sm">Unsaved changes</span>
-      </div>
-    )
-  }
-
   // Show loading state while fetching analysis from database or initial draft loads
   if (isLoadingAnalysis || (!hasLoadedInitialDraft && !draftId)) {
     return (
@@ -439,7 +364,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
         isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'}
       />
 
-      {/* Header with Save Status */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-neutral-900">
@@ -448,16 +373,6 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
           {draft?.name && (
             <p className="text-neutral-600 mt-1">{draft.name}</p>
           )}
-        </div>
-        <div className="flex items-center gap-4">
-          <SaveStatusIndicator />
-          <button
-            onClick={handleSaveAnalysis}
-            disabled={isSaving}
-            className={`btn-secondary text-sm px-4 py-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isSaving ? 'Saving...' : '💾 Save Now'}
-          </button>
         </div>
       </div>
 

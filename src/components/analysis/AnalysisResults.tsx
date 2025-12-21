@@ -179,14 +179,6 @@ export function AnalysisResults({
     setShowPDFModal(true)
   }
 
-  const handleViewSavedDrafts = () => {
-    if (isPremiumUser) {
-      window.location.href = '/drafts'
-    } else {
-      alert('⭐ Upgrade to Premium to save and view your property analyses!\n\nClick "Upgrade Account" in the top right corner.')
-    }
-  }
-
   return (
     <div className="space-y-8" id="analysis-results">
       <div className="text-center">
@@ -652,18 +644,6 @@ export function AnalysisResults({
               {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
             </>
           )}
-        </Button>
-        
-        <Button 
-          variant="secondary"
-          onClick={handleViewSavedDrafts}
-          disabled={!isPremiumUser}
-          className={`px-8 py-3 ${!isPremiumUser ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={!isPremiumUser ? 'Upgrade to Premium to view saved analyses' : 'View your saved property analyses'}
-        >
-          {!isPremiumUser && <Lock className="w-4 h-4 mr-2" />}
-          View Saved Drafts
-          {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
         </Button>
       </div>
       {/* PDF Export Modal */}
