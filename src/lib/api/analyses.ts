@@ -131,7 +131,12 @@ export async function deleteAnalysis(id: string) {
  * Get single analysis
  */
 export async function getAnalysis(id: string) {
-  const response = await fetch(`/api/analyses/${id}`)
+  const response = await fetch(`/api/analyses/${id}`, {
+    cache: 'no-store', // Always get fresh data
+    headers: {
+      'Cache-Control': 'no-cache'
+    }
+  })
 
   if (!response.ok) {
     const error = await response.json()

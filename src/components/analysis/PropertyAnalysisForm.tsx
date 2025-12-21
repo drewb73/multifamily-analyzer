@@ -12,7 +12,7 @@ import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { formatTimeAgo } from '@/lib/utils'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
-import { saveAnalysisToDatabase, updateAnalysis } from '@/lib/api/analyses'
+import { saveAnalysisToDatabase, updateAnalysis, getAnalysis } from '@/lib/api/analyses'
 import { Save, Check, AlertCircle, Clock } from 'lucide-react'
 
 interface PropertyAnalysisFormProps {
@@ -68,29 +68,66 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
 
   // Load draft data ONCE when component mounts or when draft changes
   useEffect(() => {
-    if (draft && !hasLoadedInitialDraft) {
-      console.log('📥 Loading draft from storage:', { 
-        step: draft.step, 
-        hasResults: !!draft.results,
-        dataPresent: !!draft.data?.property?.address 
-      })
+    const loadAnalysisData = async () => {
+      // If we have a draftId and user is Premium, fetch from database first
+      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
       
-      // Only update local state if draft has data
-      if (draft.data && Object.keys(draft.data).length > 0) {
-        setFormData(draft.data)
+      if (draftId && isPremium && !hasLoadedInitialDraft) {
+        try {
+          console.log('🔍 Fetching analysis from database:', draftId)
+          const { analysis } = await getAnalysis(draftId)
+          
+          if (analysis) {
+            console.log('✅ Loaded analysis from database:', analysis.name)
+            
+            // Load the database analysis into form
+            if (analysis.data) {
+              setFormData(analysis.data)
+            }
+            
+            if (analysis.results) {
+              setResults(analysis.results)
+              setCurrentStep(4) // Go to results if we have them
+            } else {
+              setCurrentStep(1) // Start at beginning if no results
+            }
+            
+            setHasLoadedInitialDraft(true)
+            return // Exit early, we loaded from database
+          }
+        } catch (error) {
+          console.error('Failed to load analysis from database:', error)
+          // Fall through to localStorage loading
+        }
       }
       
-      if (draft.step && draft.step !== currentStep) {
-        setCurrentStep(draft.step)
+      // Fallback to localStorage draft (for non-premium or if database fetch failed)
+      if (draft && !hasLoadedInitialDraft) {
+        console.log('📥 Loading draft from storage:', { 
+          step: draft.step, 
+          hasResults: !!draft.results,
+          dataPresent: !!draft.data?.property?.address 
+        })
+        
+        // Only update local state if draft has data
+        if (draft.data && Object.keys(draft.data).length > 0) {
+          setFormData(draft.data)
+        }
+        
+        if (draft.step && draft.step !== currentStep) {
+          setCurrentStep(draft.step)
+        }
+        
+        if (draft.results) {
+          setResults(draft.results)
+        }
+        
+        setHasLoadedInitialDraft(true)
       }
-      
-      if (draft.results) {
-        setResults(draft.results)
-      }
-      
-      setHasLoadedInitialDraft(true)
     }
-  }, [draft, hasLoadedInitialDraft, currentStep])
+    
+    loadAnalysisData()
+  }, [draft, hasLoadedInitialDraft, currentStep, draftId, userSubscriptionStatus])
 
   // Auto-save when form data changes (with debouncing built into the hook)
   useEffect(() => {
