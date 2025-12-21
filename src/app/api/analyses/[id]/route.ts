@@ -102,7 +102,20 @@ export async function PUT(
     if (isFavorite !== undefined) updateData.isFavorite = isFavorite
     if (isArchived !== undefined) updateData.isArchived = isArchived
     if (data !== undefined) updateData.data = data
-    if (results !== undefined) updateData.results = results
+    if (results !== undefined) {
+      updateData.results = results
+      
+      // CRITICAL: Extract denormalized fields from results for filtering/searching
+      if (results.keyMetrics) {
+        updateData.capRate = results.keyMetrics.capRate
+        updateData.cashFlow = results.keyMetrics.annualCashFlow
+        updateData.cashOnCashReturn = results.keyMetrics.cashOnCashReturn
+        updateData.grossRentMultiplier = results.keyMetrics.grossRentMultiplier
+        updateData.netOperatingIncome = results.keyMetrics.netOperatingIncome
+        updateData.totalInvestment = results.keyMetrics.totalInvestment
+        updateData.debtServiceCoverage = results.keyMetrics.debtServiceCoverageRatio
+      }
+    }
 
     const analysis = await prisma.propertyAnalysis.update({
       where: { id: params.id },
