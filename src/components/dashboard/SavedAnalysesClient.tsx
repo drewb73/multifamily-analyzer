@@ -2,9 +2,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components'
 import { FileText, Trash2, Calendar } from 'lucide-react'
-import { formatCurrency, formatTimeAgo, getStorageItem, STORAGE_KEYS } from '@/lib/utils'
+import { formatCurrency, formatTimeAgo, getStorageItem, setStorageItem, STORAGE_KEYS } from '@/lib/utils'
 import { fetchAnalyses, deleteAnalysis as deleteAnalysisAPI } from '@/lib/api/analyses'
 import { Group } from '@/lib/api/groups'
 import { GroupSidebar } from './GroupSidebar'
@@ -20,6 +21,10 @@ interface SavedAnalysesClientProps {
 }
 
 export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesClientProps) {
+  // Get userId from Clerk for user-scoped storage
+  const { user } = useUser()
+  const userId = user?.id
+  
   const [analyses, setAnalyses] = useState<any[]>([])
   const [allAnalysesCount, setAllAnalysesCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -72,7 +77,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         }
       } else {
         // Trial/Free user - load from localStorage and filter locally
-        const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+        const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
         let completedAnalyses = savedAnalyses.filter(analysis => analysis.results)
         
         // Apply local search filter
@@ -171,9 +176,10 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         }
       } else {
         // Trial/Free user - delete from localStorage
-        const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+        const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
         const updatedAnalyses = savedAnalyses.filter(a => a.id !== analysisId)
-        localStorage.setItem(STORAGE_KEYS.DRAFTS, JSON.stringify(updatedAnalyses))
+        // Use setStorageItem instead of direct localStorage for user scoping
+        setStorageItem(STORAGE_KEYS.DRAFTS, updatedAnalyses, userId)
         setAnalyses(updatedAnalyses.filter(analysis => analysis.results))
       }
     } catch (error) {

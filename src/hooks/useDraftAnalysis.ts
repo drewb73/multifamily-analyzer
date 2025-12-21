@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { AnalysisInputs, DraftAnalysis, SaveStatus } from '@/types'
 import { 
   getStorageItem, 
@@ -51,6 +52,10 @@ export function useDraftAnalysis({
   analysisId, 
   initialStep = 1 
 }: UseDraftAnalysisProps = {}): UseDraftAnalysisReturn {
+  // Get userId from Clerk for user-scoped storage
+  const { user, isLoaded } = useUser()
+  const userId = user?.id
+  
   // State
   const [draft, setDraft] = useState<DraftAnalysis | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('unsaved')
@@ -72,13 +77,6 @@ export function useDraftAnalysis({
       }
     }
   }, [])
-
-  // Load draft on mount or when analysisId changes
-  useEffect(() => {
-    if (isMountedRef.current) {
-      loadDraft()
-    }
-  }, [analysisId])
 
   // Helper: Check if data has actually changed
   const hasDataChanged = useCallback((newData: any, oldData: any): boolean => {
@@ -124,7 +122,7 @@ export function useDraftAnalysis({
   // Load a specific draft or the current one
   const loadDraft = useCallback((specificDraftId?: string) => {
     try {
-      const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+      const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
       let draftToLoad: DraftAnalysis | null = null
       
       if (specificDraftId) {
@@ -132,7 +130,7 @@ export function useDraftAnalysis({
         draftToLoad = drafts.find(d => d.id === specificDraftId) || null
       } else {
         // Load current draft
-        draftToLoad = getStorageItem<DraftAnalysis | null>(STORAGE_KEYS.CURRENT_ANALYSIS, null)
+        draftToLoad = getStorageItem<DraftAnalysis | null>(STORAGE_KEYS.CURRENT_ANALYSIS, null, userId)
       }
 
       if (draftToLoad) {
@@ -144,7 +142,7 @@ export function useDraftAnalysis({
         // No current draft, create a new one
         const newDraft = createDefaultDraft()
         setDraft(newDraft)
-        setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft)
+        setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft, userId)
         setSaveStatus('saved')
         lastSaveDataRef.current = JSON.stringify(newDraft.data)
       }
@@ -152,7 +150,28 @@ export function useDraftAnalysis({
       console.error('Error loading draft:', error)
       setSaveStatus('error')
     }
-  }, [createDefaultDraft])
+  }, [createDefaultDraft, userId])
+
+  // Load draft on mount or when analysisId/userId changes
+  // IMPORTANT: Wait for Clerk to load before accessing storage
+  useEffect(() => {
+    if (!isLoaded) {
+      // Clear state while Clerk is loading to prevent showing wrong user's data
+      setDraft(null)
+      setSaveStatus('unsaved')
+      setLastSaved(null)
+      lastSaveDataRef.current = ''
+      return
+    }
+
+    if (isMountedRef.current) {
+      // Clear any existing draft first when userId changes
+      setDraft(null)
+      
+      // Then load the correct draft for current user
+      loadDraft()
+    }
+  }, [analysisId, userId, isLoaded, loadDraft])
 
   // Save draft with debouncing
   const saveDraft = useCallback(async (
@@ -207,10 +226,10 @@ export function useDraftAnalysis({
       }
 
       // Save to localStorage
-      setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft)
+      setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft, userId)
       
       // Update drafts list
-      const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+      const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
       const draftIndex = drafts.findIndex(d => d.id === draftId)
       
       if (draftIndex >= 0) {
@@ -223,7 +242,7 @@ export function useDraftAnalysis({
         }
       }
       
-      setStorageItem(STORAGE_KEYS.DRAFTS, drafts)
+      setStorageItem(STORAGE_KEYS.DRAFTS, drafts, userId)
       
       // Update state
       setDraft(newDraft)
@@ -280,15 +299,15 @@ export function useDraftAnalysis({
     const newDraft = createDefaultDraft()
     
     // Save to localStorage
-    setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft)
+    setStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, newDraft, userId)
     
     // Add to drafts list
-    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
     drafts.unshift(newDraft)
     if (drafts.length > MAX_DRAFTS) {
       drafts.pop()
     }
-    setStorageItem(STORAGE_KEYS.DRAFTS, drafts)
+    setStorageItem(STORAGE_KEYS.DRAFTS, drafts, userId)
     
     // Update state
     setDraft(newDraft)
@@ -297,27 +316,27 @@ export function useDraftAnalysis({
     lastSaveDataRef.current = JSON.stringify(newDraft.data)
     
     return newDraft
-  }, [createDefaultDraft])
+  }, [createDefaultDraft, userId])
 
   // Delete a draft
   const deleteDraft = useCallback((draftId: string): void => {
-    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
     const updatedDrafts = drafts.filter(d => d.id !== draftId)
-    setStorageItem(STORAGE_KEYS.DRAFTS, updatedDrafts)
+    setStorageItem(STORAGE_KEYS.DRAFTS, updatedDrafts, userId)
     
     // If deleting current draft, clear it
     if (draft?.id === draftId) {
       setDraft(null)
-      removeStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS)
+      removeStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, userId)
       setSaveStatus('unsaved')
       setLastSaved(null)
       lastSaveDataRef.current = ''
     }
-  }, [draft])
+  }, [draft, userId])
 
   // Rename a draft
   const renameDraft = useCallback((draftId: string, newName: string): void => {
-    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
+    const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
     const draftIndex = drafts.findIndex(d => d.id === draftId)
     
     if (draftIndex >= 0) {
@@ -328,7 +347,7 @@ export function useDraftAnalysis({
       }
       
       drafts[draftIndex] = updatedDraft
-      setStorageItem(STORAGE_KEYS.DRAFTS, drafts)
+      setStorageItem(STORAGE_KEYS.DRAFTS, drafts, userId)
       
       // Update current draft if it's the one being renamed
       if (draft?.id === draftId) {
@@ -336,21 +355,21 @@ export function useDraftAnalysis({
         setLastSaved(updatedDraft.lastModified)
       }
     }
-  }, [draft])
+  }, [draft, userId])
 
   // Clear current draft
   const clearCurrentDraft = useCallback((): void => {
     setDraft(null)
-    removeStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS)
+    removeStorageItem(STORAGE_KEYS.CURRENT_ANALYSIS, userId)
     setSaveStatus('unsaved')
     setLastSaved(null)
     lastSaveDataRef.current = ''
-  }, [])
+  }, [userId])
 
   // Get all drafts
   const getAllDrafts = useCallback((): DraftAnalysis[] => {
-    return getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [])
-  }, [])
+    return getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
+  }, [userId])
 
   return {
     draft,
