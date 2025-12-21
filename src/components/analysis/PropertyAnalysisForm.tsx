@@ -55,6 +55,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
   const [pendingCalculation, setPendingCalculation] = useState<AnalysisResultsType | null>(null)
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false)
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
@@ -73,6 +74,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
       
       if (draftId && isPremium && !hasLoadedInitialDraft) {
+        setIsLoadingAnalysis(true) // Show loading screen
         try {
           console.log('🔍 Fetching analysis from database:', draftId)
           const { analysis } = await getAnalysis(draftId)
@@ -93,10 +95,12 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             }
             
             setHasLoadedInitialDraft(true)
+            setIsLoadingAnalysis(false) // Hide loading screen
             return // Exit early, we loaded from database
           }
         } catch (error) {
           console.error('Failed to load analysis from database:', error)
+          setIsLoadingAnalysis(false) // Hide loading screen on error
           // Fall through to localStorage loading
         }
       }
@@ -409,12 +413,14 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     )
   }
 
-  // Show loading state while initial draft loads
-  if (!hasLoadedInitialDraft && !draftId) {
+  // Show loading state while fetching analysis from database or initial draft loads
+  if (isLoadingAnalysis || (!hasLoadedInitialDraft && !draftId)) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-        <p className="mt-4 text-neutral-600">Preparing analysis tool...</p>
+        <p className="mt-4 text-neutral-600">
+          {isLoadingAnalysis ? 'Loading analysis...' : 'Preparing analysis tool...'}
+        </p>
       </div>
     )
   }
