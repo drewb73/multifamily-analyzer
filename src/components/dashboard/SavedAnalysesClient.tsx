@@ -27,6 +27,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   
   const [analyses, setAnalyses] = useState<any[]>([])
   const [allAnalysesCount, setAllAnalysesCount] = useState(0)
+  const [ungroupedCount, setUngroupedCount] = useState(0)  // NEW: Track ungrouped count
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -77,15 +78,38 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         const response = await fetchAnalyses(fetchParams)
         setAnalyses(response.analyses || [])
         
-        // Also fetch total count for "All Analyses" display
-        if (selectedGroupId) {
-          const allResponse = await fetchAnalyses({
-            isArchived: false,
-            search: search || undefined,
-          })
+        // Fetch total count and ungrouped count (with same search filter)
+        const countsParams: any = {
+          isArchived: false,
+          search: search || undefined,
+        }
+        
+        if (selectedGroupId && selectedGroupId !== 'no-group') {
+          // When a specific group is selected, fetch total count separately
+          const allResponse = await fetchAnalyses(countsParams)
           setAllAnalysesCount(allResponse.total || 0)
+          
+          // Also fetch ungrouped count with same filters
+          const ungroupedResponse = await fetchAnalyses({
+            ...countsParams,
+            onlyUngrouped: true,
+          })
+          setUngroupedCount(ungroupedResponse.total || 0)
+        } else if (selectedGroupId === 'no-group') {
+          // When "No Group" is selected
+          const allResponse = await fetchAnalyses(countsParams)
+          setAllAnalysesCount(allResponse.total || 0)
+          setUngroupedCount(response.total || 0)  // Current response IS the ungrouped count
         } else {
+          // When "All Analyses" is selected
           setAllAnalysesCount(response.total || 0)
+          
+          // Fetch ungrouped count with same filters
+          const ungroupedResponse = await fetchAnalyses({
+            ...countsParams,
+            onlyUngrouped: true,
+          })
+          setUngroupedCount(ungroupedResponse.total || 0)
         }
       } else {
         // Trial/Free user - load from localStorage and filter locally
@@ -270,6 +294,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
             selectedGroupId={selectedGroupId}
             onGroupSelect={setSelectedGroupId}
             totalAnalysesCount={allAnalysesCount}
+            ungroupedCount={ungroupedCount}
+            searchQuery={searchQuery}
             onCreateGroup={handleCreateGroup}
             onEditGroup={handleEditGroup}
           />

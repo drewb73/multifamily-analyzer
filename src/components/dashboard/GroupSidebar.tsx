@@ -10,8 +10,10 @@ interface GroupSidebarProps {
   selectedGroupId: string | null
   onGroupSelect: (groupId: string | null) => void
   totalAnalysesCount: number
+  ungroupedCount: number  // NEW: Pass actual ungrouped count from parent
   onCreateGroup: () => void
   onEditGroup: (group: Group) => void
+  searchQuery?: string  // NEW: To know when to refresh filtered counts
 }
 
 export interface GroupSidebarRef {
@@ -24,8 +26,10 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
       selectedGroupId,
       onGroupSelect,
       totalAnalysesCount,
+      ungroupedCount,
       onCreateGroup,
       onEditGroup,
+      searchQuery,
     },
     ref
   ) {
@@ -186,8 +190,7 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
                 : 'bg-neutral-100 text-neutral-600'
               }
             `}>
-              {/* Count will be passed from parent - for now show 0 */}
-              {totalAnalysesCount - groups.reduce((sum, g) => sum + (g.analysisCount || 0), 0)}
+              {ungroupedCount}
             </span>
           </button>
 
