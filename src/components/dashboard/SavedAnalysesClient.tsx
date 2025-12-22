@@ -56,13 +56,25 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     try {
       if (isPremium) {
         // Premium user - fetch from database with group filter, search, AND sort
-        const response = await fetchAnalyses({
+        // Handle special "no-group" filter
+        const fetchParams: any = {
           isArchived: false,
           sortBy: sortOption.sortBy,
           sortOrder: sortOption.sortOrder,
-          groupId: selectedGroupId || undefined,
           search: search || undefined,
-        })
+        }
+        
+        // Add group filter based on selection
+        if (selectedGroupId === 'no-group') {
+          // Special case: show only ungrouped analyses
+          fetchParams.onlyUngrouped = true
+        } else if (selectedGroupId) {
+          // Specific group selected
+          fetchParams.groupId = selectedGroupId
+        }
+        // else: no groupId = show all
+        
+        const response = await fetchAnalyses(fetchParams)
         setAnalyses(response.analyses || [])
         
         // Also fetch total count for "All Analyses" display

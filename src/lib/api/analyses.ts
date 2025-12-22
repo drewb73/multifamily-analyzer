@@ -38,7 +38,7 @@ export async function saveAnalysisToDatabase(params: SaveAnalysisParams) {
  */
 export async function fetchAnalyses(params?: {
   search?: string
-  groupId?: string
+  groupId?: string | null
   zipCode?: string
   city?: string
   state?: string
@@ -54,6 +54,7 @@ export async function fetchAnalyses(params?: {
   sortOrder?: 'asc' | 'desc'
   page?: number
   limit?: number
+  onlyUngrouped?: boolean
 }) {
   const searchParams = new URLSearchParams()
   

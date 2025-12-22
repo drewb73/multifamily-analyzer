@@ -118,6 +118,19 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
           <h2 className="text-lg font-semibold text-neutral-900">Groups</h2>
         </div>
 
+        {/* Create Group Button - MOVED TO TOP */}
+        <div className="p-2 border-b border-neutral-200">
+          <button
+            onClick={onCreateGroup}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 
+                     bg-primary-600 text-white rounded-lg hover:bg-primary-700 
+                     transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            New Group
+          </button>
+        </div>
+
         {/* Groups List */}
         <div className="flex-1 overflow-y-auto p-2">
           {/* All Analyses */}
@@ -144,6 +157,37 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
               }
             `}>
               {totalAnalysesCount}
+            </span>
+          </button>
+
+          {/* Divider */}
+          <div className="my-2 border-t border-neutral-200" />
+
+          {/* No Group - Ungrouped analyses */}
+          <button
+            onClick={() => onGroupSelect('no-group')}
+            className={`
+              w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm
+              transition-colors mb-1
+              ${selectedGroupId === 'no-group'
+                ? 'bg-primary-50 text-primary-700 font-medium'
+                : 'text-neutral-700 hover:bg-neutral-50'
+              }
+            `}
+          >
+            <div className="flex items-center gap-2">
+              <Folder className="w-4 h-4 text-neutral-400" />
+              <span>No Group</span>
+            </div>
+            <span className={`
+              text-xs px-2 py-0.5 rounded-full
+              ${selectedGroupId === 'no-group'
+                ? 'bg-primary-100 text-primary-700'
+                : 'bg-neutral-100 text-neutral-600'
+              }
+            `}>
+              {/* Count will be passed from parent - for now show 0 */}
+              {totalAnalysesCount - groups.reduce((sum, g) => sum + (g.analysisCount || 0), 0)}
             </span>
           </button>
 
@@ -250,19 +294,6 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
               </p>
             </div>
           )}
-        </div>
-
-        {/* Create Group Button */}
-        <div className="p-4 border-t border-neutral-200">
-          <button
-            onClick={onCreateGroup}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 
-                     bg-primary-600 text-white rounded-lg hover:bg-primary-700 
-                     transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            New Group
-          </button>
         </div>
       </div>
     )

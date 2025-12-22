@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('search') || ''
     const groupId = searchParams.get('groupId')
+    const onlyUngrouped = searchParams.get('onlyUngrouped') === 'true'
     const zipCode = searchParams.get('zipCode')
     const city = searchParams.get('city')
     const state = searchParams.get('state')
@@ -59,7 +60,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Specific filters (these work with search)
-    if (groupId) where.groupId = groupId
+    // Special handling for "No Group" filter
+    if (onlyUngrouped) {
+      where.groupId = null  // Only analyses with no group
+    } else if (groupId) {
+      where.groupId = groupId
+    }
     if (zipCode && !search) where.zipCode = zipCode
     if (city && !search) where.city = { contains: city, mode: 'insensitive' }
     if (state && !search) where.state = state
