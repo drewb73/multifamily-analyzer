@@ -10,6 +10,7 @@ import { fetchAnalyses, deleteAnalysis as deleteAnalysisAPI } from '@/lib/api/an
 import { Group } from '@/lib/api/groups'
 import { GroupSidebar } from './GroupSidebar'
 import { CreateGroupModal } from './CreateGroupModal'
+import { DeleteConfirmModal } from './DeleteConfirmModal'
 import { GroupDropdown } from './GroupDropdown'
 import { SearchBar } from './SearchBar'
 import { SortDropdown, SortOption } from './SortDropdown'
@@ -27,10 +28,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   
   const [analyses, setAnalyses] = useState<any[]>([])
   const [allAnalysesCount, setAllAnalysesCount] = useState(0)
-  const [ungroupedCount, setUngroupedCount] = useState(0)  // NEW: Track ungrouped count
+  const [ungroupedCount, setUngroupedCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [showOverlay, setShowOverlay] = useState(true)  // NEW: Separate display state with delay
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)  // NEW: Track if we've loaded at least once
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,65 +44,18 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [analysisToDelete, setAnalysisToDelete] = useState<{ id: string; address?: string } | null>(null)
+  
   const sidebarRef = useRef<any>(null)
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
-  const overlayTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const overlayStartTimeRef = useRef<number | null>(null)
-  const isLoadingRef = useRef<boolean>(false)  // Track if already loading
 
   // Check if user is premium (can access database)
   const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
 
-  // Manage loading overlay with minimum display duration
-  useEffect(() => {
-    if (isLoading) {
-      // Loading started - show overlay immediately
-      overlayStartTimeRef.current = Date.now()
-      setShowOverlay(true)
-      
-      // Clear any pending timer
-      if (overlayTimerRef.current) {
-        clearTimeout(overlayTimerRef.current)
-        overlayTimerRef.current = null
-      }
-    } else {
-      // Loading finished - ensure minimum display time of 200ms
-      if (overlayStartTimeRef.current) {
-        const elapsed = Date.now() - overlayStartTimeRef.current
-        const minDisplayTime = 200 // milliseconds - reduced for faster transitions
-        
-        if (elapsed < minDisplayTime) {
-          // Keep showing for remaining time
-          overlayTimerRef.current = setTimeout(() => {
-            setShowOverlay(false)
-            overlayTimerRef.current = null
-          }, minDisplayTime - elapsed)
-        } else {
-          // Already shown long enough
-          setShowOverlay(false)
-        }
-      } else {
-        // No start time recorded, hide immediately
-        setShowOverlay(false)
-      }
-    }
-    
-    // Cleanup timer on unmount
-    return () => {
-      if (overlayTimerRef.current) {
-        clearTimeout(overlayTimerRef.current)
-      }
-    }
-  }, [isLoading])
-
   // Debounced load function
   const loadAnalyses = useCallback(async (search: string) => {
-    // Prevent concurrent loads
-    if (isLoadingRef.current) {
-      return
-    }
-    
-    isLoadingRef.current = true
     setIsLoading(true)
     setError(null)
     
@@ -128,63 +80,42 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         }
         // else: no groupId = show all
         
-        // Fetch total count and ungrouped count params
+        const response = await fetchAnalyses(fetchParams)
+        setAnalyses(response.analyses || [])
+        
+        // Fetch total count and ungrouped count (with same search filter)
         const countsParams: any = {
           isArchived: false,
           search: search || undefined,
         }
         
-        // Batch ALL API calls together to prevent multiple renders
-        let analysesPromise = fetchAnalyses(fetchParams)
-        let allCountPromise: Promise<any>
-        let ungroupedCountPromise: Promise<any>
-        
         if (selectedGroupId && selectedGroupId !== 'no-group') {
-          // When a specific group is selected
-          allCountPromise = fetchAnalyses(countsParams)
-          ungroupedCountPromise = fetchAnalyses({
+          // When a specific group is selected, fetch total count separately
+          const allResponse = await fetchAnalyses(countsParams)
+          setAllAnalysesCount(allResponse.total || 0)
+          
+          // Also fetch ungrouped count with same filters
+          const ungroupedResponse = await fetchAnalyses({
             ...countsParams,
             onlyUngrouped: true,
           })
+          setUngroupedCount(ungroupedResponse.total || 0)
         } else if (selectedGroupId === 'no-group') {
           // When "No Group" is selected
-          allCountPromise = fetchAnalyses(countsParams)
-          ungroupedCountPromise = analysesPromise  // Reuse the same promise
+          const allResponse = await fetchAnalyses(countsParams)
+          setAllAnalysesCount(allResponse.total || 0)
+          setUngroupedCount(response.total || 0)  // Current response IS the ungrouped count
         } else {
           // When "All Analyses" is selected
-          allCountPromise = analysesPromise  // Reuse the same promise
-          ungroupedCountPromise = fetchAnalyses({
+          setAllAnalysesCount(response.total || 0)
+          
+          // Fetch ungrouped count with same filters
+          const ungroupedResponse = await fetchAnalyses({
             ...countsParams,
             onlyUngrouped: true,
           })
+          setUngroupedCount(ungroupedResponse.total || 0)
         }
-        
-        // Wait for ALL promises to complete before updating state
-        const [analysesResponse, allCountResponse, ungroupedCountResponse] = await Promise.all([
-          analysesPromise,
-          allCountPromise,
-          ungroupedCountPromise,
-        ])
-        
-        // Update all state at once - single render!
-        // Do this BEFORE setting isLoading to false to prevent flash
-        setAnalyses(analysesResponse.analyses || [])
-        
-        if (selectedGroupId && selectedGroupId !== 'no-group') {
-          setAllAnalysesCount(allCountResponse.total || 0)
-          setUngroupedCount(ungroupedCountResponse.total || 0)
-        } else if (selectedGroupId === 'no-group') {
-          setAllAnalysesCount(allCountResponse.total || 0)
-          setUngroupedCount(analysesResponse.total || 0)
-        } else {
-          setAllAnalysesCount(analysesResponse.total || 0)
-          setUngroupedCount(ungroupedCountResponse.total || 0)
-        }
-        
-        // Set loading to false LAST, after all data is updated
-        isLoadingRef.current = false
-        setIsLoading(false)
-        setHasLoadedOnce(true)  // Mark that we've loaded at least once
       } else {
         // Trial/Free user - load from localStorage and filter locally
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
@@ -221,18 +152,14 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         
         setAnalyses(completedAnalyses)
         setAllAnalysesCount(completedAnalyses.length)
-        setUngroupedCount(completedAnalyses.length)
-        isLoadingRef.current = false
-        setIsLoading(false)
-        setHasLoadedOnce(true)  // Mark that we've loaded at least once
+        setUngroupedCount(completedAnalyses.length)  // For free users, all are ungrouped
       }
     } catch (err: any) {
       console.error('Error loading analyses:', err)
       setError(err.message || 'Failed to load analyses')
-      isLoadingRef.current = false
+    } finally {
       setIsLoading(false)
     }
-    // Remove finally block - we set isLoading(false) explicitly in each path
   }, [isPremium, selectedGroupId, sortOption])
 
   // Initial load and when group or sort changes
@@ -240,7 +167,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     loadAnalyses(searchQuery)
   }, [isPremium, selectedGroupId, sortOption])
 
-  // Debounce search input - only trigger when searchQuery changes
+  // Debounce search input
   useEffect(() => {
     // Clear existing timer
     if (searchDebounceRef.current) {
@@ -258,12 +185,13 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         clearTimeout(searchDebounceRef.current)
       }
     }
-  }, [searchQuery])  // Only run when searchQuery changes
+  }, [searchQuery, loadAnalyses])
 
   // Auto-refresh when user returns to page (e.g., from editing an analysis)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
+        console.log('Page visible - refreshing analyses')
         loadAnalyses(searchQuery)
       }
     }
@@ -272,16 +200,19 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [loadAnalyses, searchQuery])
 
-  const handleDelete = async (analysisId: string) => {
-    if (!confirm('Are you sure you want to delete this analysis?')) {
-      return
-    }
+  const handleDeleteClick = (analysisId: string, propertyAddress?: string) => {
+    setAnalysisToDelete({ id: analysisId, address: propertyAddress })
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!analysisToDelete) return
 
     try {
       if (isPremium) {
         // Premium user - delete from database
-        await deleteAnalysisAPI(analysisId)
-        setAnalyses(prev => prev.filter(a => a.id !== analysisId))
+        await deleteAnalysisAPI(analysisToDelete.id)
+        setAnalyses(prev => prev.filter(a => a.id !== analysisToDelete.id))
         // Refresh to update counts
         loadAnalyses(searchQuery)
         // Refresh sidebar to update group counts
@@ -291,11 +222,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
       } else {
         // Trial/Free user - delete from localStorage
         const savedAnalyses = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
-        const updatedAnalyses = savedAnalyses.filter(a => a.id !== analysisId)
-        // Use setStorageItem instead of direct localStorage for user scoping
+        const updatedAnalyses = savedAnalyses.filter(a => a.id !== analysisToDelete.id)
         setStorageItem(STORAGE_KEYS.DRAFTS, updatedAnalyses, userId)
         setAnalyses(updatedAnalyses.filter(analysis => analysis.results))
       }
+      
+      setAnalysisToDelete(null)
     } catch (error) {
       console.error('Error deleting analysis:', error)
       alert('Failed to delete analysis. Please try again.')
@@ -338,9 +270,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
     setSortOption(option)
   }
 
-  // Only show this loading card on INITIAL load (before first data fetch completes)
-  // For subsequent loads (group switches), use the overlay instead
-  if (isLoading && !analyses.length && !hasLoadedOnce) {
+  if (isLoading && !analyses.length) {
     return (
       <div className="elevated-card p-12 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
@@ -366,18 +296,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
 
   return (
     <>
-      {/* Loading Overlay - Shows during group/filter switches with minimum display time */}
-      {showOverlay && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-            <p className="text-neutral-600 font-medium">Loading analyses...</p>
-          </div>
-        </div>
-      )}
-      
-      {!showOverlay && (
-        <div className="flex h-full">
+      <div className="flex h-full">
         {/* Group Sidebar */}
         {isPremium && (
           <GroupSidebar
@@ -440,6 +359,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
               {/* Analysis count */}
               <div className="flex justify-between items-center">
                 <p className="text-sm text-neutral-600">
+                  {isLoading && <span className="text-neutral-400">Loading... </span>}
                   {analyses.length} {analyses.length === 1 ? 'analysis' : 'analyses'}
                   {selectedGroupId && ' in this group'}
                   {searchQuery && ` matching "${searchQuery}"`}
@@ -553,7 +473,10 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                               View Details
                             </Link>
                             <button
-                              onClick={() => handleDelete(analysis.id)}
+                              onClick={() => handleDeleteClick(
+                                analysis.id, 
+                                property.address || `${property.city}, ${property.state}`
+                              )}
                               className="btn-secondary px-4 py-2 text-sm flex items-center justify-center gap-2 whitespace-nowrap text-error-600 hover:bg-error-50 flex-1 lg:flex-initial"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -570,7 +493,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           )}
         </div>
       </div>
-      )}
 
       <CreateGroupModal
         isOpen={isModalOpen}
@@ -580,6 +502,16 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         }}
         onSuccess={handleModalSuccess}
         editGroup={editingGroup}
+      />
+      
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false)
+          setAnalysisToDelete(null)
+        }}
+        onConfirm={handleDeleteConfirm}
+        propertyAddress={analysisToDelete?.address}
       />
     </>
   )
