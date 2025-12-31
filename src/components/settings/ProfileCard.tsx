@@ -2,8 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { User } from 'lucide-react'
-import { useUser } from '@clerk/nextjs'
+import { User, AlertCircle, Loader2 } from 'lucide-react'
 
 interface ProfileData {
   displayName: string
@@ -17,19 +16,21 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ initialData, onSave }: ProfileCardProps) {
-  const { user } = useUser()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState<ProfileData>(initialData)
+  const [error, setError] = useState<string | null>(null)
   
   const handleSave = async () => {
     setIsSaving(true)
+    setError(null)
+    
     try {
       await onSave(formData)
       setIsEditing(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save profile:', error)
-      alert('Failed to save changes. Please try again.')
+      setError(error.errors?.[0]?.message || 'Failed to save changes. Please try again.')
     } finally {
       setIsSaving(false)
     }
@@ -38,6 +39,7 @@ export function ProfileCard({ initialData, onSave }: ProfileCardProps) {
   const handleCancel = () => {
     setFormData(initialData)
     setIsEditing(false)
+    setError(null)
   }
   
   return (
@@ -60,6 +62,13 @@ export function ProfileCard({ initialData, onSave }: ProfileCardProps) {
       </div>
       
       <div className="space-y-4">
+        {error && (
+          <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-error-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-error-700">{error}</p>
+          </div>
+        )}
+        
         {/* Display Name */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
@@ -78,27 +87,12 @@ export function ProfileCard({ initialData, onSave }: ProfileCardProps) {
           )}
         </div>
         
-        {/* Email */}
+        {/* Email - Read Only */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
             Email Address
           </label>
-          {isEditing ? (
-            <div>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="your@email.com"
-              />
-              <p className="text-xs text-neutral-500 mt-1">
-                Changing your email will require verification
-              </p>
-            </div>
-          ) : (
-            <div className="text-neutral-900">{formData.email}</div>
-          )}
+          <div className="text-neutral-900">{formData.email}</div>
         </div>
         
         {/* Company */}
@@ -134,7 +128,14 @@ export function ProfileCard({ initialData, onSave }: ProfileCardProps) {
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSaving}
             >
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : (
+                'Save Changes'
+              )}
             </button>
           </div>
         )}

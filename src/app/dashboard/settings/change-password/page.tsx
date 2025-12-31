@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { Lock, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ArrowLeft } from 'lucide-react'
+import { Lock as LockIcon, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ChangePasswordPage() {
@@ -14,7 +14,6 @@ export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
@@ -127,33 +126,25 @@ export default function ChangePasswordPage() {
                 </div>
               )}
 
-              {/* Current Password */}
+              {/* Current Password - NO EYE BUTTON */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Current Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                  <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
-                    type={showCurrentPassword ? 'text' : 'password'}
+                    type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter current password"
                     required
-                    className="w-full pl-10 pr-12 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                  >
-                    {showCurrentPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
                 </div>
+                <p className="text-xs text-neutral-500 mt-1">
+                  For security, current password cannot be shown
+                </p>
               </div>
 
               {/* New Password */}
@@ -162,7 +153,7 @@ export default function ChangePasswordPage() {
                   New Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                  <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
@@ -194,7 +185,7 @@ export default function ChangePasswordPage() {
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                  <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
