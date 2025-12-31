@@ -18,8 +18,11 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showResetForm, setShowResetForm] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
-  const [resetCodeSent, setResetCodeSent] = useState(false)
-  const [resetCode, setResetCode] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  
+  // Code + password entry state
+  const [showCodeEntry, setShowCodeEntry] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [resetSuccess, setResetSuccess] = useState(false)
@@ -59,44 +62,6 @@ export default function SignInPage() {
     }
   }
 
-  const handleSendResetCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!isLoaded) return
-    
-    setIsLoading(true)
-    setError('')
-
-    try {
-      // Create a sign-in with the email
-      await signIn.create({
-        identifier: resetEmail,
-      })
-      
-      // Get the first factor (should be reset_password_email_code)
-      const firstFactor = signIn.supportedFirstFactors?.find(
-        (factor) => factor.strategy === 'reset_password_email_code'
-      )
-      
-      if (!firstFactor || firstFactor.strategy !== 'reset_password_email_code') {
-        throw new Error('Password reset not available')
-      }
-      
-      // Send the reset code
-      await signIn.prepareFirstFactor({
-        strategy: 'reset_password_email_code',
-        emailAddressId: firstFactor.emailAddressId,
-      })
-      
-      setResetCodeSent(true)
-    } catch (err: any) {
-      console.error('Reset code error:', err)
-      setError(err.errors?.[0]?.message || 'Failed to send reset code.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -106,38 +71,84 @@ export default function SignInPage() {
     setError('')
 
     try {
-      // Attempt to reset password with the code
+      const si = await signIn.create({
+        identifier: resetEmail,
+      })
+      
+      // This will send the reset email with verification code
+      await si.prepareFirstFactor({
+        strategy: 'reset_password_email_code',
+        emailAddressId: si.supportedFirstFactors?.find(
+          (factor) => factor.strategy === 'reset_password_email_code'
+        )?.emailAddressId || '',
+      })
+      
+      // Move to code entry screen
+      setShowCodeEntry(true)
+      setResetSent(false)
+    } catch (err: any) {
+      console.error('Reset password error:', err)
+      
+      // Handle email not found error
+      if (err.errors?.[0]?.code === 'form_identifier_not_found') {
+        setError('No account found with this email address. Please check and try again.')
+        setResetEmail('') // Clear the form
+      } else if (err.errors?.[0]?.message) {
+        setError(err.errors[0].message)
+      } else {
+        setError('Failed to send verification code. Please try again.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const handleResetWithCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!isLoaded) return
+    
+    setIsLoading(true)
+    setError('')
+
+    try {
+      // Reset password using the code
       const result = await signIn.attemptFirstFactor({
         strategy: 'reset_password_email_code',
-        code: resetCode,
+        code: verificationCode,
         password: newPassword,
       })
 
       if (result.status === 'complete') {
+        // Show success and auto sign-in
         setResetSuccess(true)
         
-        // Sign in automatically after 2 seconds
-        setTimeout(async () => {
-          await setActive({ session: result.createdSessionId })
+        // Sign in automatically
+        await setActive({ session: result.createdSessionId })
+        
+        // Redirect after a short delay
+        setTimeout(() => {
           router.push('/dashboard')
         }, 2000)
       }
     } catch (err: any) {
-      console.error('Reset password error:', err)
+      console.error('Reset with code error:', err)
       
       if (err.errors?.[0]?.code === 'form_code_incorrect') {
         setError('Incorrect verification code. Please try again.')
+      } else if (err.errors?.[0]?.code === 'form_password_pwned') {
+        setError('This password has been found in a data breach. Please choose a different password.')
       } else if (err.errors?.[0]?.message) {
         setError(err.errors[0].message)
       } else {
-        setError('Failed to reset password. Please try again.')
+        setError('Password reset failed. Please try again.')
       }
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Password reset success screen
+  // Success screen after reset
   if (resetSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
@@ -152,17 +163,15 @@ export default function SignInPage() {
             <p className="text-neutral-600 mb-4">
               Your password has been updated. Signing you in...
             </p>
-            <div className="flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
-            </div>
+            <Loader2 className="w-6 h-6 animate-spin text-primary-600 mx-auto" />
           </div>
         </div>
       </div>
     )
   }
 
-  // Password reset with code form
-  if (resetCodeSent) {
+  // Code + password entry screen
+  if (showCodeEntry) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
         <div className="w-full max-w-md">
@@ -172,13 +181,13 @@ export default function SignInPage() {
               Reset Your Password
             </h1>
             <p className="text-neutral-600">
-              Enter the code sent to <span className="font-medium">{resetEmail}</span>
+              Enter the code sent to {resetEmail}
             </p>
           </div>
 
-          {/* Reset Form */}
+          {/* Code Entry Form */}
           <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
-            <form onSubmit={handleResetPassword} className="space-y-4">
+            <form onSubmit={handleResetWithCode} className="space-y-4">
               {error && (
                 <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
@@ -192,13 +201,17 @@ export default function SignInPage() {
                 </label>
                 <input
                   type="text"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="Enter 6-digit code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
                   required
                   maxLength={6}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center text-2xl tracking-widest"
+                  autoFocus
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center text-xl tracking-widest font-mono"
                 />
+                <p className="text-xs text-neutral-500 mt-1">
+                  Enter the 6-digit code from your email
+                </p>
               </div>
 
               <div>
@@ -211,8 +224,9 @@ export default function SignInPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder="••••••••"
                     required
+                    minLength={8}
                     className="w-full pl-10 pr-12 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                   <button
@@ -228,13 +242,13 @@ export default function SignInPage() {
                   </button>
                 </div>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Must be at least 8 characters long
+                  Must be at least 8 characters
                 </p>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || verificationCode.length !== 6 || newPassword.length < 8}
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
                 {isLoading ? (
@@ -250,8 +264,8 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setResetCodeSent(false)
-                  setResetCode('')
+                  setShowCodeEntry(false)
+                  setVerificationCode('')
                   setNewPassword('')
                   setError('')
                 }}
@@ -266,7 +280,7 @@ export default function SignInPage() {
     )
   }
 
-  // Send reset code form
+  // Email entry for reset
   if (showResetForm) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
@@ -283,7 +297,7 @@ export default function SignInPage() {
 
           {/* Reset Form */}
           <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
-            <form onSubmit={handleSendResetCode} className="space-y-4">
+            <form onSubmit={handleResetPassword} className="space-y-4">
               {error && (
                 <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
@@ -316,7 +330,7 @@ export default function SignInPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Sending Code...
+                    Sending...
                   </>
                 ) : (
                   'Send Verification Code'
@@ -340,6 +354,7 @@ export default function SignInPage() {
     )
   }
 
+  // Main sign-in form
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
       <div className="w-full max-w-md">
