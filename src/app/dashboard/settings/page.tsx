@@ -1,6 +1,110 @@
-import { User, Shield, Bell, CreditCard } from 'lucide-react'
+// src/app/dashboard/settings/page.tsx
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useUser } from '@clerk/nextjs'
+import { ProfileCard } from '@/components/settings/ProfileCard'
+import { AccountCard } from '@/components/settings/AccountCard'
+import { SecurityCard } from '@/components/settings/SecurityCard'
+import { BillingCard } from '@/components/settings/BillingCard'
+import { SubscriptionStatus } from '@/lib/subscription'
 
 export default function SettingsPage() {
+  const { user } = useUser()
+  const [isLoading, setIsLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState({
+    displayName: '',
+    email: '',
+    company: ''
+  })
+  const [subscriptionData, setSubscriptionData] = useState<{
+    status: SubscriptionStatus
+    trialEndsAt: Date | null
+    subscriptionDate: Date | null
+  }>({
+    status: 'free',
+    trialEndsAt: null,
+    subscriptionDate: null
+  })
+  const [billingHistory, setBillingHistory] = useState<any[]>([])
+  
+  // Load user data
+  useEffect(() => {
+    async function loadUserData() {
+      if (!user) return
+      
+      try {
+        // Fetch user profile from MongoDB
+        const response = await fetch('/api/user/profile')
+        if (response.ok) {
+          const data = await response.json()
+          setUserProfile({
+            displayName: data.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            email: data.email || user.emailAddresses[0]?.emailAddress || '',
+            company: data.company || ''
+          })
+          
+          // Set subscription data
+          setSubscriptionData({
+            status: data.subscriptionStatus || 'free',
+            trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
+            subscriptionDate: data.subscriptionDate ? new Date(data.subscriptionDate) : null
+          })
+          
+          // Set billing history (will be populated after Stripe integration)
+          setBillingHistory(data.billingHistory || [])
+        } else {
+          // Fallback to Clerk data if profile doesn't exist yet
+          setUserProfile({
+            displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            email: user.emailAddresses[0]?.emailAddress || '',
+            company: ''
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadUserData()
+  }, [user])
+  
+  // Save profile changes
+  const handleSaveProfile = async (data: typeof userProfile) => {
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save profile')
+      }
+      
+      const updated = await response.json()
+      setUserProfile(data)
+      
+      // If email changed, might need to trigger verification
+      if (data.email !== userProfile.email) {
+        alert('Email updated! Please check your inbox to verify your new email address.')
+      }
+    } catch (error) {
+      console.error('Failed to save profile:', error)
+      throw error
+    }
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+  
   return (
     <div>
       <div className="mb-8">
@@ -13,98 +117,27 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Account Settings */}
-        <div className="elevated-card p-6">
-          <div className="flex items-center mb-6">
-            <User className="h-6 w-6 text-primary-600 mr-3" />
-            <h2 className="text-xl font-semibold text-neutral-800">
-              Account Information
-            </h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm text-neutral-500">Account Type</div>
-              <div className="font-medium text-neutral-900">Free Trial</div>
-            </div>
-            <div>
-              <div className="text-sm text-neutral-500">Trial Expires</div>
-              <div className="font-medium text-neutral-900">72 hours remaining</div>
-            </div>
-            <button className="btn-primary w-full py-3">
-              Upgrade to Premium
-            </button>
-          </div>
-        </div>
+        {/* Account Information */}
+        <AccountCard
+          subscriptionStatus={subscriptionData.status}
+          trialEndsAt={subscriptionData.trialEndsAt}
+        />
+        
+        {/* Profile */}
+        <ProfileCard
+          initialData={userProfile}
+          onSave={handleSaveProfile}
+        />
 
         {/* Security */}
-        <div className="elevated-card p-6">
-          <div className="flex items-center mb-6">
-            <Shield className="h-6 w-6 text-secondary-600 mr-3" />
-            <h2 className="text-xl font-semibold text-neutral-800">
-              Security
-            </h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm text-neutral-500">Password</div>
-              <div className="font-medium text-neutral-900">••••••••••</div>
-            </div>
-            <button className="btn-secondary w-full py-3">
-              Change Password
-            </button>
-          </div>
-        </div>
-
-        {/* Notifications */}
-        <div className="elevated-card p-6">
-          <div className="flex items-center mb-6">
-            <Bell className="h-6 w-6 text-accent-600 mr-3" />
-            <h2 className="text-xl font-semibold text-neutral-800">
-              Notifications
-            </h2>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-700">Email notifications</span>
-              <div className="relative inline-block w-12 h-6">
-                <input type="checkbox" className="sr-only" />
-                <div className="block bg-neutral-300 w-12 h-6 rounded-full"></div>
-                <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-700">Analysis reminders</span>
-              <div className="relative inline-block w-12 h-6">
-                <input type="checkbox" className="sr-only" checked />
-                <div className="block bg-primary-600 w-12 h-6 rounded-full"></div>
-                <div className="dot absolute right-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <SecurityCard />
+        
         {/* Billing */}
-        <div className="elevated-card p-6">
-          <div className="flex items-center mb-6">
-            <CreditCard className="h-6 w-6 text-success-600 mr-3" />
-            <h2 className="text-xl font-semibold text-neutral-800">
-              Billing
-            </h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm text-neutral-500">Current Plan</div>
-              <div className="font-medium text-neutral-900">Free Trial</div>
-            </div>
-            <div>
-              <div className="text-sm text-neutral-500">Next Billing Date</div>
-              <div className="font-medium text-neutral-900">After trial ends</div>
-            </div>
-            <button className="btn-secondary w-full py-3">
-              View Billing History
-            </button>
-          </div>
-        </div>
+        <BillingCard
+          subscriptionStatus={subscriptionData.status}
+          subscriptionDate={subscriptionData.subscriptionDate}
+          billingHistory={billingHistory}
+        />
       </div>
     </div>
   )

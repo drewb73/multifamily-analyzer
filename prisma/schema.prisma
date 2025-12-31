@@ -24,6 +24,7 @@ model User {
   firstName String?
   lastName  String?
   imageUrl  String?
+  company   String?
   
   // Subscription & Tiers
   subscriptionStatus String   @default("trial")  // "free", "trial", "premium", "enterprise"
