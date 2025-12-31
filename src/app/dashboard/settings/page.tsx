@@ -29,45 +29,46 @@ export default function SettingsPage() {
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   
   // Load user data
-  useEffect(() => {
-    async function loadUserData() {
-      if (!user) return
-      
-      try {
-        // Fetch user profile from MongoDB
-        const response = await fetch('/api/user/profile')
-        if (response.ok) {
-          const data = await response.json()
-          setUserProfile({
-            displayName: data.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: data.email || user.emailAddresses[0]?.emailAddress || '',
-            company: data.company || ''
-          })
-          
-          // Set subscription data
-          setSubscriptionData({
-            status: data.subscriptionStatus || 'free',
-            trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
-            subscriptionDate: data.subscriptionDate ? new Date(data.subscriptionDate) : null
-          })
-          
-          // Set billing history (will be populated after Stripe integration)
-          setBillingHistory(data.billingHistory || [])
-        } else {
-          // Fallback to Clerk data if profile doesn't exist yet
-          setUserProfile({
-            displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: user.emailAddresses[0]?.emailAddress || '',
-            company: ''
-          })
-        }
-      } catch (error) {
-        console.error('Failed to load user data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const loadUserData = async () => {
+    if (!user) return
     
+    setIsLoading(true)
+    try {
+      // Fetch user profile from MongoDB
+      const response = await fetch('/api/user/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setUserProfile({
+          displayName: data.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          email: data.email || user.emailAddresses[0]?.emailAddress || '',
+          company: data.company || ''
+        })
+        
+        // Set subscription data
+        setSubscriptionData({
+          status: data.subscriptionStatus || 'free',
+          trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
+          subscriptionDate: data.subscriptionDate ? new Date(data.subscriptionDate) : null
+        })
+        
+        // Set billing history (will be populated after Stripe integration)
+        setBillingHistory(data.billingHistory || [])
+      } else {
+        // Fallback to Clerk data if profile doesn't exist yet
+        setUserProfile({
+          displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          email: user.emailAddresses[0]?.emailAddress || '',
+          company: ''
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load user data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  useEffect(() => {
     loadUserData()
   }, [user])
   
@@ -97,6 +98,11 @@ export default function SettingsPage() {
     }
   }
   
+  // Refresh subscription data after upgrade/cancel
+  const handleRefreshSubscription = () => {
+    loadUserData()
+  }
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -121,6 +127,7 @@ export default function SettingsPage() {
         <AccountCard
           subscriptionStatus={subscriptionData.status}
           trialEndsAt={subscriptionData.trialEndsAt}
+          onRefresh={handleRefreshSubscription}
         />
         
         {/* Profile */}

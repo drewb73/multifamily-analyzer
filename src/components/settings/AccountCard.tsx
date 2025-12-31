@@ -1,17 +1,26 @@
 // src/components/settings/AccountCard.tsx
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { User, Crown, Clock } from 'lucide-react'
 import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from '@/lib/subscription'
-import Link from 'next/link'
+import { UpgradeModal } from '@/components/subscription/UpgradeModal'
+import { ManageSubscriptionModal } from '@/components/subscription/ManageSubscriptionModal'
 
 interface AccountCardProps {
   subscriptionStatus: SubscriptionStatus
   trialEndsAt: Date | null
-  onUpgrade?: () => void
+  onRefresh?: () => void
 }
 
-export function AccountCard({ subscriptionStatus, trialEndsAt, onUpgrade }: AccountCardProps) {
+export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: AccountCardProps) {
+  const router = useRouter()
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [showManageModal, setShowManageModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  
   const badge = getSubscriptionBadge(subscriptionStatus)
   const hoursRemaining = trialEndsAt ? getTrialHoursRemaining(trialEndsAt) : 0
   const showTrialExpiry = subscriptionStatus === 'trial' && hoursRemaining > 0
@@ -28,84 +37,185 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onUpgrade }: Acco
     return `${days} ${days === 1 ? 'day' : 'days'}, ${remainingHours} ${remainingHours === 1 ? 'hour' : 'hours'}`
   }
   
-  return (
-    <div className="elevated-card p-6">
-      <div className="flex items-center mb-6">
-        <User className="h-6 w-6 text-primary-600 mr-3" />
-        <h2 className="text-xl font-semibold text-neutral-800">
-          Account Information
-        </h2>
-      </div>
+  // Handle upgrade to premium
+  const handleUpgrade = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/subscription/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'premium' })
+      })
       
-      <div className="space-y-4">
-        {/* Account Type */}
-        <div>
-          <div className="text-sm text-neutral-500 mb-2">Account Type</div>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badge.color}`}>
-              {subscriptionStatus === 'premium' && <Crown className="w-4 h-4 mr-1" />}
-              {badge.text}
-            </span>
-          </div>
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upgrade')
+      }
+      
+      setSuccessMessage('🎉 Successfully upgraded to Premium!')
+      setShowUpgradeModal(false)
+      
+      // Refresh the router to update sidebar (server component will re-fetch)
+      router.refresh()
+      
+      if (onRefresh) {
+        setTimeout(() => {
+          onRefresh()
+          setSuccessMessage(null)
+        }, 2000)
+      }
+      
+    } catch (error: any) {
+      console.error('Upgrade error:', error)
+      throw error // Let modal handle the error display
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Handle cancel subscription
+  const handleCancel = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/subscription/cancel', {
+        method: 'POST',
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel subscription')
+      }
+      
+      setSuccessMessage('Subscription cancelled successfully')
+      setShowManageModal(false)
+      
+      // Refresh the router to update sidebar (server component will re-fetch)
+      router.refresh()
+      
+      if (onRefresh) {
+        setTimeout(() => {
+          onRefresh()
+          setSuccessMessage(null)
+        }, 2000)
+      }
+      
+    } catch (error: any) {
+      console.error('Cancel error:', error)
+      throw error // Let modal handle the error display
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  return (
+    <>
+      <div className="elevated-card p-6">
+        <div className="flex items-center mb-6">
+          <User className="h-6 w-6 text-primary-600 mr-3" />
+          <h2 className="text-xl font-semibold text-neutral-800">
+            Account Information
+          </h2>
         </div>
         
-        {/* Trial Expires - Only show for trial users */}
-        {showTrialExpiry && (
-          <div>
-            <div className="text-sm text-neutral-500 mb-2">Trial Expires In</div>
-            <div className="flex items-center gap-2 text-neutral-900">
-              <Clock className="w-4 h-4 text-warning-600" />
-              <span className="font-medium">{formatTimeRemaining(hoursRemaining)}</span>
-            </div>
-            <p className="text-xs text-neutral-500 mt-1">
-              Upgrade to Premium before your trial ends to keep all features
-            </p>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-4 bg-success-50 border border-success-200 rounded-lg p-3">
+            <p className="text-sm text-success-700 font-medium">{successMessage}</p>
           </div>
         )}
         
-        {/* Upgrade Button - Show for non-premium users */}
-        {showUpgrade && (
-          <div className="pt-2">
-            {onUpgrade ? (
+        <div className="space-y-4">
+          {/* Account Type */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Account Type</div>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badge.color}`}>
+                {subscriptionStatus === 'premium' && <Crown className="w-4 h-4 mr-1" />}
+                {badge.text}
+              </span>
+            </div>
+          </div>
+          
+          {/* Trial Expires - Only show for trial users */}
+          {showTrialExpiry && (
+            <div>
+              <div className="text-sm text-neutral-500 mb-2">Trial Expires In</div>
+              <div className="flex items-center gap-2 text-neutral-900">
+                <Clock className="w-4 h-4 text-warning-600" />
+                <span className="font-medium">{formatTimeRemaining(hoursRemaining)}</span>
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">
+                Upgrade to Premium before your trial ends to keep all features
+              </p>
+            </div>
+          )}
+          
+          {/* Upgrade Button - Show for non-premium users */}
+          {showUpgrade && (
+            <div className="pt-2">
               <button
-                onClick={onUpgrade}
+                onClick={() => setShowUpgradeModal(true)}
                 className="btn-primary w-full py-3 flex items-center justify-center gap-2"
               >
                 <Crown className="w-4 h-4" />
                 Upgrade to Premium
               </button>
-            ) : (
-              <Link
-                href="/pricing"
-                className="btn-primary w-full py-3 flex items-center justify-center gap-2"
-              >
-                <Crown className="w-4 h-4" />
-                Upgrade to Premium
-              </Link>
-            )}
-            <p className="text-xs text-center text-neutral-500 mt-2">
-              Get unlimited analyses, saved properties, and PDF exports
-            </p>
-          </div>
-        )}
-        
-        {/* Premium Benefits - Show for premium users */}
-        {!showUpgrade && (
-          <div className="bg-success-50 border border-success-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <Crown className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-semibold text-success-900 mb-1">
-                  Premium Member
-                </h3>
-                <p className="text-xs text-success-700">
-                  You have access to all features including unlimited analyses, saved properties, and PDF exports.
-                </p>
-              </div>
+              <p className="text-xs text-center text-neutral-500 mt-2">
+                Get unlimited analyses, saved properties, and PDF exports for just $7/month
+              </p>
             </div>
-          </div>
-        )}
+          )}
+          
+          {/* Manage Subscription - Show for premium users */}
+          {!showUpgrade && (
+            <>
+              <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Crown className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-success-900 mb-1">
+                      Premium Member
+                    </h3>
+                    <p className="text-xs text-success-700">
+                      You have access to all features including unlimited analyses, saved properties, and PDF exports.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowManageModal(true)}
+                  className="btn-secondary w-full py-3"
+                >
+                  Manage Subscription
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+      
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal
+          currentStatus={subscriptionStatus}
+          trialHoursRemaining={hoursRemaining}
+          onUpgrade={handleUpgrade}
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
+      
+      {/* Manage Subscription Modal */}
+      {showManageModal && (
+        <ManageSubscriptionModal
+          subscriptionStatus={subscriptionStatus}
+          onCancel={handleCancel}
+          onClose={() => setShowManageModal(false)}
+        />
+      )}
+    </>
   )
 }
