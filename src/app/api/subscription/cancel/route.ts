@@ -7,8 +7,14 @@ import { prisma } from '@/lib/prisma'
  * POST /api/subscription/cancel
  * Cancels user's premium subscription
  * 
- * Demo mode: Instant cancellation
- * Future: Will cancel Stripe subscription but maintain access until period end
+ * IMPORTANT BILLING LOGIC:
+ * - User keeps premium access until end of current billing period
+ * - If user subscribed Dec 1st and cancels Dec 3rd
+ * - They keep premium until Jan 1st (end of billing period)
+ * - This is standard practice and what users expect
+ * 
+ * DEMO MODE: Immediate cancellation (for testing)
+ * PRODUCTION MODE: Premium until subscriptionEndsAt
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,28 +45,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // DEMO MODE: Instant cancellation
-    // TODO: Add Stripe cancellation logic
+    // =============================================================
+    // DEMO MODE: Immediate cancellation
+    // =============================================================
+    // In demo mode, we immediately downgrade to free
     // In production, user keeps premium until subscriptionEndsAt
+    // =============================================================
+
+    const now = new Date()
+    const billingPeriodEnd = user.subscriptionEndsAt || now
+
+    // Calculate days remaining in billing period
+    const daysRemaining = Math.max(0, Math.ceil((billingPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+
+    // DEMO MODE: Immediate cancellation
+    // In production, subscriptionStatus would stay 'premium' until subscriptionEndsAt
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        subscriptionStatus: 'free',
-        subscriptionEndsAt: null,
-        // Future: Cancel Stripe subscription but don't remove stripeCustomerId
-        // (allows easy re-subscription)
+        subscriptionStatus: 'free', // DEMO: immediate downgrade
+        // subscriptionEndsAt: keep the date (user has premium until this date in production)
+        // In production: subscriptionStatus stays 'premium', just cancel auto-renewal
       }
     })
 
     return NextResponse.json({
       success: true,
       message: 'Subscription cancelled successfully',
+      demo: true,
       user: {
         id: updatedUser.id,
         subscriptionStatus: updatedUser.subscriptionStatus,
         subscriptionEndsAt: updatedUser.subscriptionEndsAt,
       },
-      note: 'Demo mode: Immediate cancellation. In production, you would keep premium access until the end of your billing period.'
+      billingInfo: {
+        cancelledAt: now,
+        accessUntil: billingPeriodEnd,
+        daysRemaining,
+      },
+      note: {
+        demo: 'Demo mode: Immediate cancellation. In production, you would keep premium access until the end of your billing period.',
+        production: `In production, you would keep premium until ${billingPeriodEnd.toLocaleDateString()}`
+      }
     }, { status: 200 })
 
   } catch (error) {
@@ -71,3 +97,55 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// =============================================================
+// STRIPE INTEGRATION (Future Implementation)
+// =============================================================
+/*
+export async function POST(request: NextRequest) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } })
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+    if (!user.stripeSubscriptionId) {
+      return NextResponse.json({ error: 'No active Stripe subscription' }, { status: 400 })
+    }
+
+    // Cancel Stripe subscription at period end (user keeps access)
+    const subscription = await stripe.subscriptions.update(
+      user.stripeSubscriptionId,
+      {
+        cancel_at_period_end: true
+      }
+    )
+
+    // Update database - keep status as 'premium' until period ends
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        // subscriptionStatus stays 'premium'
+        // subscriptionEndsAt stays the same (from Stripe)
+        // Webhook will change status to 'free' when period actually ends
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription cancelled',
+      accessUntil: subscription.current_period_end,
+      note: `You'll keep premium access until ${new Date(subscription.current_period_end * 1000).toLocaleDateString()}`
+    }, { status: 200 })
+
+  } catch (error) {
+    console.error('Stripe cancellation error:', error)
+    return NextResponse.json({ error: 'Failed to cancel subscription' }, { status: 500 })
+  }
+}
+
+// Stripe webhook will handle the actual status change when period ends:
+// Event: customer.subscription.deleted
+// Action: Update user.subscriptionStatus to 'free'
+*/

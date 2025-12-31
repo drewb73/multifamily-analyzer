@@ -2,23 +2,39 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Crown, AlertTriangle, Loader2, Check } from 'lucide-react'
+import { X, Crown, AlertTriangle, Loader2, Check, Calendar } from 'lucide-react'
 import { SubscriptionStatus } from '@/lib/subscription'
 
 interface ManageSubscriptionModalProps {
   subscriptionStatus: SubscriptionStatus
+  subscriptionEndsAt?: Date | null
   onCancel: () => Promise<void>
   onClose: () => void
 }
 
 export function ManageSubscriptionModal({ 
   subscriptionStatus,
+  subscriptionEndsAt,
   onCancel, 
   onClose 
 }: ManageSubscriptionModalProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Calculate billing period info
+  const now = new Date()
+  const endDate = subscriptionEndsAt ? new Date(subscriptionEndsAt) : null
+  const daysRemaining = endDate ? Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0
+  
+  // Format dates
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+  }
 
   const handleCancelClick = () => {
     setShowCancelConfirm(true)
@@ -83,7 +99,23 @@ export function ManageSubscriptionModal({
               </div>
             </div>
 
-            <div className="space-y-2 pt-4 border-t border-primary-200">
+            {/* Billing Period Info */}
+            {endDate && (
+              <div className="mb-4 pb-4 border-b border-primary-200">
+                <div className="flex items-center gap-2 text-sm text-neutral-700">
+                  <Calendar className="w-4 h-4 text-primary-600" />
+                  <span className="font-medium">Next billing date:</span>
+                  <span>{formatDate(endDate)}</span>
+                </div>
+                {daysRemaining > 0 && (
+                  <p className="text-xs text-neutral-600 mt-1 ml-6">
+                    {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining in current period
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-neutral-700">
                 <Check className="w-4 h-4 text-success-600" />
                 <span>Unlimited property analyses</span>
@@ -111,16 +143,33 @@ export function ManageSubscriptionModal({
             </div>
           </div>
 
-          {/* Demo Notice */}
+          {/* Important Billing Info */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                ℹ️
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-900">Important Billing Information</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  If you cancel your subscription, you'll keep full premium access until {endDate ? formatDate(endDate) : 'the end of your billing period'}. 
+                  You've already paid for this period, so you won't lose access immediately.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Demo Notice */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
                 💡
               </div>
               <div>
-                <h3 className="font-semibold text-blue-900">Demo Mode</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  Payment integration is not yet active. In production, you would keep premium access until the end of your billing period after cancelling.
+                <h3 className="font-semibold text-amber-900">Demo Mode</h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  Payment integration is not yet active. In demo mode, cancellation is immediate. 
+                  In production with Stripe, you would keep premium access until {endDate ? formatDate(endDate) : 'the end of your billing period'}.
                 </p>
               </div>
             </div>
@@ -138,17 +187,15 @@ export function ManageSubscriptionModal({
                     Cancel Premium Subscription?
                   </h3>
                   <p className="text-sm text-error-700">
-                    Are you sure you want to cancel? You'll lose access to:
+                    Are you sure you want to cancel? After cancellation:
                   </p>
                   <ul className="mt-2 space-y-1 text-sm text-error-700">
-                    <li>• Saving unlimited analyses</li>
-                    <li>• Organizing with groups</li>
-                    <li>• PDF export functionality</li>
-                    <li>• Custom branding options</li>
-                    <li>• Priority support</li>
+                    <li>• ✅ You'll keep premium until {endDate ? formatDate(endDate) : 'the end of your billing period'}</li>
+                    <li>• ❌ No more charges after current period</li>
+                    <li>• ❌ Features locked after {endDate ? formatDate(endDate) : 'billing period ends'}</li>
                   </ul>
                   <p className="text-sm text-error-700 mt-3 font-medium">
-                    Your saved data will be preserved, but you won't be able to create new analyses or exports.
+                    You can re-subscribe anytime to regain premium access.
                   </p>
                 </div>
               </div>
