@@ -20,11 +20,11 @@ export default function SettingsPage() {
   const [subscriptionData, setSubscriptionData] = useState<{
     status: SubscriptionStatus
     trialEndsAt: Date | null
-    subscriptionDate: Date | null
+    subscriptionEndsAt: Date | null  // ✅ FIXED - was subscriptionDate
   }>({
     status: 'free',
     trialEndsAt: null,
-    subscriptionDate: null
+    subscriptionEndsAt: null  // ✅ FIXED - was subscriptionDate
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   
@@ -48,7 +48,7 @@ export default function SettingsPage() {
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
-          subscriptionDate: data.subscriptionDate ? new Date(data.subscriptionDate) : null
+          subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null  // ✅ FIXED - was subscriptionDate
         })
         
         // Set billing history (will be populated after Stripe integration)
@@ -142,7 +142,7 @@ export default function SettingsPage() {
         {/* Billing */}
         <BillingCard
           subscriptionStatus={subscriptionData.status}
-          subscriptionDate={subscriptionData.subscriptionDate}
+          subscriptionEndsAt={subscriptionData.subscriptionEndsAt}  // ✅ FIXED - was subscriptionDate
           billingHistory={billingHistory}
         />
       </div>

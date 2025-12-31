@@ -8,7 +8,7 @@ import { BillingHistoryModal } from './BillingHistoryModal'
 
 interface BillingCardProps {
   subscriptionStatus: SubscriptionStatus
-  subscriptionDate: Date | null
+  subscriptionEndsAt: Date | null // Next billing date (end of current period)
   billingHistory: Array<{
     id: string
     date: Date
@@ -18,29 +18,41 @@ interface BillingCardProps {
   }>
 }
 
-export function BillingCard({ subscriptionStatus, subscriptionDate, billingHistory }: BillingCardProps) {
+export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHistory }: BillingCardProps) {
   const [showHistory, setShowHistory] = useState(false)
   
-  // Calculate next billing date (30 days from subscription date)
+  // Format next billing date
   const getNextBillingDate = () => {
-    if (!subscriptionDate || subscriptionStatus !== 'premium') {
+    if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
       return 'N/A'
     }
     
-    const next = new Date(subscriptionDate)
-    next.setDate(next.getDate() + 30)
-    
-    return next.toLocaleDateString('en-US', { 
+    const date = new Date(subscriptionEndsAt)
+    return date.toLocaleDateString('en-US', { 
       month: 'long', 
       day: 'numeric', 
       year: 'numeric' 
     })
   }
+
+  // Calculate days until next billing
+  const getDaysUntilBilling = () => {
+    if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
+      return null
+    }
+
+    const now = new Date()
+    const end = new Date(subscriptionEndsAt)
+    const diffMs = end.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    
+    return Math.max(0, diffDays)
+  }
   
   const getPlanDisplay = () => {
     switch (subscriptionStatus) {
       case 'premium':
-        return 'Premium - $29/month'
+        return 'Premium - $7/month'
       case 'enterprise':
         return 'Enterprise - Custom'
       case 'trial':
@@ -49,7 +61,8 @@ export function BillingCard({ subscriptionStatus, subscriptionDate, billingHisto
         return 'Free Plan'
     }
   }
-  
+
+  const daysRemaining = getDaysUntilBilling()
   const showBillingInfo = subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise'
   
   return (
@@ -72,12 +85,19 @@ export function BillingCard({ subscriptionStatus, subscriptionDate, billingHisto
           {/* Next Billing Date */}
           <div>
             <div className="text-sm text-neutral-500 mb-2">Next Billing Date</div>
-            <div className="flex items-center gap-2 text-neutral-900">
+            <div className="text-neutral-900">
               {showBillingInfo ? (
-                <>
-                  <Calendar className="w-4 h-4 text-neutral-500" />
-                  <span className="font-medium">{getNextBillingDate()}</span>
-                </>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-neutral-500" />
+                    <span className="font-medium">{getNextBillingDate()}</span>
+                  </div>
+                  {daysRemaining !== null && daysRemaining > 0 && (
+                    <p className="text-xs text-neutral-600 ml-6">
+                      {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining in billing period
+                    </p>
+                  )}
+                </div>
               ) : (
                 <span className="text-neutral-600">
                   {subscriptionStatus === 'trial' ? 'After trial ends' : 'Upgrade to see billing dates'}
@@ -85,6 +105,20 @@ export function BillingCard({ subscriptionStatus, subscriptionDate, billingHisto
               )}
             </div>
           </div>
+
+          {/* Billing Amount */}
+          {showBillingInfo && (
+            <div>
+              <div className="text-sm text-neutral-500 mb-2">Next Charge</div>
+              <div className="font-medium text-neutral-900">
+                $7.00 USD
+              </div>
+              <p className="text-xs text-neutral-600 mt-1">
+                Charged monthly on the {subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 'N/A'}
+                {getOrdinalSuffix(subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 1)} of each month
+              </p>
+            </div>
+          )}
           
           {/* Billing History Button */}
           <div className="pt-2">
@@ -105,11 +139,12 @@ export function BillingCard({ subscriptionStatus, subscriptionDate, billingHisto
           
           {/* Payment Method - Placeholder for Stripe integration */}
           {showBillingInfo && (
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 mt-4">
-              <div className="text-xs text-neutral-600">
-                <p className="font-medium mb-1">Payment Method</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <div className="text-xs text-blue-700">
+                <p className="font-medium mb-1">💡 Demo Mode</p>
                 <p>
-                  Payment methods will be managed through Stripe when billing is enabled.
+                  Payment methods will be managed through Stripe when billing is enabled. 
+                  You'll be able to update your card, view invoices, and manage payment details.
                 </p>
               </div>
             </div>
@@ -125,4 +160,17 @@ export function BillingCard({ subscriptionStatus, subscriptionDate, billingHisto
       />
     </>
   )
+}
+
+// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
+function getOrdinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) {
+    return 'th'
+  }
+  switch (day % 10) {
+    case 1: return 'st'
+    case 2: return 'nd'
+    case 3: return 'rd'
+    default: return 'th'
+  }
 }

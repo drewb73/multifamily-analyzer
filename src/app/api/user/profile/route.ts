@@ -38,10 +38,10 @@ export async function GET(request: NextRequest) {
         ? `${user.firstName} ${user.lastName}` 
         : (user.firstName || ''),
       email: user.email || '',
-      company: (user as any).company || '', // Cast to any if company field not yet in schema
+      company: (user as any).company || '',
       subscriptionStatus: user.subscriptionStatus || 'free',
       trialEndsAt: user.trialEndsAt,
-      subscriptionDate: user.subscriptionEndsAt,
+      subscriptionEndsAt: user.subscriptionEndsAt, // ✅ FIXED - was subscriptionDate
       billingHistory: [] // Will be populated after Stripe integration
     })
   } catch (error) {
