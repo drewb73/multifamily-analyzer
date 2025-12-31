@@ -1,14 +1,15 @@
 // src/app/sign-in/[[...sign-in]]/page.tsx
 'use client'
 
-import { useState } from 'react'
-import { useSignIn } from '@clerk/nextjs'
+import { useState, useEffect } from 'react'
+import { useSignIn, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, AlertCircle, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
 
 export default function SignInPage() {
   const { isLoaded, signIn, setActive } = useSignIn()
+  const { user, isLoaded: userLoaded } = useUser()
   const router = useRouter()
   
   const [email, setEmail] = useState('')
@@ -27,6 +28,14 @@ export default function SignInPage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [resetSuccess, setResetSuccess] = useState(false)
 
+  // ✅ FIX: Redirect if already logged in
+  useEffect(() => {
+    if (userLoaded && user) {
+      // User is already signed in, redirect to dashboard
+      router.push('/dashboard')
+    }
+  }, [userLoaded, user, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -43,6 +52,10 @@ export default function SignInPage() {
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId })
+        
+        // ✅ FIX: Add delay for webhook to create DB user
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
         router.push('/dashboard')
       }
     } catch (err: any) {
@@ -52,6 +65,10 @@ export default function SignInPage() {
         setError('No account found with this email address.')
       } else if (err.errors?.[0]?.code === 'form_password_incorrect') {
         setError('Incorrect password. Please try again.')
+      } else if (err.errors?.[0]?.code === 'session_exists') {
+        // ✅ FIX: Handle session exists error
+        setError('You are already signed in. Redirecting...')
+        setTimeout(() => router.push('/dashboard'), 1000)
       } else if (err.errors?.[0]?.message) {
         setError(err.errors[0].message)
       } else {
@@ -126,10 +143,13 @@ export default function SignInPage() {
         // Sign in automatically
         await setActive({ session: result.createdSessionId })
         
+        // ✅ FIX: Add delay for webhook
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
         // Redirect after a short delay
         setTimeout(() => {
           router.push('/dashboard')
-        }, 2000)
+        }, 1000)
       }
     } catch (err: any) {
       console.error('Reset with code error:', err)
@@ -146,6 +166,15 @@ export default function SignInPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // ✅ FIX: Show loading if checking user status
+  if (!userLoaded || !isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      </div>
+    )
   }
 
   // Success screen after reset
@@ -242,7 +271,7 @@ export default function SignInPage() {
                   </button>
                 </div>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Must be at least 8 characters
+                  Must be at least 8 characters long
                 </p>
               </div>
 

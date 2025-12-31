@@ -75,6 +75,11 @@ export default function SignUpPage() {
 
       if (completeSignUp.status === 'complete') {
         await setActive({ session: completeSignUp.createdSessionId })
+        
+        // ✅ FIX: Wait for webhook to create user in database
+        // This prevents "Session already exists" and redirect loop issues
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
         router.push('/dashboard')
       }
     } catch (err: any) {
@@ -201,6 +206,9 @@ export default function SignUpPage() {
         {/* Sign Up Form */}
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ✅ FIX: Add clerk-captcha element to prevent warning */}
+            <div id="clerk-captcha" className="hidden" />
+            
             {error && (
               <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />

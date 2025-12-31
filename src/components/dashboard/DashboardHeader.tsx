@@ -1,17 +1,9 @@
-import { getCurrentUser, getCurrentDbUser, getSubscriptionDisplayName, getSubscriptionBadge } from '@/lib/auth';
-import { UserButton } from '@clerk/nextjs';
-import Link from 'next/link';
-import { Bell, HelpCircle } from 'lucide-react';
+'use client'
 
-export default async function DashboardHeader() {
-  // Fetch user data from Clerk and MongoDB
-  const clerkUser = await getCurrentUser();
-  const dbUser = await getCurrentDbUser();
+import { UserButton } from '@clerk/nextjs'
+import { Bell, HelpCircle } from 'lucide-react'
 
-  // Get display names for subscription
-  const displayName = getSubscriptionDisplayName(dbUser?.subscriptionStatus || null);
-  const badge = getSubscriptionBadge(dbUser?.subscriptionStatus || null);
-
+export default function DashboardHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="flex h-16 items-center justify-between px-6">
@@ -44,8 +36,9 @@ export default async function DashboardHeader() {
             <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary-500"></span>
           </button>
 
-          {/* Clerk User Button with Custom Appearance */}
+          {/* Clerk User Button - Simplified without children */}
           <UserButton
+            afterSignOutUrl="/"
             appearance={{
               elements: {
                 avatarBox: "h-10 w-10",
@@ -53,26 +46,11 @@ export default async function DashboardHeader() {
                 userButtonPopoverActionButton: "hover:bg-slate-50 text-slate-700",
                 userButtonPopoverActionButtonText: "text-slate-700",
                 userButtonPopoverActionButtonIcon: "text-slate-500",
-                userButtonPopoverFooter: "hidden", // Hide "Manage account" footer with Clerk branding
               },
             }}
-          >
-            {/* Add custom menu items */}
-            <UserButton.MenuItems>
-              <UserButton.Link
-                label="Upgrade Account"
-                labelIcon={<span>⭐</span>}
-                href="/pricing"
-              />
-              <UserButton.Link
-                label="Account Settings"
-                labelIcon={<span>⚙️</span>}
-                href="/dashboard/settings"
-              />
-            </UserButton.MenuItems>
-          </UserButton>
+          />
         </div>
       </div>
     </header>
-  );
+  )
 }
