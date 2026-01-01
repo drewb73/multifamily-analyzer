@@ -8,6 +8,7 @@ import { UnitMixForm } from './UnitMixForm'
 import { IncomeExpenseForm } from './IncomeExpenseForm'
 import { AnalysisResults } from './AnalysisResults'
 import { SaveAnalysisModal, SaveOptions } from './SaveAnalysisModal'
+import { ValidationError } from './ValidationError'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from '@/types'
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
@@ -54,6 +55,10 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
   const [pendingCalculation, setPendingCalculation] = useState<AnalysisResultsType | null>(null)
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false)
+  
+  // Validation error state - NEW
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showValidationError, setShowValidationError] = useState(false)
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
@@ -154,7 +159,9 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     if (currentStep === 1 && formData.property) {
       const validation = validatePropertyDetails(formData.property)
       if (!validation.isValid) {
-        alert(`Please fix the following errors:\n\n${validation.errors.join('\n')}`)
+        // CHANGED: Use custom modal instead of alert
+        setValidationErrors(validation.errors)
+        setShowValidationError(true)
         return
       }
     }
@@ -162,13 +169,17 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     // VALIDATION FOR STEP 2 - Unit Mix
     if (currentStep === 2) {
       if (!formData.unitMix || formData.unitMix.length === 0) {
-        alert('Please add at least one unit type before continuing.')
+        // CHANGED: Use custom modal instead of alert
+        setValidationErrors(['Please add at least one unit type before continuing.'])
+        setShowValidationError(true)
         return
       }
       
       const validation = validateUnitMix(formData.unitMix, formData.property?.totalUnits || 0)
       if (!validation.isValid) {
-        alert(`Please fix the following errors:\n\n${validation.errors.join('\n')}`)
+        // CHANGED: Use custom modal instead of alert
+        setValidationErrors(validation.errors)
+        setShowValidationError(true)
         return
       }
     }
@@ -496,6 +507,17 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
           )}
         </div>
       </div>
+
+      {/* Validation Error Modal - NEW */}
+      {showValidationError && (
+        <ValidationError
+          errors={validationErrors}
+          onClose={() => {
+            setShowValidationError(false)
+            setValidationErrors([])
+          }}
+        />
+      )}
     </div>
   )
 }
