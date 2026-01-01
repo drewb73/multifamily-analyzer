@@ -15,9 +15,6 @@ export function Header() {
             </div>
             <div className="hidden md:block ml-10">
               <div className="flex items-baseline space-x-4">
-                <Link href="/" className="text-neutral-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Home
-                </Link>
                 <Link href="/features" className="text-neutral-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
                   Features
                 </Link>

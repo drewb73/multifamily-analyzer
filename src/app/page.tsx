@@ -21,9 +21,11 @@ export default function Home() {
               Go to Dashboard
             </Button>
           </Link>
-          <Button variant="secondary" className="px-8 py-4 text-lg">
-            View Features
-          </Button>
+          <Link href="/features">
+            <Button variant="secondary" className="px-8 py-4 text-lg">
+              View Features
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -54,7 +56,7 @@ export default function Home() {
           </h2>
           <p className="text-lg text-neutral-600 mb-6">
             Start your 72-hour free trial today. No credit card required.
-            After trial, continue for just $4.99/month.
+            After trial, continue for just $7/month.
           </p>
           <Link href="/dashboard">
             <Button className="px-8 py-4 text-lg">
