@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { PropertyDetails } from '@/types'
 import { formatCurrency } from '@/lib/utils'
+import { US_STATES_AND_TERRITORIES } from '@/lib/constants/states'
 
 interface PropertyDetailsFormProps {
   data: PropertyDetails
@@ -129,15 +130,19 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 State *
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.state}
                 onChange={(e) => handleChange('state', e.target.value)}
                 className="input-field"
-                placeholder="CA"
-                maxLength={2}
                 required
-              />
+              >
+                <option value="">Select a state...</option>
+                {US_STATES_AND_TERRITORIES.map((state) => (
+                  <option key={state.code} value={state.code}>
+                    {state.code} - {state.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-2">
