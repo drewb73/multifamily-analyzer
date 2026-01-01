@@ -1,9 +1,16 @@
 'use client'
 
-import { UserButton } from '@clerk/nextjs'
-import { Bell, HelpCircle } from 'lucide-react'
+import { useClerk } from '@clerk/nextjs'
+import { LogOut } from 'lucide-react'
+// import { Bell, HelpCircle } from 'lucide-react' // Commented out - not using
 
 export default function DashboardHeader() {
+  const { signOut } = useClerk()
+
+  const handleLogout = async () => {
+    await signOut({ redirectUrl: '/' })
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="flex h-16 items-center justify-between px-6">
@@ -19,15 +26,18 @@ export default function DashboardHeader() {
 
         {/* Right side - User controls */}
         <div className="flex items-center space-x-4">
-          {/* Help */}
+          {/* Help - Commented out for now */}
+          {/*
           <button
             className="p-2 text-neutral-500 hover:text-neutral-700 rounded-full hover:bg-neutral-100"
             title="Help"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
+          */}
 
-          {/* Notifications */}
+          {/* Notifications - Commented out for now */}
+          {/*
           <button
             className="p-2 text-neutral-500 hover:text-neutral-700 rounded-full hover:bg-neutral-100 relative"
             title="Notifications"
@@ -35,20 +45,17 @@ export default function DashboardHeader() {
             <Bell className="h-5 w-5" />
             <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary-500"></span>
           </button>
+          */}
 
-          {/* Clerk User Button - Simplified without children */}
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: "h-10 w-10",
-                userButtonPopoverCard: "shadow-xl border border-slate-200",
-                userButtonPopoverActionButton: "hover:bg-slate-50 text-slate-700",
-                userButtonPopoverActionButtonText: "text-slate-700",
-                userButtonPopoverActionButtonIcon: "text-slate-500",
-              },
-            }}
-          />
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
     </header>
