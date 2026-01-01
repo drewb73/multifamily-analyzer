@@ -84,9 +84,13 @@ export function PDFExportModal({
       name: userName,
       email: userEmail,
       phone: '',
+      companyName: '',
+      licenseNumber: '',
       showName: true,
       showEmail: true,
       showPhone: false,
+      showCompanyName: false,
+      showLicenseNumber: false,
       position: 'footer'
     },
     colors: {
@@ -102,30 +106,6 @@ export function PDFExportModal({
     showMobilePreview: false
   })
 
-  // Calculate estimated pages and file size
-  useEffect(() => {
-    const enabledSections = pdfState.sections.filter(s => s.enabled)
-    const totalPages = enabledSections.reduce((sum, s) => sum + s.estimatedPages, 0)
-    
-    let adjustedPages = totalPages
-    if (pdfState.includeCharts) adjustedPages += 0.5
-    if (pdfState.includeNotes) adjustedPages += 1
-    
-    const estimatedPages = Math.ceil(adjustedPages)
-    
-    let sizeInMB = estimatedPages * 0.5
-    if (pdfState.includeCharts) {
-      const chartsCount = enabledSections.length * 0.5
-      sizeInMB += chartsCount * 0.3
-    }
-    
-    setPDFState(prev => ({
-      ...prev,
-      estimatedPages,
-      estimatedSize: sizeInMB.toFixed(1)
-    }))
-  }, [pdfState.sections, pdfState.includeCharts, pdfState.includeNotes])
-
   const handleTabChange = (tab: PDFTabType) => {
     setPDFState(prev => ({ ...prev, activeTab: tab }))
   }
@@ -140,7 +120,7 @@ export function PDFExportModal({
   }
 
   const handleOptionToggle = (
-    option: 'includeCharts' | 'includeNotes' | 'blackAndWhite',
+    option: 'blackAndWhite',
     value: boolean
   ) => {
     setPDFState(prev => ({ ...prev, [option]: value }))
@@ -157,13 +137,6 @@ export function PDFExportModal({
     setPDFState(prev => ({
       ...prev,
       colors: { ...prev.colors, [field]: value }
-    }))
-  }
-
-  const handlePresetApply = (bg: string, text: string, accent: string) => {
-    setPDFState(prev => ({
-      ...prev,
-      colors: { headerFooterBg: bg, headerFooterText: text, accentColor: accent }
     }))
   }
 
@@ -328,13 +301,9 @@ export function PDFExportModal({
                 {pdfState.activeTab === 'sections' && (
                   <SectionsTab
                     sections={pdfState.sections}
-                    includeCharts={pdfState.includeCharts}
-                    includeNotes={pdfState.includeNotes}
                     blackAndWhite={pdfState.blackAndWhite}
                     onSectionToggle={handleSectionToggle}
                     onOptionToggle={handleOptionToggle}
-                    estimatedPages={pdfState.estimatedPages}
-                    estimatedSize={pdfState.estimatedSize}
                   />
                 )}
                 
@@ -342,9 +311,9 @@ export function PDFExportModal({
                   <BrandingTab
                     contactInfo={pdfState.contactInfo}
                     colors={pdfState.colors}
+                    blackAndWhite={pdfState.blackAndWhite}
                     onContactChange={handleContactChange}
                     onColorChange={handleColorChange}
-                    onPresetApply={handlePresetApply}
                   />
                 )}
               </div>
@@ -382,13 +351,9 @@ export function PDFExportModal({
                     {pdfState.activeTab === 'sections' && (
                       <SectionsTab
                         sections={pdfState.sections}
-                        includeCharts={pdfState.includeCharts}
-                        includeNotes={pdfState.includeNotes}
                         blackAndWhite={pdfState.blackAndWhite}
                         onSectionToggle={handleSectionToggle}
                         onOptionToggle={handleOptionToggle}
-                        estimatedPages={pdfState.estimatedPages}
-                        estimatedSize={pdfState.estimatedSize}
                       />
                     )}
                     
@@ -396,9 +361,9 @@ export function PDFExportModal({
                       <BrandingTab
                         contactInfo={pdfState.contactInfo}
                         colors={pdfState.colors}
+                        blackAndWhite={pdfState.blackAndWhite}
                         onContactChange={handleContactChange}
                         onColorChange={handleColorChange}
-                        onPresetApply={handlePresetApply}
                       />
                     )}
                   </div>
@@ -434,9 +399,6 @@ export function PDFExportModal({
                       </svg>
                       Back to Customize
                     </button>
-                    <div className="text-sm text-neutral-600">
-                      Page 1 of {pdfState.estimatedPages}
-                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4">
@@ -460,10 +422,7 @@ export function PDFExportModal({
           </div>
 
           {/* Footer - Action Buttons */}
-          <div className="flex items-center justify-between px-6 py-4 bg-neutral-50 border-t flex-shrink-0">
-            <div className="text-sm text-neutral-600">
-              Estimated: {pdfState.estimatedPages} pages • ~{pdfState.estimatedSize}MB
-            </div>
+          <div className="flex items-center justify-end px-6 py-4 bg-neutral-50 border-t flex-shrink-0">
             <div className="flex gap-3">
               <button
                 onClick={handleClose}

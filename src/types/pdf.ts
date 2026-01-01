@@ -16,9 +16,13 @@ export interface ContactInfo {
   name: string
   email: string
   phone: string
+  companyName: string  // NEW
+  licenseNumber: string  // NEW
   showName: boolean
   showEmail: boolean
   showPhone: boolean
+  showCompanyName: boolean  // NEW
+  showLicenseNumber: boolean  // NEW
   position: 'header' | 'footer' | 'both'
 }
 
