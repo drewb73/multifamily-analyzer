@@ -6,77 +6,68 @@ import { ContactInfo, BrandingColors } from '@/types/pdf'
 interface PDFFooterProps {
   contactInfo: ContactInfo
   colors: BrandingColors
-  showContact: boolean
+  blackAndWhite: boolean
   pageNumber?: number
-  totalPages?: number
 }
 
 export function PDFFooter({ 
   contactInfo, 
   colors,
-  showContact,
-  pageNumber = 1,
-  totalPages = 1
+  blackAndWhite,
+  pageNumber 
 }: PDFFooterProps) {
-  // Get contact fields that are enabled
-  const contactFields = []
-  if (contactInfo.showName && contactInfo.name) {
-    contactFields.push(contactInfo.name)
-  }
-  if (contactInfo.showEmail && contactInfo.email) {
-    contactFields.push(contactInfo.email)
-  }
-  if (contactInfo.showPhone && contactInfo.phone) {
-    contactFields.push(contactInfo.phone)
-  }
+  const footerStyle = blackAndWhite 
+    ? {
+        backgroundColor: '#000000',
+        color: '#FFFFFF'
+      }
+    : {
+        backgroundColor: colors.headerFooterBg,
+        color: colors.headerFooterText
+      }
 
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  // Show contact info in footer if position is "footer" or "both"
+  const showContactInFooter = contactInfo.position === 'footer' || contactInfo.position === 'both'
+
+  // Build contact info parts array
+  const contactParts: string[] = []
+  
+  if (contactInfo.showCompanyName && contactInfo.companyName) {
+    contactParts.push(contactInfo.companyName)
+  }
+  
+  if (contactInfo.showName && contactInfo.name) {
+    contactParts.push(contactInfo.name)
+  }
+  
+  if (contactInfo.showLicenseNumber && contactInfo.licenseNumber) {
+    contactParts.push(contactInfo.licenseNumber)
+  }
+  
+  if (contactInfo.showEmail && contactInfo.email) {
+    contactParts.push(contactInfo.email)
+  }
+  
+  if (contactInfo.showPhone && contactInfo.phone) {
+    contactParts.push(contactInfo.phone)
+  }
 
   return (
     <div 
       className="pdf-footer"
-      style={{
-        backgroundColor: colors.headerFooterBg,
-        color: colors.headerFooterText,
-        borderTop: `3px solid ${colors.accentColor}`,
-        width: '100%',
-        margin: 0,
-        padding: 0
-      }}
+      style={footerStyle}
     >
-      {/* Inner wrapper with padding for content */}
-      <div style={{ padding: '15px 30px' }}>
-        <div className="flex justify-between items-center text-sm">
-          {/* Left: Contact Info (if enabled) */}
-          {showContact && contactFields.length > 0 ? (
-            <div className="flex items-center gap-2">
-              {contactInfo.showName && contactInfo.name && (
-                <span className="font-semibold">
-                  {contactInfo.name}
-                </span>
-              )}
-              {(contactInfo.showEmail || contactInfo.showPhone) && (
-                <span className="opacity-75">
-                  {[
-                    contactInfo.showEmail && contactInfo.email,
-                    contactInfo.showPhone && contactInfo.phone
-                  ].filter(Boolean).join(' • ')}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div />
-          )}
-
-          {/* Right: Generated Date */}
-          <div className="opacity-90 text-right whitespace-nowrap ml-auto">
-            {currentDate}
+      <div className="px-6 py-3">
+        {/* Contact info BASED ON POSITION */}
+        {showContactInFooter && contactParts.length > 0 ? (
+          <div className="text-sm">
+            {contactParts.join(' • ')}
           </div>
-        </div>
+        ) : (
+          <div className="text-sm opacity-75">
+            Property Analysis Report
+          </div>
+        )}
       </div>
     </div>
   )

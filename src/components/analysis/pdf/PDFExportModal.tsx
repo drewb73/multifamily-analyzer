@@ -140,6 +140,13 @@ export function PDFExportModal({
     }))
   }
 
+  const handlePresetApply = (bg: string, text: string, accent: string) => {
+    setPDFState(prev => ({
+      ...prev,
+      colors: { headerFooterBg: bg, headerFooterText: text, accentColor: accent }
+    }))
+  }
+
   const handleGeneratePDF = async () => {
     // On mobile, if preview isn't shown, show it first then generate
     const isMobile = window.innerWidth < 1024 // lg breakpoint
@@ -314,6 +321,7 @@ export function PDFExportModal({
                     blackAndWhite={pdfState.blackAndWhite}
                     onContactChange={handleContactChange}
                     onColorChange={handleColorChange}
+                    onPresetApply={handlePresetApply}
                   />
                 )}
               </div>
@@ -364,6 +372,7 @@ export function PDFExportModal({
                         blackAndWhite={pdfState.blackAndWhite}
                         onContactChange={handleContactChange}
                         onColorChange={handleColorChange}
+                        onPresetApply={handlePresetApply}
                       />
                     )}
                   </div>

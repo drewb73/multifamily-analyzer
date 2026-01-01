@@ -258,7 +258,7 @@ export function PDFTemplatePreview({
         propertyName={propertyName}
         contactInfo={contactInfo}
         colors={colors}
-        showContact={showInHeader}
+        blackAndWhite={blackAndWhite}
       />
 
       <div className="p-8 space-y-8 min-h-[400px]">
@@ -320,9 +320,8 @@ export function PDFTemplatePreview({
       <PDFFooter
         contactInfo={contactInfo}
         colors={colors}
-        showContact={showInFooter}
+        blackAndWhite={blackAndWhite}
         pageNumber={1}
-        totalPages={estimatedPages}
       />
     </div>
   )

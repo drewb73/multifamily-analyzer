@@ -7,73 +7,60 @@ interface PDFHeaderProps {
   propertyName: string
   contactInfo: ContactInfo
   colors: BrandingColors
-  showContact: boolean
+  blackAndWhite: boolean
 }
 
 export function PDFHeader({ 
   propertyName, 
   contactInfo, 
   colors,
-  showContact 
+  blackAndWhite 
 }: PDFHeaderProps) {
-  // Get contact fields that are enabled
-  const contactFields = []
-  if (contactInfo.showName && contactInfo.name) {
-    contactFields.push(contactInfo.name)
-  }
-  if (contactInfo.showEmail && contactInfo.email) {
-    contactFields.push(contactInfo.email)
-  }
-  if (contactInfo.showPhone && contactInfo.phone) {
-    contactFields.push(contactInfo.phone)
-  }
+  const headerStyle = blackAndWhite 
+    ? {
+        backgroundColor: '#000000',
+        color: '#FFFFFF'
+      }
+    : {
+        backgroundColor: colors.headerFooterBg,
+        color: colors.headerFooterText
+      }
+
+  // Show contact info in header if position is "header" or "both"
+  const showContactInHeader = contactInfo.position === 'header' || contactInfo.position === 'both'
 
   return (
     <div 
       className="pdf-header"
-      style={{
-        backgroundColor: colors.headerFooterBg,
-        color: colors.headerFooterText,
-        borderBottom: `3px solid ${colors.accentColor}`,
-        width: '100%',
-        margin: 0,
-        padding: 0
-      }}
+      style={headerStyle}
     >
-      {/* Inner wrapper with padding for content */}
-      <div style={{ padding: '20px 30px' }}>
-        <div className="flex justify-between items-start">
-          {/* Left: Property Name */}
-          <div className="flex-1">
-            <h1 className="text-xl font-bold mb-1">
-              {propertyName}
-            </h1>
-            <p className="text-sm opacity-90">
-              Property Analysis Report
-            </p>
-          </div>
-
-          {/* Right: Contact Info (if enabled) */}
-          {showContact && contactFields.length > 0 && (
-            <div className="text-right text-sm">
-              {contactInfo.showName && contactInfo.name && (
-                <div className="font-semibold mb-0.5">
-                  {contactInfo.name}
-                </div>
-              )}
-              {contactInfo.showEmail && contactInfo.email && (
-                <div className="opacity-90 mb-0.5">
-                  {contactInfo.email}
-                </div>
-              )}
-              {contactInfo.showPhone && contactInfo.phone && (
-                <div className="opacity-90">
-                  {contactInfo.phone}
-                </div>
-              )}
-            </div>
-          )}
+      <div className="px-6 py-4 flex justify-between items-start">
+        {/* Left side - Property info - ALWAYS SHOW */}
+        <div>
+          <h1 className="text-xl font-bold mb-1">{propertyName}</h1>
+          <p className="text-sm opacity-90">Property Analysis Report</p>
         </div>
+        
+        {/* Right side - Contact info - SHOW BASED ON POSITION */}
+        {showContactInHeader && (
+          <div className="text-right text-sm space-y-1">
+            {contactInfo.showCompanyName && contactInfo.companyName && (
+              <div className="font-semibold">{contactInfo.companyName}</div>
+            )}
+            {contactInfo.showName && contactInfo.name && (
+              <div>{contactInfo.name}</div>
+            )}
+            {contactInfo.showLicenseNumber && contactInfo.licenseNumber && (
+              <div className="text-xs opacity-90">{contactInfo.licenseNumber}</div>
+            )}
+            {contactInfo.showEmail && contactInfo.email && (
+              <div className="text-xs">{contactInfo.email}</div>
+            )}
+            {contactInfo.showPhone && contactInfo.phone && (
+              <div className="text-xs">{contactInfo.phone}</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
