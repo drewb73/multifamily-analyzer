@@ -3,10 +3,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Crown, Clock } from 'lucide-react'
+import { useUser } from '@clerk/nextjs'
+import { User, Crown, Clock, Trash2 } from 'lucide-react'
 import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from '@/lib/subscription'
 import { UpgradeModal } from '@/components/subscription/UpgradeModal'
 import { ManageSubscriptionModal } from '@/components/subscription/ManageSubscriptionModal'
+import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal'
 
 interface AccountCardProps {
   subscriptionStatus: SubscriptionStatus
@@ -16,8 +18,10 @@ interface AccountCardProps {
 
 export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: AccountCardProps) {
   const router = useRouter()
+  const { user } = useUser()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   
@@ -109,6 +113,22 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
     }
   }
   
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    if (!user) return
+    
+    try {
+      // Delete user from Clerk
+      await user.delete()
+      
+      // Redirect to homepage with message
+      router.push('/?deleted=true')
+    } catch (error: any) {
+      console.error('Delete account error:', error)
+      throw new Error('Failed to delete account. Please try again.')
+    }
+  }
+  
   return (
     <>
       <div className="elevated-card p-6">
@@ -195,6 +215,17 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
               </div>
             </>
           )}
+          
+          {/* Delete Account Button - Always visible but behavior differs */}
+          <div className="pt-4 border-t border-neutral-200">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full py-3 px-4 text-sm font-medium text-error-600 hover:text-error-700 hover:bg-error-50 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Account
+            </button>
+          </div>
         </div>
       </div>
       
@@ -214,6 +245,15 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
           subscriptionStatus={subscriptionStatus}
           onCancel={handleCancel}
           onClose={() => setShowManageModal(false)}
+        />
+      )}
+      
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <DeleteAccountModal
+          subscriptionStatus={subscriptionStatus}
+          onDelete={handleDeleteAccount}
+          onClose={() => setShowDeleteModal(false)}
         />
       )}
     </>
