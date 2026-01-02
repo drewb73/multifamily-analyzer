@@ -82,22 +82,28 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
         ) : (
           // Free/Trial users - can delete
           <>
-            <p className="text-neutral-600 mb-6 text-center">
-              Are you sure you want to delete your account? 
-              <span className="block mt-2 font-semibold text-error-600">
-                This action cannot be reversed.
-              </span>
+            <p className="text-neutral-600 mb-4 text-center">
+              Are you sure you want to delete your account?
             </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2">
+                📅 60-Day Data Retention
+              </h3>
+              <p className="text-sm text-blue-700">
+                You will lose access to your account immediately, but your data will be kept for 60 days in case you change your mind. 
+                After 60 days, everything will be permanently deleted.
+              </p>
+            </div>
             
             <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 mb-6">
               <h3 className="text-sm font-semibold text-neutral-900 mb-2">
-                You will lose:
+                What happens:
               </h3>
               <ul className="text-sm text-neutral-600 space-y-1">
-                <li>• Your account and profile information</li>
-                <li>• All saved properties and analyses</li>
-                <li>• Any remaining trial time</li>
-                <li>• Access to the dashboard</li>
+                <li>• <strong>Immediate:</strong> You'll be logged out and lose access</li>
+                <li>• <strong>60 Days:</strong> Your data is kept (can be restored by support)</li>
+                <li>• <strong>After 60 Days:</strong> Everything is permanently deleted</li>
               </ul>
             </div>
             

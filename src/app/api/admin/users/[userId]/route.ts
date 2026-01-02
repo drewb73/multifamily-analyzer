@@ -73,7 +73,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete user account
+// DELETE - Mark user account for deletion (soft delete)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
@@ -120,14 +120,15 @@ export async function DELETE(
       }, { status: 401 })
     }
 
-    // Get user details before deletion for logging
+    // Get user details before marking for deletion
     const userToDelete = await prisma.user.findUnique({
       where: { id: userId },
       select: { 
         clerkId: true,
         email: true, 
         firstName: true, 
-        lastName: true 
+        lastName: true,
+        accountStatus: true
       }
     })
 
@@ -138,44 +139,41 @@ export async function DELETE(
       }, { status: 404 })
     }
 
-    // Delete from Clerk first
-    try {
-      const clerk = await clerkClient()
-      await clerk.users.deleteUser(userToDelete.clerkId)
-    } catch (clerkError: any) {
-      console.error('Failed to delete user from Clerk:', clerkError)
-      // Continue with database deletion even if Clerk deletion fails
-      // The user might already be deleted from Clerk
-    }
-
-    // Delete user from database (cascade will delete related records)
-    await prisma.user.delete({
-      where: { id: userId }
+    // Mark user for deletion (soft delete)
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountStatus: 'pending_deletion',
+        markedForDeletionAt: new Date(),
+        deletedBy: email
+      }
     })
 
     // Log action
     await prisma.adminLog.create({
       data: {
         adminEmail: email,
-        action: 'user_deleted',
+        action: 'user_marked_for_deletion',
         details: {
           userId,
           userEmail: userToDelete.email,
           userName: `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim(),
-          clerkId: userToDelete.clerkId
+          clerkId: userToDelete.clerkId,
+          markedBy: email,
+          willDeleteAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days from now
         }
       }
     })
 
     return NextResponse.json({ 
       success: true,
-      message: 'User deleted successfully from both Clerk and database'
+      message: 'User account marked for deletion. Data will be kept for 60 days.'
     })
   } catch (error: any) {
-    console.error('Delete user error:', error)
+    console.error('Mark for deletion error:', error)
     return NextResponse.json({ 
       success: false,
-      error: error.message || 'Failed to delete user'
+      error: error.message || 'Failed to mark user for deletion'
     }, { status: 500 })
   }
 }

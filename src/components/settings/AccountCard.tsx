@@ -136,11 +136,20 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
     if (!user) return
     
     try {
-      // Delete user from Clerk
+      // Mark account for deletion (soft delete)
+      const response = await fetch('/api/user/delete', {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to mark account for deletion')
+      }
+
+      // Log out user
       await user.delete()
       
       // Redirect to homepage with message
-      router.push('/?deleted=true')
+      router.push('/?account=marked_for_deletion')
     } catch (error: any) {
       console.error('Delete account error:', error)
       throw new Error('Failed to delete account. Please try again.')

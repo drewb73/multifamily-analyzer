@@ -37,6 +37,8 @@ export async function GET() {
         lastName: true,
         company: true,
         isAdmin: true,
+        accountStatus: true,
+        markedForDeletionAt: true,
         subscriptionStatus: true,
         stripeSubscriptionId: true,
         trialEndsAt: true,

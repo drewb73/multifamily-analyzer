@@ -23,6 +23,8 @@ interface UserData {
   lastName: string | null
   company: string | null
   isAdmin: boolean
+  accountStatus: string
+  markedForDeletionAt: string | null
   subscriptionStatus: string
   stripeSubscriptionId: string | null
   trialEndsAt: string | null
@@ -711,83 +713,137 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-error-600 mt-0.5" />
                   <div>
-                    <h3 className="text-sm font-semibold text-error-900 mb-1">Danger Zone</h3>
+                    <h3 className="text-sm font-semibold text-error-900 mb-1">Account Deletion</h3>
                     <p className="text-xs text-error-700">
-                      Deleting this account is permanent and cannot be undone. All user data, analyses, and settings will be permanently removed.
+                      Marking an account for deletion will immediately revoke access, but data will be kept for 60 days. 
+                      You can restore the account during this period.
                     </p>
                   </div>
                 </div>
               </div>
 
+              {/* Show restore option if account is pending deletion */}
+              {user.accountStatus === 'pending_deletion' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                        Account Pending Deletion
+                      </h3>
+                      <p className="text-xs text-blue-700">
+                        Marked for deletion on {user.markedForDeletionAt ? formatDate(user.markedForDeletionAt) : 'Unknown'}
+                        <br />
+                        Will be permanently deleted after 60 days unless restored.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setIsLoading(true)
+                      setError(null)
+                      try {
+                        const response = await fetch(`/api/admin/users/${user.id}/restore`, {
+                          method: 'POST'
+                        })
+                        const data = await response.json()
+                        if (!response.ok) throw new Error(data.error)
+                        setSuccess('Account restored successfully!')
+                        setTimeout(() => {
+                          onUpdate()
+                          setSuccess(null)
+                        }, 2000)
+                      } catch (err: any) {
+                        setError(err.message)
+                      } finally {
+                        setIsLoading(false)
+                      }
+                    }}
+                    disabled={isLoading}
+                    className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    🔄 Restore Account Access
+                  </button>
+                </div>
+              )}
+
               <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-neutral-900 mb-3">What will be deleted:</h3>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-3">
+                  {user.accountStatus === 'pending_deletion' ? 'What happens if permanently deleted:' : 'What will happen:'}
+                </h3>
                 <ul className="space-y-2 text-sm text-neutral-700">
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></div>
-                    User account and profile information
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center text-lg">🔒</div>
+                    <span><strong>Immediate:</strong> User loses all access to their account</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></div>
-                    All saved property analyses ({user._count.propertyAnalyses} total)
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center text-lg">📅</div>
+                    <span><strong>60 Days:</strong> Data is retained (can be restored by admin)</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></div>
-                    Subscription and billing information
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center text-lg">🗑️</div>
+                    <span><strong>After 60 Days:</strong> Account and all data permanently deleted</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></div>
-                    All account settings and preferences
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center text-lg">📊</div>
+                    <span>All {user._count.propertyAnalyses} property analyses will be deleted</span>
                   </li>
                 </ul>
               </div>
 
-              {!showDeleteConfirm ? (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full py-3 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Account
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Enter Admin PIN to Confirm
-                    </label>
-                    <input
-                      type="password"
-                      value={adminPin}
-                      onChange={(e) => setAdminPin(e.target.value)}
-                      className="input-field w-full"
-                      placeholder="Admin PIN"
-                      autoFocus
-                    />
-                    <p className="text-xs text-neutral-500 mt-2">
-                      This action requires your admin PIN for security
-                    </p>
-                  </div>
+              {user.accountStatus !== 'pending_deletion' ? (
+                !showDeleteConfirm ? (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-3 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Mark Account for Deletion
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Enter Admin PIN to Confirm
+                      </label>
+                      <input
+                        type="password"
+                        value={adminPin}
+                        onChange={(e) => setAdminPin(e.target.value)}
+                        className="input-field w-full"
+                        placeholder="Admin PIN"
+                        autoFocus
+                      />
+                      <p className="text-xs text-neutral-500 mt-2">
+                        This will mark the account for deletion (60-day retention period)
+                      </p>
+                    </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowDeleteConfirm(false)
-                        setAdminPin('')
-                        setError(null)
-                      }}
-                      className="flex-1 py-3 px-4 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleDeleteAccount}
-                      disabled={isLoading || !adminPin}
-                      className="flex-1 py-3 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {isLoading ? 'Deleting...' : 'Confirm Delete'}
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowDeleteConfirm(false)
+                          setAdminPin('')
+                          setError(null)
+                        }}
+                        className="flex-1 py-3 px-4 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteAccount}
+                        disabled={isLoading || !adminPin}
+                        className="flex-1 py-3 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {isLoading ? 'Processing...' : 'Confirm'}
+                      </button>
+                    </div>
                   </div>
+                )
+              ) : (
+                <div className="bg-neutral-100 border border-neutral-300 rounded-lg p-4 text-center text-sm text-neutral-600">
+                  Account is already marked for deletion. Use the restore button above to reactivate access.
                 </div>
               )}
             </div>

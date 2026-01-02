@@ -21,6 +21,8 @@ interface UserData {
   lastName: string | null
   company: string | null
   isAdmin: boolean
+  accountStatus: string
+  markedForDeletionAt: string | null
   subscriptionStatus: string
   stripeSubscriptionId: string | null
   trialEndsAt: string | null
@@ -173,14 +175,16 @@ export default function AdminUsersPage() {
               return (
                 <div 
                   key={user.id} 
-                  className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+                  className={`bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow ${
+                    user.accountStatus === 'pending_deletion' ? 'border-2 border-error-300 bg-error-50' : ''
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     {/* User Info */}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-3">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-base font-semibold text-neutral-900">
                               {displayName}
                             </h3>
@@ -188,6 +192,11 @@ export default function AdminUsersPage() {
                               <span className="inline-flex items-center px-2 py-0.5 bg-primary-100 text-primary-700 rounded text-xs font-medium">
                                 <Crown className="w-3 h-3 mr-1" />
                                 Admin
+                              </span>
+                            )}
+                            {user.accountStatus === 'pending_deletion' && (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-error-100 text-error-700 rounded text-xs font-medium">
+                                🗑️ Pending Deletion
                               </span>
                             )}
                           </div>
