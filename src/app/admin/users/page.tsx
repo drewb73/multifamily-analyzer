@@ -177,13 +177,10 @@ export default function AdminUsersPage() {
                   <div className="flex items-start justify-between">
                     {/* User Info */}
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-primary-600" />
-                        </div>
+                      <div className="flex items-center gap-2 mb-3">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-neutral-900">
+                            <h3 className="text-base font-semibold text-neutral-900">
                               {displayName}
                             </h3>
                             {user.isAdmin && (
@@ -193,7 +190,7 @@ export default function AdminUsersPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-neutral-600 flex items-center gap-1">
+                          <p className="text-sm text-neutral-600 flex items-center gap-1 mt-0.5">
                             <Mail className="w-3 h-3" />
                             {user.email}
                           </p>
