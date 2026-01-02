@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
 // PATCH - Toggle user admin status
@@ -34,7 +35,20 @@ export async function PATCH(
 
     const { userId } = await params
     const body = await request.json()
-    const { isAdmin } = body
+    const { isAdmin, adminPin } = body
+
+    // Verify admin PIN
+    const correctPin = process.env.ADMIN_PIN
+
+    if (!correctPin || adminPin !== correctPin) {
+      // Add delay to prevent brute force
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      return NextResponse.json({ 
+        success: false,
+        error: 'Invalid admin PIN'
+      }, { status: 401 })
+    }
 
     // Update user admin status
     const updatedUser = await prisma.user.update({

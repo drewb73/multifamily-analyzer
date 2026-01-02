@@ -54,6 +54,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
   const [isAdmin, setIsAdmin] = useState(user.isAdmin)
   const [adminPin, setAdminPin] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showAdminPinInput, setShowAdminPinInput] = useState(false)
 
   // Handle save user info
   const handleSaveInfo = async () => {
@@ -126,6 +127,17 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
 
   // Handle admin status toggle
   const handleToggleAdmin = async () => {
+    if (!showAdminPinInput) {
+      // First click - show PIN input
+      setShowAdminPinInput(true)
+      return
+    }
+
+    if (!adminPin) {
+      setError('Admin PIN is required to change admin access')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     setSuccess(null)
@@ -135,7 +147,8 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          isAdmin: !isAdmin
+          isAdmin: !isAdmin,
+          adminPin
         })
       })
 
@@ -147,12 +160,15 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
 
       setIsAdmin(!isAdmin)
       setSuccess(`User ${!isAdmin ? 'granted' : 'revoked'} admin access`)
+      setShowAdminPinInput(false)
+      setAdminPin('')
       setTimeout(() => {
         onUpdate()
         setSuccess(null)
       }, 2000)
     } catch (err: any) {
       setError(err.message)
+      setAdminPin('')
     } finally {
       setIsLoading(false)
     }
@@ -483,20 +499,65 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                   <input
                     type="checkbox"
                     checked={isAdmin}
-                    onChange={handleToggleAdmin}
-                    disabled={isLoading}
+                    onChange={() => {
+                      if (!showAdminPinInput) {
+                        setShowAdminPinInput(true)
+                      }
+                    }}
+                    disabled={isLoading || showAdminPinInput}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                 </label>
               </div>
 
-              {user.isAdmin !== isAdmin && (
+              {showAdminPinInput && (
                 <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 mb-4">
                     <AlertTriangle className="w-5 h-5 text-warning-600 mt-0.5" />
-                    <div className="text-xs text-warning-700">
-                      You have unsaved changes. Click the button below to save.
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-warning-900 mb-1">Confirm Admin Access Change</h3>
+                      <p className="text-xs text-warning-700">
+                        {isAdmin 
+                          ? 'Revoking admin access will immediately remove this user\'s ability to access the admin console.'
+                          : 'Granting admin access will allow this user to manage all aspects of the application using your admin PIN.'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Enter Admin PIN to Confirm
+                      </label>
+                      <input
+                        type="password"
+                        value={adminPin}
+                        onChange={(e) => setAdminPin(e.target.value)}
+                        className="input-field w-full"
+                        placeholder="Admin PIN"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowAdminPinInput(false)
+                          setAdminPin('')
+                          setError(null)
+                        }}
+                        className="flex-1 py-2 px-4 border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleToggleAdmin}
+                        disabled={isLoading || !adminPin}
+                        className="flex-1 py-2 px-4 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isLoading ? 'Updating...' : 'Confirm'}
+                      </button>
                     </div>
                   </div>
                 </div>

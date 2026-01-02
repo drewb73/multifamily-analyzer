@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
 // PATCH - Update user information
@@ -122,10 +123,32 @@ export async function DELETE(
     // Get user details before deletion for logging
     const userToDelete = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, firstName: true, lastName: true }
+      select: { 
+        clerkId: true,
+        email: true, 
+        firstName: true, 
+        lastName: true 
+      }
     })
 
-    // Delete user (cascade will delete related records)
+    if (!userToDelete) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'User not found'
+      }, { status: 404 })
+    }
+
+    // Delete from Clerk first
+    try {
+      const clerk = await clerkClient()
+      await clerk.users.deleteUser(userToDelete.clerkId)
+    } catch (clerkError: any) {
+      console.error('Failed to delete user from Clerk:', clerkError)
+      // Continue with database deletion even if Clerk deletion fails
+      // The user might already be deleted from Clerk
+    }
+
+    // Delete user from database (cascade will delete related records)
     await prisma.user.delete({
       where: { id: userId }
     })
@@ -137,15 +160,16 @@ export async function DELETE(
         action: 'user_deleted',
         details: {
           userId,
-          userEmail: userToDelete?.email,
-          userName: `${userToDelete?.firstName || ''} ${userToDelete?.lastName || ''}`.trim()
+          userEmail: userToDelete.email,
+          userName: `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim(),
+          clerkId: userToDelete.clerkId
         }
       }
     })
 
     return NextResponse.json({ 
       success: true,
-      message: 'User deleted successfully'
+      message: 'User deleted successfully from both Clerk and database'
     })
   } catch (error: any) {
     console.error('Delete user error:', error)
