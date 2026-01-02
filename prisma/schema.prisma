@@ -29,6 +29,13 @@ model User {
   // Admin Access
   isAdmin   Boolean  @default(false)
   
+  // Account Status
+  accountStatus  String   @default("active")  // "active", "inactive", "pending_deletion", "deleted"
+  markedForDeletionAt DateTime?  // When user/admin initiated deletion
+  deletedAt   DateTime?  // When account was actually deleted (60 days after marked)
+  deletedBy   String?    // "user" or admin email who deleted it
+  lastLoginAt DateTime?  // Track last login for inactivity
+  
   // Subscription & Tiers
   subscriptionStatus String   @default("trial")  // "free", "trial", "premium", "enterprise"
   subscriptionTier   String?  // For special tiers: "discount_7day", "early_bird", etc.
