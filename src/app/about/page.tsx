@@ -215,11 +215,11 @@ export default function AboutPage() {
             </p>
             
             <a 
-              href="mailto:support@numexre.com"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all"
+              href="mailto:numexre.spt@gmail.com"
+              className="inline-flex items-center gap-2 text-xl text-primary-600 hover:text-primary-700 font-semibold transition-colors"
             >
               <Mail className="w-5 h-5" />
-              Get in Touch
+              numexre.spt@gmail.com
             </a>
           </div>
         </div>
