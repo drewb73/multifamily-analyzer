@@ -4,6 +4,7 @@ import DashboardSidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getEffectiveSubscriptionStatus, getTrialHoursRemaining } from "@/lib/subscription";
+import { redirect } from 'next/navigation';
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,11 @@ export default async function DashboardLayout({
 }>) {
   // Fetch user data
   const dbUser = await getCurrentDbUser();
+  
+  // Check if account is marked for deletion or deleted
+  if (dbUser && (dbUser.accountStatus === 'pending_deletion' || dbUser.accountStatus === 'deleted')) {
+    redirect('/account-deleted');
+  }
   
   // Get effective subscription status
   const effectiveStatus = dbUser ? getEffectiveSubscriptionStatus(

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { User, Crown, Clock, Trash2, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from '@/lib/subscription'
@@ -20,6 +20,7 @@ interface AccountCardProps {
 export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: AccountCardProps) {
   const router = useRouter()
   const { user } = useUser()
+  const { signOut } = useClerk()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -145,8 +146,8 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
         throw new Error('Failed to mark account for deletion')
       }
 
-      // Log out user
-      await user.delete()
+      // Sign out user (do NOT delete from Clerk - that happens after 60 days via cron)
+      await signOut()
       
       // Redirect to homepage with message
       router.push('/?account=marked_for_deletion')
