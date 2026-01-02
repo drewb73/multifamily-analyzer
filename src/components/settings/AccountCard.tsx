@@ -1,10 +1,11 @@
 // src/components/settings/AccountCard.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import { User, Crown, Clock, Trash2 } from 'lucide-react'
+import { User, Crown, Clock, Trash2, Shield } from 'lucide-react'
+import Link from 'next/link'
 import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from '@/lib/subscription'
 import { UpgradeModal } from '@/components/subscription/UpgradeModal'
 import { ManageSubscriptionModal } from '@/components/subscription/ManageSubscriptionModal'
@@ -24,6 +25,23 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const response = await fetch('/api/admin/check-status')
+        const data = await response.json()
+        setIsAdmin(data.isAdmin || false)
+      } catch (error) {
+        setIsAdmin(false)
+      }
+    }
+    if (user) {
+      checkAdmin()
+    }
+  }, [user])
   
   const badge = getSubscriptionBadge(subscriptionStatus)
   const hoursRemaining = trialEndsAt ? getTrialHoursRemaining(trialEndsAt) : 0
@@ -157,6 +175,27 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
               </span>
             </div>
           </div>
+
+          {/* Admin Console Access - Only visible to admins */}
+          {isAdmin && (
+            <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-primary-600" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-primary-900">Admin Access</h3>
+                    <p className="text-xs text-primary-700">Manage users, features, and settings</p>
+                  </div>
+                </div>
+                <Link 
+                  href="/admin"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+                >
+                  Open Console
+                </Link>
+              </div>
+            </div>
+          )}
           
           {/* Trial Expires - Only show for trial users */}
           {showTrialExpiry && (
