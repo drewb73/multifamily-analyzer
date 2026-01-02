@@ -19,11 +19,13 @@ export function PDFFooter({
   const footerStyle = blackAndWhite 
     ? {
         backgroundColor: '#000000',
-        color: '#FFFFFF'
+        color: '#FFFFFF',
+        borderTop: '3px solid #6B7280'  // ✅ ADDED ACCENT BORDER
       }
     : {
         backgroundColor: colors.headerFooterBg,
-        color: colors.headerFooterText
+        color: colors.headerFooterText,
+        borderTop: `3px solid ${colors.accentColor}`  // ✅ ADDED ACCENT BORDER
       }
 
   // Show contact info in footer if position is "footer" or "both"

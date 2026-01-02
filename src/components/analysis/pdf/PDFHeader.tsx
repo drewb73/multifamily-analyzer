@@ -19,11 +19,13 @@ export function PDFHeader({
   const headerStyle = blackAndWhite 
     ? {
         backgroundColor: '#000000',
-        color: '#FFFFFF'
+        color: '#FFFFFF',
+        borderBottom: '3px solid #6B7280'  // ✅ ADDED ACCENT BORDER
       }
     : {
         backgroundColor: colors.headerFooterBg,
-        color: colors.headerFooterText
+        color: colors.headerFooterText,
+        borderBottom: `3px solid ${colors.accentColor}`  // ✅ ADDED ACCENT BORDER
       }
 
   // Show contact info in header if position is "header" or "both"

@@ -274,22 +274,6 @@ export function PDFTemplatePreview({
           </div>
         )}
 
-        {includeNotes && (
-          <div 
-            data-section-id="notes"
-            className="pdf-section-wrapper border-l-4 pl-4 py-2"
-            style={{ borderColor: accentColor }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">📝</span>
-              <h3 className="font-semibold text-neutral-900">Notes Section</h3>
-            </div>
-            <p className="text-sm text-neutral-600">
-              Blank page for additional comments and notes
-            </p>
-          </div>
-        )}
-
         {blackAndWhite && (
           <div className="mt-6 p-3 bg-neutral-100 rounded-lg border border-neutral-200">
             <div className="flex items-center gap-2 text-sm text-neutral-700">
