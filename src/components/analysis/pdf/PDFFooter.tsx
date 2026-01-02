@@ -20,12 +20,12 @@ export function PDFFooter({
     ? {
         backgroundColor: '#000000',
         color: '#FFFFFF',
-        borderTop: '3px solid #6B7280'  // ✅ ADDED ACCENT BORDER
+        borderTop: '3px solid #6B7280'
       }
     : {
         backgroundColor: colors.headerFooterBg,
         color: colors.headerFooterText,
-        borderTop: `3px solid ${colors.accentColor}`  // ✅ ADDED ACCENT BORDER
+        borderTop: `3px solid ${colors.accentColor}`
       }
 
   // Show contact info in footer if position is "footer" or "both"
@@ -59,7 +59,7 @@ export function PDFFooter({
       className="pdf-footer"
       style={footerStyle}
     >
-      <div className="px-6 py-3">
+      <div className="px-6 py-6 flex items-center">
         {/* Contact info BASED ON POSITION */}
         {showContactInFooter && contactParts.length > 0 ? (
           <div className="text-sm">
