@@ -22,6 +22,7 @@ interface UserData {
   company: string | null
   isAdmin: boolean
   subscriptionStatus: string
+  stripeSubscriptionId: string | null
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
   hasUsedTrial: boolean
@@ -201,9 +202,16 @@ export default function AdminUsersPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
                         <div>
                           <div className="text-neutral-500 text-xs mb-1">Subscription</div>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
-                            {badge.text}
-                          </span>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
+                              {badge.text}
+                            </span>
+                            {user.subscriptionStatus === 'premium' && (
+                              <span className="text-xs text-neutral-500">
+                                {user.stripeSubscriptionId ? '💳' : '🎁'}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {user.company && (

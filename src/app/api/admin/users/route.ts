@@ -38,6 +38,7 @@ export async function GET() {
         company: true,
         isAdmin: true,
         subscriptionStatus: true,
+        stripeSubscriptionId: true,
         trialEndsAt: true,
         subscriptionEndsAt: true,
         createdAt: true,

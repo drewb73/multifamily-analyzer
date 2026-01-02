@@ -24,6 +24,7 @@ interface UserData {
   company: string | null
   isAdmin: boolean
   subscriptionStatus: string
+  stripeSubscriptionId: string | null
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
   hasUsedTrial: boolean
@@ -51,6 +52,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
   const [email, setEmail] = useState(user.email)
   const [company, setCompany] = useState(user.company || '')
   const [subscriptionStatus, setSubscriptionStatus] = useState(user.subscriptionStatus)
+  const [premiumDuration, setPremiumDuration] = useState<number>(30) // days
   const [isAdmin, setIsAdmin] = useState(user.isAdmin)
   const [adminPin, setAdminPin] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -103,7 +105,8 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscriptionStatus
+          subscriptionStatus,
+          premiumDuration: subscriptionStatus === 'premium' ? premiumDuration : undefined
         })
       })
 
@@ -424,13 +427,137 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                   className="input-field w-full"
                 >
                   <option value="free">Free</option>
-                  <option value="trial">Trial</option>
-                  <option value="premium">Premium</option>
+                  <option value="trial">Trial (72 hours)</option>
+                  <option value="premium">Premium (Manual - No Charge)</option>
                 </select>
-                <p className="text-xs text-neutral-500 mt-2">
-                  Changing subscription status will immediately update the user's access level
-                </p>
               </div>
+
+              {/* Premium Duration Options - Show when Premium is selected */}
+              {subscriptionStatus === 'premium' && (
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">⏱️</span>
+                    <label className="block text-base font-semibold text-blue-900">
+                      Set Premium Duration
+                    </label>
+                  </div>
+                  
+                  <p className="text-sm text-blue-800 mb-4">
+                    Choose how long this user will have premium access (FREE - no Stripe charge)
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(7)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 7
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(14)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 14
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      14 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(30)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 30
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      30 Days
+                      <div className="text-xs opacity-75">Most Common</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(90)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 90
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      90 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(180)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 180
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      6 Months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(365)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all ${
+                        premiumDuration === 365
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-blue-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                      }`}
+                    >
+                      1 Year
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPremiumDuration(9999)}
+                      className={`p-4 rounded-lg border-2 text-sm font-semibold transition-all col-span-2 ${
+                        premiumDuration === 9999
+                          ? 'border-amber-600 bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg scale-105'
+                          : 'border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 hover:border-amber-400'
+                      }`}
+                    >
+                      <span className="text-lg">♾️</span> Lifetime Access
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-3 border border-blue-200">
+                    <label className="block text-xs font-medium text-blue-900 mb-2">
+                      Or enter custom days:
+                    </label>
+                    <input
+                      type="number"
+                      value={premiumDuration === 9999 ? '' : premiumDuration}
+                      onChange={(e) => setPremiumDuration(parseInt(e.target.value) || 30)}
+                      placeholder="Enter number of days"
+                      className="input-field w-full text-center"
+                      min="1"
+                      max="9998"
+                    />
+                  </div>
+
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex gap-2 text-xs text-amber-800">
+                      <span>⚠️</span>
+                      <div>
+                        <strong>Important:</strong> This will grant FREE premium access for{' '}
+                        <strong>
+                          {premiumDuration === 9999 
+                            ? 'LIFETIME' 
+                            : `${premiumDuration} day${premiumDuration !== 1 ? 's' : ''}`}
+                        </strong>
+                        . No Stripe charges will be made. Perfect for comps, partners, or testing.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-neutral-900 mb-3">Current Status</h3>
@@ -442,6 +569,16 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                     </span>
                   </div>
 
+                  {/* Show subscription source */}
+                  {user.subscriptionStatus === 'premium' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">Source</span>
+                      <span className="text-sm text-neutral-900 font-medium">
+                        {user.stripeSubscriptionId ? '💳 Stripe (Paid)' : '🎁 Manual (Free)'}
+                      </span>
+                    </div>
+                  )}
+
                   {user.trialEndsAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-neutral-600">Trial Ends</span>
@@ -451,7 +588,9 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
 
                   {user.subscriptionEndsAt && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-600">Subscription Ends</span>
+                      <span className="text-sm text-neutral-600">
+                        {user.stripeSubscriptionId ? 'Renews' : 'Expires'}
+                      </span>
                       <span className="text-sm text-neutral-900">{formatDate(user.subscriptionEndsAt)}</span>
                     </div>
                   )}

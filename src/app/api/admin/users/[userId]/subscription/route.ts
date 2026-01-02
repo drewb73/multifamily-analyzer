@@ -34,11 +34,12 @@ export async function PATCH(
 
     const { userId } = await params
     const body = await request.json()
-    const { subscriptionStatus } = body
+    const { subscriptionStatus, premiumDuration } = body
 
     // Calculate dates based on new status
     let updateData: any = {
-      subscriptionStatus
+      subscriptionStatus,
+      subscriptionSource: 'manual' // Always manual when set by admin
     }
 
     if (subscriptionStatus === 'trial') {
@@ -48,9 +49,17 @@ export async function PATCH(
       updateData.trialEndsAt = trialEnd
       updateData.hasUsedTrial = true
     } else if (subscriptionStatus === 'premium') {
-      // Set subscription to 1 month from now
+      // Set subscription based on duration (default 30 days)
+      const duration = premiumDuration || 30
       const subEnd = new Date()
-      subEnd.setMonth(subEnd.getMonth() + 1)
+      
+      if (duration === 9999) {
+        // "Forever" - set to 100 years from now
+        subEnd.setFullYear(subEnd.getFullYear() + 100)
+      } else {
+        subEnd.setDate(subEnd.getDate() + duration)
+      }
+      
       updateData.subscriptionEndsAt = subEnd
     } else if (subscriptionStatus === 'free') {
       // Clear dates

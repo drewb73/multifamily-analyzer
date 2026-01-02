@@ -32,6 +32,7 @@ model User {
   // Subscription & Tiers
   subscriptionStatus String   @default("trial")  // "free", "trial", "premium", "enterprise"
   subscriptionTier   String?  // For special tiers: "discount_7day", "early_bird", etc.
+  subscriptionSource String?  @default("manual") // "stripe", "manual", "discount_code"
   
   // Trial Management
   trialEndsAt        DateTime? // 72 hours from signup
