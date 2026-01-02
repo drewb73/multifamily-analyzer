@@ -12,6 +12,7 @@ import {
   Mail,
   Building
 } from 'lucide-react'
+import { ManageUserModal } from '@/components/admin/ManageUserModal'
 
 interface UserData {
   id: string
@@ -23,6 +24,7 @@ interface UserData {
   subscriptionStatus: string
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
+  hasUsedTrial: boolean
   createdAt: string
   _count: {
     propertyAnalyses: number
@@ -35,6 +37,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const usersPerPage = 10
 
   useEffect(() => {
@@ -253,9 +256,12 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
 
-                    {/* Actions - We'll add these next */}
+                    {/* Actions */}
                     <div className="ml-4">
-                      <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                      <button 
+                        onClick={() => setSelectedUser(user)}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
                         Manage →
                       </button>
                     </div>
@@ -320,6 +326,18 @@ export default function AdminUsersPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Manage User Modal */}
+      {selectedUser && (
+        <ManageUserModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onUpdate={() => {
+            loadUsers()
+            setSelectedUser(null)
+          }}
+        />
       )}
     </div>
   )
