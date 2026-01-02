@@ -71,6 +71,27 @@ export function PDFIncomeExpensePL({
     }).format(value)
   }
 
+  // Group units by type and sum their annual income
+  const groupedUnits = unitMix.reduce((acc, unit) => {
+    const annualIncome = unit.currentRent * unit.count * 12
+    
+    if (acc[unit.type]) {
+      acc[unit.type].totalUnits += unit.count
+      acc[unit.type].totalAnnualIncome += annualIncome
+    } else {
+      acc[unit.type] = {
+        type: unit.type,
+        totalUnits: unit.count,
+        totalAnnualIncome: annualIncome
+      }
+    }
+    
+    return acc
+  }, {} as Record<string, { type: string; totalUnits: number; totalAnnualIncome: number }>)
+
+  // Convert to array for rendering
+  const groupedUnitsArray = Object.values(groupedUnits)
+
   const totalRentalIncome = unitMix.reduce((sum, unit) => 
     sum + (unit.currentRent * unit.count * 12), 0
   )
@@ -92,17 +113,16 @@ export function PDFIncomeExpensePL({
       <div className="mb-4">
         <h3 className="text-sm font-bold text-neutral-800 mb-2 uppercase">Income</h3>
         
-        {/* Rental Income Items */}
+        {/* Rental Income Items - GROUPED BY TYPE */}
         <div className="space-y-1 ml-3">
-          {unitMix.map((unit, index) => {
-            const annualIncome = unit.currentRent * unit.count * 12
+          {groupedUnitsArray.map((group, index) => {
             return (
               <div key={index} className="flex justify-between text-sm">
                 <span className="text-neutral-700">
-                  {unit.type} ({unit.count} {unit.count === 1 ? 'unit' : 'units'})
+                  {group.type} ({group.totalUnits} {group.totalUnits === 1 ? 'unit' : 'units'})
                 </span>
                 <span className="text-neutral-900 font-medium">
-                  {formatCurrency(annualIncome)}
+                  {formatCurrency(group.totalAnnualIncome)}
                 </span>
               </div>
             )
