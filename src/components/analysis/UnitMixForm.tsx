@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { UnitType } from '@/types'
 import { generateId, formatCurrency } from '@/lib/utils'
 import { Card } from '@/components'
-import { X } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface UnitMixFormProps {
   data: UnitType[]
@@ -38,6 +38,35 @@ export function UnitMixForm({
     currentRent: 1200,
     marketRent: 1300,
   })
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isMobile, setIsMobile] = useState(false)
+  
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+  
+  // Calculate pagination
+  const unitsPerPage = isMobile ? 5 : 10
+  const totalPages = Math.ceil(unitMix.length / unitsPerPage)
+  const startIndex = (currentPage - 1) * unitsPerPage
+  const endIndex = startIndex + unitsPerPage
+  const currentUnits = unitMix.slice(startIndex, endIndex)
+  
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   useEffect(() => {
     onUpdate(unitMix)
@@ -56,6 +85,9 @@ export function UnitMixForm({
         currentRent: 1200,
         marketRent: 1300,
       })
+      // Go to last page to see newly added unit
+      const newTotalPages = Math.ceil((unitMix.length + 1) / unitsPerPage)
+      setCurrentPage(newTotalPages)
     } else {
       alert(`Only ${availableUnits} units available. Adjust your counts.`)
     }
@@ -226,14 +258,48 @@ export function UnitMixForm({
         </div>
       </Card>
 
-      {/* Unit Mix Display - Responsive */}
+      {/* Unit Mix Display - WITH PAGINATION */}
       {unitMix.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-neutral-800 mb-4">Current Unit Mix</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-neutral-800">
+              Current Unit Mix
+              {totalPages > 1 && (
+                <span className="ml-2 text-sm font-normal text-neutral-500">
+                  (Page {currentPage} of {totalPages})
+                </span>
+              )}
+            </h3>
+            
+            {/* Pagination Controls - Top */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-sm text-neutral-600 px-2">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
           
-          {/* CARD LAYOUT - All Screen Sizes */}
+          {/* CARD LAYOUT - Paginated Units */}
           <div className="space-y-4">
-            {unitMix.map((unit) => {
+            {currentUnits.map((unit) => {
               const monthlyCurrentGross = unit.currentRent * unit.count
               const monthlyMarketGross = unit.marketRent * unit.count
               
@@ -349,7 +415,30 @@ export function UnitMixForm({
               )
             })}
 
-            {/* Mobile Totals */}
+            {/* Pagination Controls - Bottom */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-4">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-neutral-600 px-4">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+
+            {/* Totals - Always visible */}
             <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
               <div className="text-sm font-semibold text-primary-900 mb-3">Totals (Gross)</div>
               <div className="grid grid-cols-2 gap-3">

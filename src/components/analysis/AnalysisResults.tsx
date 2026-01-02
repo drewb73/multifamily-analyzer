@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { AnalysisInputs, AnalysisResults as AnalysisResultsType } from '@/types'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { Button } from '@/components'
-import { Download, Lock } from 'lucide-react'
+import { Download, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PDFExportModal } from './pdf/PDFExportModal'
 import { useUser } from '@clerk/nextjs'
 
@@ -23,10 +23,11 @@ export function AnalysisResults({
 }: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [showPDFModal, setShowPDFModal] = useState(false)  // ← ADD THIS LINE
+  const [showPDFModal, setShowPDFModal] = useState(false)
+  const [rentComparisonPage, setRentComparisonPage] = useState(1)
   const isCashPurchase = inputs.property.isCashPurchase
   // Get user info for PDF modal
-  const { user } = useUser()  // ← ADD THIS LINE
+  const { user } = useUser()
   
   
   // Check if user has access to premium features (PDF export and saved drafts)
@@ -178,6 +179,13 @@ export function AnalysisResults({
     // Show PDF export modal
     setShowPDFModal(true)
   }
+
+  // Pagination for Rent Comparison
+  const unitsPerPage = 10 // Same for both mobile and desktop
+  const totalRentPages = Math.ceil(inputs.unitMix.length / unitsPerPage)
+  const rentStartIndex = (rentComparisonPage - 1) * unitsPerPage
+  const rentEndIndex = rentStartIndex + unitsPerPage
+  const paginatedUnits = inputs.unitMix.slice(rentStartIndex, rentEndIndex)
 
   return (
     <div className="space-y-8" id="analysis-results">
@@ -460,9 +468,44 @@ export function AnalysisResults({
         </div>
       </div>
 
-      {/* Rent Comparison */}
+      {/* Rent Comparison - WITH PAGINATION */}
       <div className="elevated-card p-6">
-        <h3 className="text-xl font-semibold text-neutral-800 mb-4">Rent Comparison</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-neutral-800">
+            Rent Comparison
+            {totalRentPages > 1 && (
+              <span className="ml-2 text-sm font-normal text-neutral-500">
+                (Page {rentComparisonPage} of {totalRentPages})
+              </span>
+            )}
+          </h3>
+          
+          {/* Pagination Controls - Top */}
+          {totalRentPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRentComparisonPage(prev => Math.max(1, prev - 1))}
+                disabled={rentComparisonPage === 1}
+                className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="text-sm text-neutral-600 px-2">
+                {rentComparisonPage} / {totalRentPages}
+              </span>
+              <button
+                onClick={() => setRentComparisonPage(prev => Math.min(totalRentPages, prev + 1))}
+                disabled={rentComparisonPage === totalRentPages}
+                className="p-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200">
             <thead>
@@ -477,7 +520,7 @@ export function AnalysisResults({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
-              {inputs.unitMix.map((unit) => {
+              {paginatedUnits.map((unit) => {
                 const rentDifference = unit.marketRent - unit.currentRent
                 const monthlyImpact = rentDifference * unit.count
                 const annualImpact = monthlyImpact * 12
@@ -514,7 +557,7 @@ export function AnalysisResults({
                   </tr>
                 )
               })}
-              {/* Totals Row */}
+              {/* Totals Row - ALWAYS USE ALL UNITS */}
               <tr className="bg-neutral-50 font-semibold">
                 <td colSpan={2} className="px-4 py-3 text-right">Totals:</td>
                 <td className="px-4 py-3 whitespace-nowrap">
@@ -538,6 +581,29 @@ export function AnalysisResults({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls - Bottom */}
+        {totalRentPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-neutral-200">
+            <button
+              onClick={() => setRentComparisonPage(prev => Math.max(1, prev - 1))}
+              disabled={rentComparisonPage === 1}
+              className="px-4 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-neutral-600 px-4">
+              Page {rentComparisonPage} of {totalRentPages}
+            </span>
+            <button
+              onClick={() => setRentComparisonPage(prev => Math.min(totalRentPages, prev + 1))}
+              disabled={rentComparisonPage === totalRentPages}
+              className="px-4 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Calculation Breakdown */}
