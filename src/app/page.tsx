@@ -34,7 +34,7 @@ export default function Home() {
         <Card className="p-6 text-center">
           <div className="text-4xl font-bold text-primary-600 mb-2">72-Hour</div>
           <div className="text-lg font-semibold text-neutral-800 mb-2">Free Trial</div>
-          <p className="text-neutral-600">Full access for 72 hours, no credit card required</p>
+          <p className="text-neutral-600">Limited access for 72 hours, no credit card required</p>
         </Card>
         <Card className="p-6 text-center">
           <div className="text-4xl font-bold text-primary-600 mb-2">30+</div>
