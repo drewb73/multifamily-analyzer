@@ -10,6 +10,7 @@ import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from
 import { UpgradeModal } from '@/components/subscription/UpgradeModal'
 import { ManageSubscriptionModal } from '@/components/subscription/ManageSubscriptionModal'
 import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface AccountCardProps {
   subscriptionStatus: SubscriptionStatus
@@ -21,6 +22,7 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
   const router = useRouter()
   const { user } = useUser()
   const { signOut } = useClerk()
+  const { settings: systemSettings } = useSystemSettings()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -269,10 +271,19 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
           <div className="pt-4 border-t border-neutral-200">
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="w-full py-3 px-4 text-sm font-medium text-error-600 hover:text-error-700 hover:bg-error-50 rounded-lg transition-colors flex items-center justify-center gap-2"
+              disabled={!systemSettings?.accountDeletionEnabled}
+              className={`w-full py-3 px-4 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                !systemSettings?.accountDeletionEnabled
+                  ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                  : 'text-error-600 hover:text-error-700 hover:bg-error-50'
+              }`}
+              title={!systemSettings?.accountDeletionEnabled ? 'Account deletion is temporarily disabled' : ''}
             >
               <Trash2 className="w-4 h-4" />
               Delete Account
+              {!systemSettings?.accountDeletionEnabled && (
+                <span className="text-xs ml-2">(Disabled)</span>
+              )}
             </button>
           </div>
         </div>
