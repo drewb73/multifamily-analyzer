@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface DashboardSidebarProps {
   userSubscriptionStatus: string | null
@@ -25,6 +26,7 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const { settings: systemSettings } = useSystemSettings()
 
   // Determine what's locked based on subscription
   const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
@@ -36,13 +38,13 @@ export default function DashboardSidebar({
       name: 'Analyze Property',
       href: '/dashboard',
       icon: Home,
-      locked: isFree, // Lock for free users
+      locked: isFree || !systemSettings?.analysisEnabled, // Lock for free users OR if feature disabled
     },
     {
       name: 'Saved Analyses',
       href: '/dashboard/saved',
       icon: FileText,
-      locked: !isPremium, // Lock for non-premium users
+      locked: !isPremium || !systemSettings?.savedDraftsEnabled, // Lock for non-premium OR if feature disabled
     },
     {
       name: 'Contact Support',

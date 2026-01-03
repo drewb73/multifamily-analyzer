@@ -1,8 +1,10 @@
 // src/app/dashboard/page.tsx
 import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
+import { MaintenanceLock } from '@/components/dashboard/MaintenanceLock';
 import { getCurrentDbUser } from '@/lib/auth';
 import { getEffectiveSubscriptionStatus, canUserPerformAction } from '@/lib/subscription';
+import { getSystemSettings } from '@/lib/settings';
 import { redirect } from 'next/navigation';
 
 interface DashboardPageProps {
@@ -15,6 +17,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   
   if (!dbUser) {
     redirect('/sign-in');
+  }
+
+  // Check system settings
+  const systemSettings = await getSystemSettings();
+
+  // If analysis is disabled, show maintenance lock
+  if (!systemSettings.analysisEnabled) {
+    return <MaintenanceLock feature="Property Analysis" />
   }
 
   // Get effective subscription status (handles trial expiration)
