@@ -59,6 +59,8 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
   const [adminPin, setAdminPin] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAdminPinInput, setShowAdminPinInput] = useState(false)
+  const [showNuclearConfirm, setShowNuclearConfirm] = useState(false)
+  const [nuclearPin, setNuclearPin] = useState('')
 
   // Handle save user info
   const handleSaveInfo = async () => {
@@ -210,6 +212,42 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     } catch (err: any) {
       setError(err.message)
       setAdminPin('')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle nuclear delete (permanent, immediate deletion)
+  const handleNuclearDelete = async () => {
+    if (!nuclearPin) {
+      setError('Admin PIN is required for permanent deletion')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/nuclear-delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPin: nuclearPin })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to permanently delete account')
+      }
+
+      setSuccess('Account permanently deleted')
+      setTimeout(() => {
+        onUpdate()
+        onClose()
+      }, 1500)
+    } catch (err: any) {
+      setError(err.message)
+      setNuclearPin('')
     } finally {
       setIsLoading(false)
     }
@@ -846,6 +884,86 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                   Account is already marked for deletion. Use the restore button above to reactivate access.
                 </div>
               )}
+
+              {/* Nuclear Delete Option - For Spam/Bot Accounts */}
+              <div className="border-t border-neutral-300 pt-6">
+                <div className="bg-gradient-to-br from-red-900 to-red-800 border-2 border-red-700 rounded-lg p-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 bg-red-700 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xl">☢️</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-bold text-white mb-1">
+                        Nuclear Delete (Permanent)
+                      </h3>
+                      <p className="text-xs text-red-100">
+                        <strong>⚠️ DANGER:</strong> Immediately and permanently deletes this account from Clerk and the database. 
+                        <strong> NO recovery possible.</strong> Use only for spam, bots, or abusive accounts.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!showNuclearConfirm ? (
+                    <button
+                      onClick={() => setShowNuclearConfirm(true)}
+                      className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 border-2 border-red-400"
+                    >
+                      ☢️ Permanent Delete (No Recovery)
+                    </button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-red-950 border border-red-600 rounded-lg p-4">
+                        <p className="text-sm text-red-100 mb-3 font-semibold">
+                          ⚠️ This will IMMEDIATELY delete:
+                        </p>
+                        <ul className="text-xs text-red-200 space-y-1 mb-3">
+                          <li>• User account from Clerk (cannot sign in)</li>
+                          <li>• All user data from database</li>
+                          <li>• All {user._count.propertyAnalyses} property analyses</li>
+                          <li>• Everything - permanently and immediately</li>
+                        </ul>
+                        <p className="text-xs text-red-100 font-bold">
+                          ⛔ NO 60-day grace period. NO recovery. PERMANENT.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-white mb-2">
+                          Enter Admin PIN to PERMANENTLY DELETE
+                        </label>
+                        <input
+                          type="password"
+                          value={nuclearPin}
+                          onChange={(e) => setNuclearPin(e.target.value)}
+                          className="input-field w-full bg-red-950 border-red-600 text-white placeholder-red-400"
+                          placeholder="Admin PIN"
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setShowNuclearConfirm(false)
+                            setNuclearPin('')
+                            setError(null)
+                          }}
+                          className="flex-1 py-3 px-4 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNuclearDelete}
+                          disabled={isLoading || !nuclearPin}
+                          className="flex-1 py-3 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 border-2 border-red-400"
+                        >
+                          ☢️ {isLoading ? 'DELETING...' : 'PERMANENT DELETE'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
