@@ -41,6 +41,16 @@ export default function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
+  
+  // Filter states
+  const [filterSubscription, setFilterSubscription] = useState<string>('all')
+  const [filterAccountStatus, setFilterAccountStatus] = useState<string>('all')
+  const [filterAdmin, setFilterAdmin] = useState<string>('all')
+  
+  // Sort states
+  const [sortBy, setSortBy] = useState<string>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  
   const usersPerPage = 10
 
   useEffect(() => {
@@ -48,12 +58,13 @@ export default function AdminUsersPage() {
   }, [])
 
   useEffect(() => {
-    // Filter users based on search query
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users)
-    } else {
+    // Filter and sort users
+    let filtered = [...users]
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase()
-      const filtered = users.filter(user => {
+      filtered = filtered.filter(user => {
         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase()
         const email = user.email.toLowerCase()
         const company = (user.company || '').toLowerCase()
@@ -62,10 +73,62 @@ export default function AdminUsersPage() {
                email.includes(query) || 
                company.includes(query)
       })
-      setFilteredUsers(filtered)
-      setCurrentPage(1) // Reset to first page when searching
     }
-  }, [searchQuery, users])
+    
+    // Apply subscription filter
+    if (filterSubscription !== 'all') {
+      filtered = filtered.filter(user => user.subscriptionStatus === filterSubscription)
+    }
+    
+    // Apply account status filter
+    if (filterAccountStatus !== 'all') {
+      filtered = filtered.filter(user => user.accountStatus === filterAccountStatus)
+    }
+    
+    // Apply admin filter
+    if (filterAdmin === 'admin') {
+      filtered = filtered.filter(user => user.isAdmin)
+    } else if (filterAdmin === 'non-admin') {
+      filtered = filtered.filter(user => !user.isAdmin)
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let compareValue = 0
+      
+      switch (sortBy) {
+        case 'createdAt':
+          compareValue = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          break
+        case 'email':
+          compareValue = a.email.localeCompare(b.email)
+          break
+        case 'name':
+          const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim()
+          const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim()
+          compareValue = nameA.localeCompare(nameB)
+          break
+        case 'subscription':
+          compareValue = a.subscriptionStatus.localeCompare(b.subscriptionStatus)
+          break
+        case 'subscriptionEndsAt':
+          const dateA = a.subscriptionEndsAt ? new Date(a.subscriptionEndsAt).getTime() : 0
+          const dateB = b.subscriptionEndsAt ? new Date(b.subscriptionEndsAt).getTime() : 0
+          compareValue = dateA - dateB
+          break
+        case 'analyses':
+          compareValue = a._count.propertyAnalyses - b._count.propertyAnalyses
+          break
+        default:
+          compareValue = 0
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue
+    })
+    
+    setFilteredUsers(filtered)
+    setCurrentPage(1) // Reset to first page when filters/sort change
+  }, [searchQuery, users, filterSubscription, filterAccountStatus, filterAdmin, sortBy, sortOrder])
 
   const loadUsers = async () => {
     setIsLoading(true)
@@ -141,9 +204,10 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="relative">
+      {/* Search, Filters, and Sort */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        {/* Search Bar */}
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
           <input
             type="text"
@@ -153,6 +217,131 @@ export default function AdminUsersPage() {
             className="input-field pl-10 w-full"
           />
         </div>
+
+        {/* Filters and Sort */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Subscription Filter */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-2">
+              Subscription
+            </label>
+            <select
+              value={filterSubscription}
+              onChange={(e) => setFilterSubscription(e.target.value)}
+              className="input-field w-full text-sm"
+            >
+              <option value="all">All Subscriptions</option>
+              <option value="free">Free</option>
+              <option value="trial">Trial</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+
+          {/* Account Status Filter */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-2">
+              Account Status
+            </label>
+            <select
+              value={filterAccountStatus}
+              onChange={(e) => setFilterAccountStatus(e.target.value)}
+              className="input-field w-full text-sm"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending_deletion">Pending Deletion</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {/* Admin Filter */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-2">
+              Admin Access
+            </label>
+            <select
+              value={filterAdmin}
+              onChange={(e) => setFilterAdmin(e.target.value)}
+              className="input-field w-full text-sm"
+            >
+              <option value="all">All Users</option>
+              <option value="admin">Admins Only</option>
+              <option value="non-admin">Non-Admins</option>
+            </select>
+          </div>
+
+          {/* Sort By */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-2">
+              Sort By
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="input-field flex-1 text-sm"
+              >
+                <option value="createdAt">Join Date</option>
+                <option value="email">Email</option>
+                <option value="name">Name</option>
+                <option value="subscription">Subscription</option>
+                <option value="subscriptionEndsAt">Renewal/Expiry</option>
+                <option value="analyses">Analysis Count</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="px-3 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
+                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Filters Summary */}
+        {(filterSubscription !== 'all' || filterAccountStatus !== 'all' || filterAdmin !== 'all' || searchQuery) && (
+          <div className="mt-4 pt-4 border-t border-neutral-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium text-neutral-600">Active filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs">
+                  Search: "{searchQuery}"
+                  <button onClick={() => setSearchQuery('')} className="hover:text-primary-900">×</button>
+                </span>
+              )}
+              {filterSubscription !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs">
+                  {filterSubscription}
+                  <button onClick={() => setFilterSubscription('all')} className="hover:text-primary-900">×</button>
+                </span>
+              )}
+              {filterAccountStatus !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs">
+                  {filterAccountStatus === 'pending_deletion' ? 'Pending Deletion' : filterAccountStatus}
+                  <button onClick={() => setFilterAccountStatus('all')} className="hover:text-primary-900">×</button>
+                </span>
+              )}
+              {filterAdmin !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs">
+                  {filterAdmin === 'admin' ? 'Admins' : 'Non-Admins'}
+                  <button onClick={() => setFilterAdmin('all')} className="hover:text-primary-900">×</button>
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setFilterSubscription('all')
+                  setFilterAccountStatus('all')
+                  setFilterAdmin('all')
+                }}
+                className="text-xs text-neutral-500 hover:text-neutral-700 underline ml-2"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Users List */}
