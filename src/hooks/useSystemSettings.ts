@@ -6,6 +6,9 @@ interface SystemSettings {
   analysisEnabled: boolean
   savedDraftsEnabled: boolean
   maintenanceMode: boolean
+  signUpEnabled: boolean
+  signInEnabled: boolean
+  stripeEnabled: boolean
   // Add other settings as needed
 }
 

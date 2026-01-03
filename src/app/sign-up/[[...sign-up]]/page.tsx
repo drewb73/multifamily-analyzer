@@ -6,10 +6,13 @@ import { useSignUp } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, AlertCircle, Eye, EyeOff, Loader2, User, CheckCircle } from 'lucide-react'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
+import { AuthMaintenancePage } from '@/components/auth/AuthMaintenancePage'
 
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp()
   const router = useRouter()
+  const { settings: systemSettings, isLoading: settingsLoading } = useSystemSettings()
   
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -112,6 +115,20 @@ export default function SignUpPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show loading while settings are loading
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  // Check if sign up is disabled
+  if (systemSettings && !systemSettings.signUpEnabled) {
+    return <AuthMaintenancePage feature="Sign Up" />
   }
 
   if (pendingVerification) {
