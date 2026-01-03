@@ -1,8 +1,10 @@
 // src/app/dashboard/saved/page.tsx
 import { SavedAnalysesClient } from '@/components/dashboard/SavedAnalysesClient';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
+import { MaintenanceLock } from '@/components/dashboard/MaintenanceLock';
 import { getCurrentDbUser } from '@/lib/auth';
 import { getEffectiveSubscriptionStatus, canUserPerformAction } from '@/lib/subscription';
+import { getSystemSettings } from '@/lib/settings';
 import { redirect } from 'next/navigation';
 import { Lock } from 'lucide-react';
 
@@ -12,6 +14,14 @@ export default async function SavedAnalysesPage() {
   
   if (!dbUser) {
     redirect('/sign-in');
+  }
+
+  // Check system settings
+  const systemSettings = await getSystemSettings();
+
+  // If saved drafts is disabled, show maintenance lock
+  if (!systemSettings.savedDraftsEnabled) {
+    return <MaintenanceLock feature="Saved Analyses" />
   }
 
   // Get effective subscription status (handles trial expiration)
