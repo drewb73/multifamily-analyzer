@@ -7,6 +7,7 @@ import { Button } from '@/components'
 import { Download, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PDFExportModal } from './pdf/PDFExportModal'
 import { useUser } from '@clerk/nextjs'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface AnalysisResultsProps {
   inputs: AnalysisInputs
@@ -28,6 +29,7 @@ export function AnalysisResults({
   const isCashPurchase = inputs.property.isCashPurchase
   // Get user info for PDF modal
   const { user } = useUser()
+  const { settings: systemSettings } = useSystemSettings()
   
   
   // Check if user has access to premium features (PDF export and saved drafts)
@@ -691,26 +693,29 @@ export function AnalysisResults({
           </Button>
         )}
         
-        <Button 
-          onClick={handleExportToPDF}
-          disabled={!isPremiumUser || isExporting}
-          className={`px-8 py-3 bg-success-600 hover:bg-success-700 ${!isPremiumUser ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={!isPremiumUser ? 'Upgrade to Premium to export to PDF' : 'Export your analysis to PDF'}
-        >
-          {!isPremiumUser && <Lock className="w-4 h-4 mr-2" />}
-          {isExporting ? (
-            <>
-              <span className="animate-spin mr-2">⏳</span>
-              Exporting...
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4 mr-2" />
-              Export to PDF
-              {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
+        {/* Only show export button if PDF export is enabled */}
+        {systemSettings?.pdfExportEnabled && (
+          <Button 
+            onClick={handleExportToPDF}
+            disabled={!isPremiumUser || isExporting}
+            className={`px-8 py-3 bg-success-600 hover:bg-success-700 ${!isPremiumUser ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={!isPremiumUser ? 'Upgrade to Premium to export to PDF' : 'Export your analysis to PDF'}
+          >
+            {!isPremiumUser && <Lock className="w-4 h-4 mr-2" />}
+            {isExporting ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Export to PDF
+                {!isPremiumUser && <span className="ml-2 text-xs">(Premium)</span>}
             </>
           )}
         </Button>
+        )}
       </div>
       {/* PDF Export Modal */}
       <PDFExportModal
