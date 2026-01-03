@@ -20,7 +20,7 @@ interface SystemSettings {
   // Application-wide toggles
   maintenanceMode: boolean
   maintenanceMessage: string | null
-  signInEnabled: boolean
+  dashboardEnabled: boolean
   signUpEnabled: boolean
   stripeEnabled: boolean
   
@@ -71,7 +71,7 @@ export default function AdminFeaturesPage() {
     if (!settings) return
     
     // Critical toggles require PIN confirmation
-    const criticalToggles = ['maintenanceMode', 'signInEnabled', 'signUpEnabled']
+    const criticalToggles = ['maintenanceMode', 'dashboardEnabled', 'signUpEnabled']
     
     if (criticalToggles.includes(field) && value !== settings[field]) {
       // Show PIN confirmation
@@ -264,13 +264,13 @@ export default function AdminFeaturesPage() {
               critical
             />
 
-            {/* Sign In */}
+            {/* Dashboard Access */}
             <ToggleRow
               icon={Shield}
-              title="Sign In"
-              description="Allow users to sign in. When disabled, sign-in page shows maintenance message."
-              enabled={settings.signInEnabled}
-              onChange={(value) => handleToggle('signInEnabled', value)}
+              title="Dashboard Access"
+              description="Allow users to access the dashboard. When disabled, users see maintenance screen (admins can still access)."
+              enabled={settings.dashboardEnabled}
+              onChange={(value) => handleToggle('dashboardEnabled', value)}
               critical
             />
 

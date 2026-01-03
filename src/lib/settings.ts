@@ -22,7 +22,7 @@ export async function getSystemSettings() {
       id: '',
       maintenanceMode: false,
       maintenanceMessage: null,
-      signInEnabled: true,
+      dashboardEnabled: true,
       signUpEnabled: true,
       stripeEnabled: true,
       analysisEnabled: true,

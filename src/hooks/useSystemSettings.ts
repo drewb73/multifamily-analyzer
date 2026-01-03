@@ -7,7 +7,7 @@ interface SystemSettings {
   savedDraftsEnabled: boolean
   maintenanceMode: boolean
   signUpEnabled: boolean
-  signInEnabled: boolean
+  dashboardEnabled: boolean
   stripeEnabled: boolean
   // Add other settings as needed
 }
@@ -17,28 +17,35 @@ export function useSystemSettings() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchSettings() {
+    let mounted = true
+
+    const fetchSettings = async () => {
       try {
         // Add timestamp to prevent caching
         const response = await fetch(`/api/system-settings?t=${Date.now()}`)
-        if (response.ok) {
-          const data = await response.json()
+        const data = await response.json()
+        
+        if (mounted && data.success) {
           setSettings(data.settings)
         }
       } catch (error) {
         console.error('Failed to fetch system settings:', error)
       } finally {
-        setIsLoading(false)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    // Fetch immediately
     fetchSettings()
-    
+
     // Poll every 10 seconds for updates
     const interval = setInterval(fetchSettings, 10000)
-    
-    return () => clearInterval(interval)
+
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   return { settings, isLoading }

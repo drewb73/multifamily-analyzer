@@ -2,8 +2,10 @@
 import type { Metadata } from "next";
 import DashboardSidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { MaintenanceLock } from "@/components/dashboard/MaintenanceLock";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getEffectiveSubscriptionStatus, getTrialHoursRemaining } from "@/lib/subscription";
+import { getSystemSettings } from "@/lib/settings";
 import { redirect } from 'next/navigation';
 import "../globals.css";
 
@@ -23,6 +25,24 @@ export default async function DashboardLayout({
   // Check if account is marked for deletion or deleted
   if (dbUser && (dbUser.accountStatus === 'pending_deletion' || dbUser.accountStatus === 'deleted')) {
     redirect('/account-deleted');
+  }
+
+  // Check system settings
+  const systemSettings = await getSystemSettings();
+  
+  // If dashboard is disabled and user is NOT an admin, show maintenance
+  if (!systemSettings.dashboardEnabled && dbUser && !dbUser.isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <DashboardHeader />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <MaintenanceLock 
+            feature="Dashboard" 
+            message="The dashboard is temporarily unavailable while we perform maintenance. Please check back soon."
+          />
+        </main>
+      </div>
+    );
   }
   
   // Get effective subscription status

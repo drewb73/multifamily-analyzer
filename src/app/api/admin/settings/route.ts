@@ -1,35 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { clearSettingsCache } from '@/lib/settings'
 
-// GET - Fetch system settings
+// GET - Fetch current settings
 export async function GET() {
   try {
-    const clerkUser = await currentUser()
+    const { userId } = await auth()
     
-    if (!clerkUser) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authenticated'
-      }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const email = clerkUser.emailAddresses[0]?.emailAddress
-    
-    // Verify user is admin
-    const adminUser = await prisma.user.findUnique({
-      where: { email },
-      select: { isAdmin: true }
+    // Check if user is admin
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { isAdmin: true, email: true }
     })
 
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authorized'
-      }, { status: 403 })
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Get settings (should only be one record)
+    // Get settings
     let settings = await prisma.systemSettings.findFirst()
 
     // If no settings exist, create default settings
@@ -37,7 +30,7 @@ export async function GET() {
       settings = await prisma.systemSettings.create({
         data: {
           maintenanceMode: false,
-          signInEnabled: true,
+          dashboardEnabled: true,
           signUpEnabled: true,
           stripeEnabled: true,
           analysisEnabled: true,
@@ -48,56 +41,39 @@ export async function GET() {
       })
     }
 
-    return NextResponse.json({ 
-      success: true,
-      settings
-    })
+    return NextResponse.json({ success: true, settings })
   } catch (error) {
     console.error('Get settings error:', error)
-    return NextResponse.json({ 
-      success: false,
-      error: 'Failed to fetch settings'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
   }
 }
 
-// PATCH - Update system settings
-export async function PATCH(request: NextRequest) {
+// PATCH - Update settings
+export async function PATCH(request: Request) {
   try {
-    const clerkUser = await currentUser()
+    const { userId } = await auth()
     
-    if (!clerkUser) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authenticated'
-      }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const email = clerkUser.emailAddresses[0]?.emailAddress
-    
-    // Verify user is admin
-    const adminUser = await prisma.user.findUnique({
-      where: { email },
-      select: { isAdmin: true }
+    // Check if user is admin
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { isAdmin: true, email: true }
     })
 
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authorized'
-      }, { status: 403 })
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
 
     // Get current settings
     const currentSettings = await prisma.systemSettings.findFirst()
-
+    
     if (!currentSettings) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Settings not found'
-      }, { status: 404 })
+      return NextResponse.json({ error: 'Settings not found' }, { status: 404 })
     }
 
     // Update settings
@@ -106,38 +82,34 @@ export async function PATCH(request: NextRequest) {
       data: {
         maintenanceMode: body.maintenanceMode,
         maintenanceMessage: body.maintenanceMessage,
-        signInEnabled: body.signInEnabled,
+        dashboardEnabled: body.dashboardEnabled,
         signUpEnabled: body.signUpEnabled,
         stripeEnabled: body.stripeEnabled,
         analysisEnabled: body.analysisEnabled,
         pdfExportEnabled: body.pdfExportEnabled,
         savedDraftsEnabled: body.savedDraftsEnabled,
         accountDeletionEnabled: body.accountDeletionEnabled,
-        updatedBy: email
+        updatedBy: user.email
       }
     })
 
     // Log the change
     await prisma.adminLog.create({
       data: {
-        adminEmail: email,
+        adminEmail: user.email || 'unknown',
         action: 'settings_updated',
         details: {
-          changes: body,
-          timestamp: new Date().toISOString()
+          changes: body
         }
       }
     })
 
-    return NextResponse.json({ 
-      success: true,
-      settings: updatedSettings
-    })
+    // Clear the settings cache
+    clearSettingsCache()
+
+    return NextResponse.json({ success: true, settings: updatedSettings })
   } catch (error) {
     console.error('Update settings error:', error)
-    return NextResponse.json({ 
-      success: false,
-      error: 'Failed to update settings'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 }

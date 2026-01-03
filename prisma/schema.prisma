@@ -230,7 +230,7 @@ model SystemSettings {
   // Application-Wide Toggles
   maintenanceMode      Boolean  @default(false)
   maintenanceMessage   String?
-  signInEnabled        Boolean  @default(true)
+  dashboardEnabled       Boolean  @default(true)
   signUpEnabled        Boolean  @default(true)
   stripeEnabled        Boolean  @default(true)
   

@@ -18,7 +18,7 @@ export async function GET() {
         maintenanceMode: settings.maintenanceMode,
         maintenanceMessage: settings.maintenanceMessage,
         signUpEnabled: settings.signUpEnabled,
-        signInEnabled: settings.signInEnabled,
+        dashboardEnabled: settings.dashboardEnabled,
         stripeEnabled: settings.stripeEnabled
       }
     })
@@ -35,7 +35,7 @@ export async function GET() {
         maintenanceMode: false,
         maintenanceMessage: null,
         signUpEnabled: true,
-        signInEnabled: true,
+        dashboardEnabled: true,
         stripeEnabled: true
       }
     })
