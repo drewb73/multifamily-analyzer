@@ -6,6 +6,7 @@ interface SystemSettings {
   analysisEnabled: boolean
   savedDraftsEnabled: boolean
   maintenanceMode: boolean
+  maintenanceMessage: string | null  // ✅ ADD THIS LINE
   signUpEnabled: boolean
   dashboardEnabled: boolean
   stripeEnabled: boolean

@@ -1,10 +1,22 @@
-import { Settings, Wrench } from 'lucide-react'
+'use client'
+
+import { Settings, Wrench, LogOut } from 'lucide-react'
+import { useClerk } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
 
 interface MaintenancePageProps {
   message?: string
 }
 
 export function MaintenancePage({ message }: MaintenancePageProps) {
+  const { signOut } = useClerk()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
@@ -34,6 +46,15 @@ export function MaintenancePage({ message }: MaintenancePageProps) {
               Our team is working hard to bring you an even better experience. We appreciate your patience!
             </p>
           </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={handleSignOut}
+            className="mb-6 inline-flex items-center gap-2 px-6 py-3 bg-neutral-600 text-white rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out & Return to Home
+          </button>
 
           {/* Contact */}
           <div className="text-sm text-neutral-500">
