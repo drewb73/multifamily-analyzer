@@ -6,7 +6,7 @@ interface SystemSettings {
   analysisEnabled: boolean
   savedDraftsEnabled: boolean
   maintenanceMode: boolean
-  maintenanceMessage: string | null  // ✅ ADD THIS LINE
+  maintenanceMessage: string | null
   signUpEnabled: boolean
   dashboardEnabled: boolean
   stripeEnabled: boolean
@@ -40,8 +40,8 @@ export function useSystemSettings() {
 
     fetchSettings()
 
-    // Poll every 10 seconds for updates
-    const interval = setInterval(fetchSettings, 10000)
+    // Poll every 3 seconds for updates (was 10 seconds)
+    const interval = setInterval(fetchSettings, 3000)
 
     return () => {
       mounted = false
