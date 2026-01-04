@@ -1,7 +1,3 @@
-// FILE 7 of 12
-// Location: src/app/api/promo-modal/active/route.ts
-// CREATE NEW FILE (public endpoint)
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -15,9 +11,13 @@ export async function GET() {
       where: {
         isActive: true,
         startDate: { lte: now },
-        OR: [
-          { endDate: null },
-          { endDate: { gte: now } }
+        AND: [
+          {
+            OR: [
+              { endDate: null },
+              { endDate: { gte: now } }
+            ]
+          }
         ]
       },
       orderBy: { createdAt: 'desc' }

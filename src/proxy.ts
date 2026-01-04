@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks/clerk(.*)',
   '/api/system-settings',
   '/api/emergency-maintenance-off',  // Emergency route
+  '/api/promo-modal/active',
 ])
 
 // Cache for admin check to avoid too many DB calls

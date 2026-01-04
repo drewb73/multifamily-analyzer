@@ -1,7 +1,3 @@
-// FILE 9 of 12
-// Location: src/components/PromoModal.tsx
-// CREATE NEW FILE
-
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -119,7 +115,7 @@ export function PromoModal() {
 
             {/* Discount Code */}
             {modal.discountCode && (
-              <div className="bg-gradient-to-r from-primary-50 to-secondary-50 border-2 border-primary-200 rounded-lg p-4 mb-6">
+              <div className="bg-gradient-to-r from-primary-50 to-secondary-50 border-2 border-primary-200 rounded-lg p-4">
                 <p className="text-xs font-medium text-neutral-600 mb-2">
                   YOUR DISCOUNT CODE
                 </p>
@@ -142,16 +138,8 @@ export function PromoModal() {
               </div>
             )}
 
-            {/* CTA Button */}
-            <button
-              onClick={closeModal}
-              className="w-full btn-primary py-3 text-lg font-semibold"
-            >
-              Get Started
-            </button>
-
             {/* Fine Print */}
-            <p className="text-xs text-neutral-500 mt-4">
+            <p className="text-xs text-neutral-500 mt-6">
               Limited time offer. Terms and conditions apply.
             </p>
           </div>

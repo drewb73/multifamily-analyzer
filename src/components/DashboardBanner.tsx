@@ -19,6 +19,7 @@ export function DashboardBanner() {
     const dismissed = localStorage.getItem('dismissedBanners')
     if (dismissed) {
       setDismissedBanners(JSON.parse(dismissed))
+      console.log('📋 Loaded dismissed banners from localStorage:', JSON.parse(dismissed))
     }
 
     // Fetch active banners
@@ -27,23 +28,29 @@ export function DashboardBanner() {
 
   const fetchBanners = async () => {
     try {
+      console.log('🔍 Fetching active banners...')
       const response = await fetch('/api/banners/active')
       const data = await response.json()
       
       if (data.success) {
+        console.log('✅ Fetched banners:', data.banners.length, 'banners')
         setBanners(data.banners)
       }
     } catch (error) {
-      console.error('Failed to fetch banners:', error)
+      console.error('❌ Failed to fetch banners:', error)
     }
   }
 
-  // ✅ THIS SHOULD ONLY UPDATE LOCALSTORAGE - NOT CALL API
   const dismissBanner = (bannerId: string) => {
+    console.log('🚫 User dismissing banner (localStorage only):', bannerId)
+    console.log('⚠️ NO API CALL - Just localStorage!')
+    
     const newDismissed = [...dismissedBanners, bannerId]
     setDismissedBanners(newDismissed)
     localStorage.setItem('dismissedBanners', JSON.stringify(newDismissed))
-    // ❌ NO API CALL HERE - Just localStorage!
+    
+    console.log('💾 Saved to localStorage:', newDismissed)
+    console.log('✅ Banner dismissed for THIS USER only')
   }
 
   const visibleBanners = banners.filter(b => !dismissedBanners.includes(b.id))
@@ -105,6 +112,7 @@ export function DashboardBanner() {
             <button
               onClick={() => dismissBanner(banner.id)}
               className={`flex-shrink-0 p-1 hover:bg-white/50 rounded ${styles.text}`}
+              title="Dismiss (for you only)"
             >
               <X className="w-4 h-4" />
             </button>
