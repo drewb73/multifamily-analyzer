@@ -1,4 +1,5 @@
 import { MainLayout, Button, Card } from '@/components'
+import { PromoModal } from '@/components/PromoModal'
 import Link from 'next/link'
 
 export default function Home() {
@@ -68,6 +69,9 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      {/* ✅ ADD THIS - Promo Modal (renders on top of everything) */}
+      <PromoModal />
     </MainLayout>
   )
 }

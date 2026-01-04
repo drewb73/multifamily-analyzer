@@ -6,6 +6,8 @@ import { getCurrentDbUser } from '@/lib/auth';
 import { getEffectiveSubscriptionStatus, canUserPerformAction } from '@/lib/subscription';
 import { getSystemSettings } from '@/lib/settings';
 import { redirect } from 'next/navigation';
+import { DashboardBanner } from '@/components/DashboardBanner';
+
 
 interface DashboardPageProps {
   searchParams: Promise<{ analysisId?: string }>
@@ -44,6 +46,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div>
+      <DashboardBanner />
       <div className="mb-8">
         <h1 className="text-3xl font-display font-bold text-neutral-900">
           {analysisId ? 'View Analysis' : 'Analyze Property'}
