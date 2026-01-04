@@ -1,7 +1,3 @@
-// FILE 8 of 12
-// Location: src/components/DashboardBanner.tsx
-// CREATE NEW FILE
-
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -42,10 +38,12 @@ export function DashboardBanner() {
     }
   }
 
+  // ✅ THIS SHOULD ONLY UPDATE LOCALSTORAGE - NOT CALL API
   const dismissBanner = (bannerId: string) => {
     const newDismissed = [...dismissedBanners, bannerId]
     setDismissedBanners(newDismissed)
     localStorage.setItem('dismissedBanners', JSON.stringify(newDismissed))
+    // ❌ NO API CALL HERE - Just localStorage!
   }
 
   const visibleBanners = banners.filter(b => !dismissedBanners.includes(b.id))

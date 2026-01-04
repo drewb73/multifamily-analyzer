@@ -1,7 +1,3 @@
-// FILE 4 of 12
-// Location: src/app/api/admin/banners/[id]/route.ts
-// CREATE NEW FILE (create folder [id] first)
-
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -9,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 // PATCH - Update banner (toggle active/inactive)
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
@@ -28,14 +24,31 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
+    // Await params (Next.js 15)
+    const { id } = await context.params
+
+    console.log('Attempting to update banner with ID:', id)
+
     const body = await request.json()
     const { isActive } = body
 
+    // Check if banner exists first
+    const existingBanner = await prisma.banner.findUnique({
+      where: { id }
+    })
+
+    if (!existingBanner) {
+      console.log('Banner not found:', id)
+      return NextResponse.json({ error: 'Banner not found' }, { status: 404 })
+    }
+
     // Update banner
     const banner = await prisma.banner.update({
-      where: { id: params.id },
+      where: { id },
       data: { isActive }
     })
+
+    console.log('Banner updated successfully:', id, 'isActive:', isActive)
 
     // Log the action
     await prisma.adminLog.create({
@@ -44,22 +57,26 @@ export async function PATCH(
         action: 'banner_toggled',
         details: {
           bannerId: banner.id,
-          isActive
+          isActive,
+          message: banner.message
         }
       }
     })
 
     return NextResponse.json({ success: true, banner })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update banner error:', error)
-    return NextResponse.json({ error: 'Failed to update banner' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to update banner',
+      details: error.message 
+    }, { status: 500 })
   }
 }
 
 // DELETE - Delete banner
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
@@ -78,10 +95,29 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
+    // Await params (Next.js 15)
+    const { id } = await context.params
+
+    console.log('Attempting to delete banner with ID:', id)
+
+    // Check if banner exists first
+    const existingBanner = await prisma.banner.findUnique({
+      where: { id }
+    })
+
+    if (!existingBanner) {
+      console.log('Banner not found:', id)
+      return NextResponse.json({ error: 'Banner not found' }, { status: 404 })
+    }
+
+    console.log('Found banner to delete:', existingBanner.message)
+
     // Delete banner
     await prisma.banner.delete({
-      where: { id: params.id }
+      where: { id }
     })
+
+    console.log('Banner deleted successfully:', id)
 
     // Log the action
     await prisma.adminLog.create({
@@ -89,14 +125,24 @@ export async function DELETE(
         adminEmail: user.email || 'unknown',
         action: 'banner_deleted',
         details: {
-          bannerId: params.id
+          bannerId: id,
+          message: existingBanner.message,
+          targetAudience: existingBanner.targetAudience
         }
       }
     })
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete banner error:', error)
-    return NextResponse.json({ error: 'Failed to delete banner' }, { status: 500 })
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    })
+    return NextResponse.json({ 
+      error: 'Failed to delete banner',
+      details: error.message 
+    }, { status: 500 })
   }
 }
