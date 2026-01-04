@@ -230,7 +230,7 @@ model SystemSettings {
   // Application-Wide Toggles
   maintenanceMode      Boolean  @default(false)
   maintenanceMessage   String?
-  dashboardEnabled       Boolean  @default(true)
+  dashboardEnabled     Boolean  @default(true)
   signUpEnabled        Boolean  @default(true)
   stripeEnabled        Boolean  @default(true)
   
@@ -248,7 +248,7 @@ model SystemSettings {
   @@map("system_settings")
 }
 
-// Banner - System-wide informational banners
+// Banner - Dashboard banners for different user types
 model Banner {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   
@@ -256,10 +256,14 @@ model Banner {
   message   String
   type      String   @default("info")  // "info", "warning", "error", "success"
   
+  // Target Audience
+  targetAudience String @default("all") // "all", "free_trial", "premium", "admin"
+  
   // Display Control
   isActive  Boolean  @default(true)
-  startDate DateTime?
+  startDate DateTime @default(now())
   endDate   DateTime?
+  durationDays Int?  // Duration in days from startDate
   
   // Tracking
   createdBy String   // Admin email
@@ -267,7 +271,31 @@ model Banner {
   updatedAt DateTime @updatedAt
   
   @@map("banners")
-  @@index([isActive, startDate, endDate])
+  @@index([isActive, targetAudience])
+  @@index([startDate, endDate])
+}
+
+// PromoModal - Landing page promotional modal
+model PromoModal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Modal Content
+  title       String
+  description String
+  discountCode String?
+  
+  // Display Control
+  isActive    Boolean  @default(true)
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  durationDays Int?  // Duration in days from startDate
+  
+  // Tracking
+  createdBy   String   // Admin email
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("promo_modals")
 }
 
 // DiscountCode - Promotional codes for special access
