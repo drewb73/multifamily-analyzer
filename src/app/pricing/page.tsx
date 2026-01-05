@@ -6,6 +6,8 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X } from 'lucide-react'
+import { getSystemSettings } from '@/lib/settings'
+import { StripeMaintenancePage } from '@/components/StripeMaintenancePage'
 
 type SubscriptionStatus = 'trial' | 'free' | 'premium' | 'enterprise'
 

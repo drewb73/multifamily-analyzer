@@ -1,5 +1,6 @@
-// FILE: src/components/StripeMaintenancePage.tsx
-// READY TO USE TOMORROW - Just copy and paste!
+// FILE 1 of 9: Stripe Maintenance Component
+// Location: src/components/StripeMaintenancePage.tsx
+// CREATE NEW FILE
 
 'use client'
 
