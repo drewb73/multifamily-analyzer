@@ -1,3 +1,8 @@
+// COMPLETE FILE - REPLACE YOUR ENTIRE src/app/admin/layout.tsx WITH THIS
+// Location: src/app/admin/layout.tsx
+// Action: REPLACE ENTIRE FILE
+// ✅ REMOVED: Discount Codes navigation link and Ticket icon
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -9,7 +14,6 @@ import {
   Users, 
   Settings, 
   MessageSquare, 
-  Ticket,
   BarChart3,
   LogOut
 } from 'lucide-react'
@@ -209,9 +213,7 @@ export default function AdminLayout({
                 <AdminNavLink href="/admin/banners" icon={MessageSquare}>
                   Banners
                 </AdminNavLink>
-                <AdminNavLink href="/admin/codes" icon={Ticket}>
-                  Discount Codes
-                </AdminNavLink>
+                {/* ✅ REMOVED: Discount Codes link - Use Stripe Dashboard instead */}
               </nav>
             </aside>
 
