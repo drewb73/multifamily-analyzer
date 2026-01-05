@@ -1,10 +1,14 @@
-// src/components/settings/BillingCard.tsx
+// FILE 5 of 8: REPLACE ENTIRE FILE
+// Location: src/components/settings/BillingCard.tsx
+// Action: REPLACE YOUR ENTIRE BillingCard.tsx WITH THIS
+
 'use client'
 
 import { useState } from 'react'
 import { CreditCard, Calendar, Receipt } from 'lucide-react'
 import { SubscriptionStatus } from '@/lib/subscription'
 import { BillingHistoryModal } from './BillingHistoryModal'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface BillingCardProps {
   subscriptionStatus: SubscriptionStatus
@@ -20,6 +24,12 @@ interface BillingCardProps {
 
 export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHistory }: BillingCardProps) {
   const [showHistory, setShowHistory] = useState(false)
+  const { settings } = useSystemSettings()
+  
+  // Hide if Stripe disabled
+  if (!settings?.stripeEnabled) {
+    return null
+  }
   
   // Format next billing date
   const getNextBillingDate = () => {

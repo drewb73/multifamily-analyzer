@@ -1,4 +1,7 @@
-// src/app/dashboard/settings/page.tsx
+// FILE 4 of 8: REPLACE ENTIRE FILE
+// Location: src/app/dashboard/settings/page.tsx
+// Action: REPLACE YOUR ENTIRE settings/page.tsx WITH THIS
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -8,9 +11,11 @@ import { AccountCard } from '@/components/settings/AccountCard'
 import { SecurityCard } from '@/components/settings/SecurityCard'
 import { BillingCard } from '@/components/settings/BillingCard'
 import { SubscriptionStatus } from '@/lib/subscription'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 export default function SettingsPage() {
   const { user } = useUser()
+  const { settings } = useSystemSettings()
   const [isLoading, setIsLoading] = useState(true)
   const [userProfile, setUserProfile] = useState({
     displayName: '',
@@ -20,11 +25,11 @@ export default function SettingsPage() {
   const [subscriptionData, setSubscriptionData] = useState<{
     status: SubscriptionStatus
     trialEndsAt: Date | null
-    subscriptionEndsAt: Date | null  // ✅ FIXED - was subscriptionDate
+    subscriptionEndsAt: Date | null
   }>({
     status: 'free',
     trialEndsAt: null,
-    subscriptionEndsAt: null  // ✅ FIXED - was subscriptionDate
+    subscriptionEndsAt: null
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   
@@ -48,7 +53,7 @@ export default function SettingsPage() {
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
-          subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null  // ✅ FIXED - was subscriptionDate
+          subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null
         })
         
         // Set billing history (will be populated after Stripe integration)
@@ -139,12 +144,25 @@ export default function SettingsPage() {
         {/* Security */}
         <SecurityCard />
         
-        {/* Billing */}
-        <BillingCard
-          subscriptionStatus={subscriptionData.status}
-          subscriptionEndsAt={subscriptionData.subscriptionEndsAt}  // ✅ FIXED - was subscriptionDate
-          billingHistory={billingHistory}
-        />
+        {/* Billing - Only show if Stripe enabled */}
+        {settings?.stripeEnabled ? (
+          <BillingCard
+            subscriptionStatus={subscriptionData.status}
+            subscriptionEndsAt={subscriptionData.subscriptionEndsAt}
+            billingHistory={billingHistory}
+          />
+        ) : (
+          <div className="elevated-card p-6">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-4">
+              Billing & Subscription
+            </h2>
+            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 text-center">
+              <p className="text-neutral-600">
+                Payment management is temporarily unavailable
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

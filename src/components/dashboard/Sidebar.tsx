@@ -1,4 +1,7 @@
-// src/components/dashboard/Sidebar.tsx
+// FILE 7 of 8: REPLACE ENTIRE FILE (No changes needed, but included for completeness)
+// Location: src/components/dashboard/Sidebar.tsx
+// Action: REPLACE YOUR ENTIRE Sidebar.tsx WITH THIS
+
 'use client'
 
 import { useState } from 'react'

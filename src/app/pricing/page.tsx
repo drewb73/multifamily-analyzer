@@ -1,4 +1,7 @@
-// src/app/pricing/page.tsx
+// FILE 2 of 8: REPLACE ENTIRE FILE
+// Location: src/app/pricing/page.tsx
+// Action: REPLACE YOUR ENTIRE pricing/page.tsx WITH THIS
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -6,7 +9,7 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X } from 'lucide-react'
-import { getSystemSettings } from '@/lib/settings'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { StripeMaintenancePage } from '@/components/StripeMaintenancePage'
 
 type SubscriptionStatus = 'trial' | 'free' | 'premium' | 'enterprise'
@@ -21,6 +24,7 @@ interface SubscriptionData {
 export default function PricingPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const { settings } = useSystemSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null)
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
@@ -184,13 +188,18 @@ export default function PricingPage() {
   const trialButton = getTrialButtonProps()
   const premiumButton = getPremiumButtonProps()
 
-  // Show loading state while checking user
-  if (!isLoaded) {
+  // Show loading state while checking user AND system settings
+  if (!isLoaded || !settings) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
       </div>
     )
+  }
+
+  // Check if Stripe is disabled - show maintenance page
+  if (!settings.stripeEnabled) {
+    return <StripeMaintenancePage />
   }
 
   return (
@@ -209,50 +218,23 @@ export default function PricingPage() {
 
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-display font-bold text-neutral-900 mb-4">
-            Choose Your Plan
+          <h1 className="text-5xl md:text-6xl font-display font-bold text-neutral-900 mb-6">
+            Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-neutral-600 max-w-2xl mx-auto">
-            Start analyzing multifamily properties today. No payment required upfront.
+            Start with a 72-hour free trial. No credit card required.
+            Upgrade to Premium anytime for just $7/month.
           </p>
-          
-          {/* Show user status if logged in */}
-          {user && subscriptionData && (
-            <div className="mt-6">
-              {subscriptionData.status === 'trial' && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 rounded-full">
-                  <Clock className="w-4 h-4" />
-                  <span className="font-medium">
-                    Trial Active - {getTrialHoursRemaining()} hours remaining
-                  </span>
-                </div>
-              )}
-              {subscriptionData.status === 'premium' && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-success-100 text-success-700 rounded-full">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">You're Premium! 🎉</span>
-                </div>
-              )}
-              {subscriptionData.status === 'free' && subscriptionData.hasUsedTrial && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-700 rounded-full">
-                  <span className="font-medium">Trial expired - Upgrade to Premium for unlimited access</span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          
-          {/* Free Trial Plan */}
-          <div className={`bg-white rounded-2xl shadow-xl p-8 border-2 transition-all ${
-            trialButton.disabled 
-              ? 'border-neutral-200 opacity-75' 
-              : 'border-neutral-200 hover:border-primary-300'
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+          {/* Free Trial Card */}
+          <div className={`bg-white rounded-2xl shadow-lg p-8 border border-neutral-200 ${
+            !trialButton.disabled && 'transform md:scale-105'
           }`}>
             <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-6 h-6 text-primary-600" />
+              <Clock className="w-6 h-6 text-neutral-600" />
               <h3 className="text-2xl font-bold text-neutral-900">
                 Free Trial
               </h3>
@@ -260,11 +242,10 @@ export default function PricingPage() {
             
             <div className="mb-6">
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold text-neutral-900">$0</span>
-                <span className="text-neutral-600">for 72 hours</span>
+                <span className="text-5xl font-bold text-neutral-900">72 Hours</span>
               </div>
-              <p className="text-sm text-neutral-500 mt-2">
-                No payment required upfront
+              <p className="text-sm text-neutral-600 mt-2">
+                Try before you buy, no credit card
               </p>
             </div>
 
@@ -377,31 +358,6 @@ export default function PricingPage() {
             </p>
           </div>
         </div>
-
-        {/* Trust Badges - Commented out for now */}
-        {/* 
-        <div className="mt-16 text-center">
-          <p className="text-neutral-600 mb-6">Trusted by real estate investors</p>
-          <div className="flex flex-wrap justify-center gap-8 text-neutral-400">
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-success-600" />
-              <span>No contracts</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-success-600" />
-              <span>Cancel anytime</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-success-600" />
-              <span>Secure payments</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-success-600" />
-              <span>Money-back guarantee</span>
-            </div>
-          </div>
-        </div>
-        */}
 
         {/* FAQ Section */}
         <div className="mt-16 max-w-3xl mx-auto">
