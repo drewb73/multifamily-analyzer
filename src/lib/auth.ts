@@ -1,3 +1,8 @@
+// UPDATED FILE - REPLACE YOUR ENTIRE src/lib/auth.ts WITH THIS
+// Location: src/lib/auth.ts
+// Action: REPLACE ENTIRE FILE
+// ✅ NOW HANDLES: Both expired trials AND expired subscriptions
+
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "./prisma";
 
@@ -18,6 +23,10 @@ export async function getCurrentUser() {
 /**
  * Get the current user's database record
  * This gives you access to subscription status, trial info, etc.
+ * 
+ * ✅ NOW INCLUDES: 
+ * - Automatic trial expiry detection and database update
+ * - Automatic subscription expiry detection and database update
  */
 export async function getCurrentDbUser() {
   const { userId } = await auth();
@@ -31,6 +40,55 @@ export async function getCurrentDbUser() {
       where: { clerkId: userId },
     });
 
+    if (!dbUser) {
+      return null;
+    }
+
+    const now = new Date();
+    let needsUpdate = false;
+    let newStatus = dbUser.subscriptionStatus;
+
+    // ✅ CHECK 1: Expired Trial
+    if (dbUser.subscriptionStatus === 'trial' && dbUser.trialEndsAt) {
+      if (dbUser.trialEndsAt < now) {
+        console.log(`🔄 Trial expired for user ${dbUser.email}, updating database to free status`);
+        needsUpdate = true;
+        newStatus = 'free';
+      }
+    }
+
+    // ✅ CHECK 2: Expired Premium Subscription
+    if (dbUser.subscriptionStatus === 'premium' && dbUser.subscriptionEndsAt) {
+      if (dbUser.subscriptionEndsAt < now) {
+        console.log(`🔄 Premium subscription expired for user ${dbUser.email}, updating database to free status`);
+        needsUpdate = true;
+        newStatus = 'free';
+      }
+    }
+
+    // ✅ CHECK 3: Expired Enterprise Subscription (if you use this)
+    if (dbUser.subscriptionStatus === 'enterprise' && dbUser.subscriptionEndsAt) {
+      if (dbUser.subscriptionEndsAt < now) {
+        console.log(`🔄 Enterprise subscription expired for user ${dbUser.email}, updating database to free status`);
+        needsUpdate = true;
+        newStatus = 'free';
+      }
+    }
+
+    // If any subscription/trial expired, update the database
+    if (needsUpdate) {
+      const updatedUser = await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { 
+          subscriptionStatus: newStatus as any
+        }
+      });
+      
+      console.log(`✅ User ${dbUser.email} updated to ${newStatus} status in database`);
+      return updatedUser;
+    }
+
+    // Return user as-is if no update needed
     return dbUser;
   } catch (error) {
     console.error("Error fetching user from database:", error);
