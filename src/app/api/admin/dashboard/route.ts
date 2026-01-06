@@ -1,13 +1,44 @@
-// COMPLETE FILE - ADMIN DASHBOARD API ROUTE WITH FIXES
+// COMPLETE FILE - ADMIN DASHBOARD API ROUTE WITH DATABASE SIZE FIX
 // Location: src/app/api/admin/dashboard/route.ts
 // Action: REPLACE ENTIRE FILE
-// ✅ FIX 1: Removed ALL accountStatus filters - counts all users
-// ✅ FIX 2: Revenue only counts Stripe premium users (not manual)
-// ✅ FIX 3: Database size rounded to 1 decimal place
+// ✅ FIX 1: Gets ACTUAL database size from MongoDB using dbStats command
+// ✅ FIX 2: Falls back to better estimation if dbStats fails
+// ✅ FIX 3: Proper rounding and unit display (KB, MB, GB)
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+
+// Helper function to format database size with proper units and rounding
+function formatDatabaseSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  } else if (bytes < 1024 * 1024) {
+    // Less than 1 MB - show in KB
+    const kb = bytes / 1024
+    if (kb < 10) {
+      return `${kb.toFixed(2)} KB`  // e.g., "5.25 KB"
+    } else if (kb < 100) {
+      return `${kb.toFixed(1)} KB`  // e.g., "52.5 KB"
+    } else {
+      return `${Math.round(kb)} KB` // e.g., "525 KB"
+    }
+  } else if (bytes < 1024 * 1024 * 1024) {
+    // Less than 1 GB - show in MB
+    const mb = bytes / (1024 * 1024)
+    if (mb < 10) {
+      return `${mb.toFixed(2)} MB`  // e.g., "5.25 MB"
+    } else if (mb < 100) {
+      return `${mb.toFixed(1)} MB`  // e.g., "52.5 MB"
+    } else {
+      return `${Math.round(mb)} MB` // e.g., "525 MB"
+    }
+  } else {
+    // 1 GB or more
+    const gb = bytes / (1024 * 1024 * 1024)
+    return `${gb.toFixed(2)} GB`
+  }
+}
 
 export async function GET() {
   try {
@@ -253,22 +284,64 @@ export async function GET() {
     ])
 
     // ============================================
-    // F) SYSTEM HEALTH
+    // F) SYSTEM HEALTH - DATABASE SIZE
     // ============================================
     
-    // Get database stats with rounded size
-    const estimatedSizeKB = (totalUsers * 2) + (totalAnalyses * 5)
-    const estimatedSizeMB = estimatedSizeKB / 1024
+    // Get additional table counts
+    const [totalGroups, totalBanners] = await Promise.all([
+      prisma.analysisGroup.count(),
+      prisma.banner.count()
+    ])
+    
+    // ✅ FIX: Get ACTUAL database size from MongoDB
+    let estimatedSize: string
+    
+    try {
+      // Use MongoDB's dbStats command to get actual database size
+      // This returns the real storage size, not an estimate
+      const dbStatsResult = await prisma.$runCommandRaw({
+        dbStats: 1,
+        scale: 1  // Return size in bytes
+      }) as {
+        dataSize?: number
+        storageSize?: number
+        indexSize?: number
+        totalSize?: number
+        ok?: number
+      }
+      
+      if (dbStatsResult && dbStatsResult.ok === 1) {
+        // Use storageSize (actual disk space) or dataSize (uncompressed data)
+        // storageSize is more accurate as it includes compression
+        const actualBytes = dbStatsResult.storageSize || dbStatsResult.dataSize || 0
+        estimatedSize = formatDatabaseSize(actualBytes)
+      } else {
+        // dbStats returned but not OK - fall back to estimation
+        throw new Error('dbStats command did not return OK')
+      }
+    } catch (dbStatsError) {
+      // If dbStats fails (permissions, etc.), use improved estimation
+      // Better estimation: ~1KB per user, ~50KB per analysis (JSON data is large!)
+      // Plus ~0.5KB per group, ~0.5KB per banner, plus 10% overhead for indexes
+      console.warn('Could not get actual DB size, using estimation:', dbStatsError)
+      
+      const estimatedBytes = (
+        (totalUsers * 1024) +           // ~1KB per user
+        (totalAnalyses * 51200) +       // ~50KB per analysis (JSON data + results)
+        (totalGroups * 512) +           // ~0.5KB per group
+        (totalBanners * 512) +          // ~0.5KB per banner
+        (totalAnalyses * 5120)          // ~5KB index overhead per analysis
+      )
+      
+      estimatedSize = formatDatabaseSize(estimatedBytes) + ' (est.)'
+    }
     
     const dbStats = {
       totalUsers,
       totalAnalyses,
-      totalGroups: await prisma.analysisGroup.count(),
-      totalBanners: await prisma.banner.count(),
-      // ✅ FIXED: Round to 1 decimal place or show KB
-      estimatedSize: estimatedSizeMB < 1 
-        ? `${Math.round(estimatedSizeKB)}KB` 
-        : `${estimatedSizeMB.toFixed(1)}MB`
+      totalGroups,
+      totalBanners,
+      estimatedSize
     }
 
     // Feature toggle status
