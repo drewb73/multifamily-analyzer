@@ -1,13 +1,18 @@
-// src/app/dashboard/layout.tsx
+// COMPLETE FILE - DASHBOARD LAYOUT WITH MOBILE MENU STATE
+// Location: src/app/dashboard/layout.tsx
+// Action: REPLACE ENTIRE FILE
+// ✅ Manages mobile menu open/close state
+// ✅ Passes state between header and sidebar
+// ✅ Client component wrapper for state management
+
 import type { Metadata } from "next";
-import DashboardSidebar from "@/components/dashboard/Sidebar";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { MaintenanceLock } from "@/components/dashboard/MaintenanceLock";
 import { getCurrentDbUser } from "@/lib/auth";
 import { getEffectiveSubscriptionStatus, getTrialHoursRemaining } from "@/lib/subscription";
 import { getSystemSettings } from "@/lib/settings";
 import { redirect } from 'next/navigation';
 import "../globals.css";
+import DashboardLayoutClient from "@/components/dashboard/DashboardLayoutClient";
 
 export const metadata: Metadata = {
   title: "Dashboard - PropertyAnalyzer",
@@ -34,13 +39,12 @@ export default async function DashboardLayout({
   if (!systemSettings.dashboardEnabled && dbUser && !dbUser.isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <DashboardHeader />
-        <main className="flex-1 flex items-center justify-center p-6">
+        <div className="flex-1 flex items-center justify-center p-6">
           <MaintenanceLock 
             feature="Dashboard" 
             message="The dashboard is temporarily unavailable while we perform maintenance. Please check back soon."
           />
-        </main>
+        </div>
       </div>
     );
   }
@@ -58,17 +62,11 @@ export default async function DashboardLayout({
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <DashboardHeader />
-      <div className="flex flex-1 overflow-hidden">
-        <DashboardSidebar 
-          userSubscriptionStatus={effectiveStatus}
-          trialHoursRemaining={trialHoursRemaining}
-        />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <DashboardLayoutClient
+      userSubscriptionStatus={effectiveStatus}
+      trialHoursRemaining={trialHoursRemaining}
+    >
+      {children}
+    </DashboardLayoutClient>
   );
 }
