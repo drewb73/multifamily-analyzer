@@ -1,6 +1,8 @@
-// COMPLETE FILE
+// COMPLETE FIXED VERSION
 // Location: src/app/api/admin/dashboard/route.ts
-// Action: CREATE NEW FILE
+// Action: REPLACE ENTIRE FILE
+// ✅ FIX 1: Removed ALL accountStatus filters - counts all users
+// ✅ FIX 2: Revenue only counts Stripe premium users (not manual)
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -42,42 +44,58 @@ export async function GET() {
     // A) USERS OVERVIEW
     // ============================================
     
-    const [totalUsers, premiumUsers, trialUsers, freeUsers, activeUsers] = await Promise.all([
-      // Total users
+    const [
+      totalUsers, 
+      premiumUsers, 
+      stripePremiumUsers,
+      manualPremiumUsers,
+      trialUsers, 
+      freeUsers, 
+      activeUsers
+    ] = await Promise.all([
+      // Total users (NO FILTER - counts everyone)
+      prisma.user.count(),
+      
+      // Premium users (ALL - Stripe + Manual)
       prisma.user.count({
         where: {
-          accountStatus: 'active'
+          subscriptionStatus: 'premium'
         }
       }),
-      
-      // Premium users
+
+      // Stripe Premium users (for revenue calculation)
       prisma.user.count({
         where: {
           subscriptionStatus: 'premium',
-          accountStatus: 'active'
+          subscriptionSource: 'stripe'
+        }
+      }),
+
+      // Manual Premium users (free access, no revenue)
+      prisma.user.count({
+        where: {
+          subscriptionStatus: 'premium',
+          subscriptionSource: 'manual'
         }
       }),
       
       // Trial users
       prisma.user.count({
         where: {
-          subscriptionStatus: 'trial',
-          accountStatus: 'active'
+          subscriptionStatus: 'trial'
         }
       }),
       
       // Free users
       prisma.user.count({
         where: {
-          subscriptionStatus: 'free',
-          accountStatus: 'active'
+          subscriptionStatus: 'free'
         }
       }),
 
       // Active users (logged in last 30 days)
       prisma.user.count({
         where: {
-          accountStatus: 'active',
           lastLoginAt: {
             gte: startOfMonth
           }
@@ -89,24 +107,25 @@ export async function GET() {
     const totalAnalyses = await prisma.propertyAnalysis.count()
 
     // ============================================
-    // B) REVENUE & BILLING
+    // B) REVENUE & BILLING (Stripe users ONLY)
     // ============================================
     
     const premiumPrice = 7 // $7/month
     
-    // MRR (Monthly Recurring Revenue)
-    const mrr = premiumUsers * premiumPrice
+    // MRR - ONLY from Stripe users (not manual)
+    const mrr = stripePremiumUsers * premiumPrice
     
-    // Expected weekly revenue
-    const expectedWeekly = (premiumUsers * premiumPrice) / 4.33
+    // Expected weekly revenue - ONLY Stripe
+    const expectedWeekly = (stripePremiumUsers * premiumPrice) / 4.33
     
-    // Expected monthly revenue
+    // Expected monthly revenue - ONLY Stripe
     const expectedMonthly = mrr
 
-    // Premium subscriptions cancelled this month
+    // Premium subscriptions cancelled this month (Stripe only)
     const cancelledThisMonth = await prisma.user.count({
       where: {
         subscriptionStatus: 'free',
+        subscriptionSource: 'stripe',
         subscriptionEndsAt: {
           gte: startOfMonth,
           lte: now
@@ -114,7 +133,7 @@ export async function GET() {
       }
     })
 
-    // Calculate ratios
+    // Calculate ratios (based on ALL premium users)
     const premiumRatio = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0
     const trialRatio = totalUsers > 0 ? (trialUsers / totalUsers) * 100 : 0
     const freeRatio = totalUsers > 0 ? (freeUsers / totalUsers) * 100 : 0
@@ -124,32 +143,29 @@ export async function GET() {
     // ============================================
     
     const [newSignupsWeek, newSignupsMonth] = await Promise.all([
-      // New signups this week
+      // New signups this week (NO FILTER)
       prisma.user.count({
         where: {
           createdAt: {
             gte: startOfWeek
-          },
-          accountStatus: 'active'
+          }
         }
       }),
       
-      // New signups this month
+      // New signups this month (NO FILTER)
       prisma.user.count({
         where: {
           createdAt: {
             gte: startOfMonth
-          },
-          accountStatus: 'active'
+          }
         }
       })
     ])
 
-    // Trial to premium conversion rate
+    // Trial to premium conversion rate (ALL premium users)
     const usersWhoHadTrial = await prisma.user.count({
       where: {
-        hasUsedTrial: true,
-        accountStatus: 'active'
+        hasUsedTrial: true
       }
     })
     
@@ -157,9 +173,9 @@ export async function GET() {
       ? (premiumUsers / usersWhoHadTrial) * 100 
       : 0
 
-    // Churn rate (cancellations / total premium users)
-    const churnRate = premiumUsers > 0 
-      ? (cancelledThisMonth / premiumUsers) * 100 
+    // Churn rate (Stripe cancellations / Stripe premium users)
+    const churnRate = stripePremiumUsers > 0 
+      ? (cancelledThisMonth / stripePremiumUsers) * 100 
       : 0
 
     // ============================================
@@ -185,10 +201,9 @@ export async function GET() {
         }
       }),
 
-      // Active users (logged in last 7 days)
+      // Active users (logged in last 7 days) - NO FILTER
       prisma.user.count({
         where: {
-          accountStatus: 'active',
           lastLoginAt: {
             gte: startOfWeek
           }
@@ -196,7 +211,7 @@ export async function GET() {
       })
     ])
 
-    // Average analyses per premium user
+    // Average analyses per ALL premium user
     const avgAnalysesPerUser = premiumUsers > 0 
       ? totalAnalyses / premiumUsers 
       : 0
@@ -213,8 +228,7 @@ export async function GET() {
           trialEndsAt: {
             gte: now,
             lte: next24Hours
-          },
-          accountStatus: 'active'
+          }
         }
       }),
       
@@ -225,8 +239,7 @@ export async function GET() {
           trialEndsAt: {
             gte: now,
             lte: next7Days
-          },
-          accountStatus: 'active'
+          }
         }
       }),
 
@@ -242,14 +255,13 @@ export async function GET() {
     // F) SYSTEM HEALTH
     // ============================================
     
-    // Get database stats (approximation for MongoDB)
-    // Note: Actual database size would require admin commands
+    // Get database stats
     const dbStats = {
       totalUsers,
       totalAnalyses,
       totalGroups: await prisma.analysisGroup.count(),
       totalBanners: await prisma.banner.count(),
-      estimatedSize: `${((totalUsers * 2) + (totalAnalyses * 5)) / 1024}MB` // Rough estimate
+      estimatedSize: `${((totalUsers * 2) + (totalAnalyses * 5)) / 1024}MB`
     }
 
     // Feature toggle status
@@ -260,9 +272,6 @@ export async function GET() {
     // ============================================
     
     const recentUsers = await prisma.user.findMany({
-      where: {
-        accountStatus: 'active'
-      },
       orderBy: {
         createdAt: 'desc'
       },
@@ -273,6 +282,7 @@ export async function GET() {
         firstName: true,
         lastName: true,
         subscriptionStatus: true,
+        subscriptionSource: true,
         createdAt: true,
         updatedAt: true
       }
@@ -315,6 +325,8 @@ export async function GET() {
       users: {
         total: totalUsers,
         premium: premiumUsers,
+        premiumStripe: stripePremiumUsers,  // NEW: Stripe premium count
+        premiumManual: manualPremiumUsers,  // NEW: Manual premium count
         trial: trialUsers,
         free: freeUsers,
         active30d: activeUsers,
@@ -334,12 +346,14 @@ export async function GET() {
         avgPerUser: Math.round(avgAnalysesPerUser * 10) / 10
       },
       
-      // B) Revenue & Billing
+      // B) Revenue & Billing (STRIPE ONLY)
       revenue: {
-        mrr,
+        mrr,  // Only Stripe premium users
         expectedWeekly: Math.round(expectedWeekly * 100) / 100,
         expectedMonthly: expectedMonthly,
-        cancelledThisMonth
+        cancelledThisMonth,
+        stripePremiumCount: stripePremiumUsers,  // NEW: For transparency
+        manualPremiumCount: manualPremiumUsers   // NEW: For transparency
       },
       
       // C) Growth & Conversion
@@ -376,6 +390,7 @@ export async function GET() {
         email: user.email,
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
         status: user.subscriptionStatus,
+        source: user.subscriptionSource || 'not set',
         createdAt: user.createdAt,
         action: user.createdAt.getTime() > startOfWeek.getTime() ? 'signed_up' : 'active'
       })),

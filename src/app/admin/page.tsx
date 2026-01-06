@@ -1,6 +1,8 @@
 // COMPLETE FILE - REPLACE YOUR ENTIRE src/app/admin/page.tsx WITH THIS
 // Location: src/app/admin/page.tsx
 // Action: REPLACE ENTIRE FILE
+// ✅ UPDATED: Shows Stripe vs Manual premium users
+// ✅ UPDATED: Revenue only shows Stripe users
 
 'use client'
 
@@ -28,6 +30,8 @@ interface DashboardMetrics {
   users: {
     total: number
     premium: number
+    premiumStripe: number      // NEW
+    premiumManual: number      // NEW
     trial: number
     free: number
     active30d: number
@@ -49,6 +53,8 @@ interface DashboardMetrics {
     expectedWeekly: number
     expectedMonthly: number
     cancelledThisMonth: number
+    stripePremiumCount: number    // NEW
+    manualPremiumCount: number    // NEW
   }
   growth: {
     newSignupsWeek: number
@@ -83,6 +89,7 @@ interface DashboardMetrics {
     email: string
     name: string
     status: string
+    source: string              // NEW
     createdAt: string
     action: string
   }>
@@ -176,13 +183,20 @@ export default function AdminDashboard() {
             subtitle={`${metrics.users.active30d} active (30d)`}
             color="blue"
           />
+          
+          {/* ✅ UPDATED: Shows Stripe vs Manual breakdown */}
           <StatCard
             title="Premium Users"
             value={metrics.users.premium.toLocaleString()}
             icon={CheckCircle}
-            subtitle={`${metrics.users.ratios.premium}% of total`}
+            subtitle={
+              metrics.users.premiumStripe > 0 || metrics.users.premiumManual > 0
+                ? `${metrics.users.premiumStripe} paying, ${metrics.users.premiumManual} manual`
+                : `${metrics.users.ratios.premium}% of total`
+            }
             color="green"
           />
+          
           <StatCard
             title="Trial Users"
             value={metrics.users.trial.toLocaleString()}
@@ -236,32 +250,53 @@ export default function AdminDashboard() {
       </section>
 
       {/* ============================================ */}
-      {/* B) REVENUE & BILLING */}
+      {/* B) REVENUE & BILLING - Stripe Only */}
       {/* ============================================ */}
       <section>
         <h2 className="text-xl font-semibold text-neutral-900 mb-4">Revenue & Billing</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* ✅ UPDATED: Shows Stripe-only revenue with context */}
           <StatCard
             title="MRR"
             value={`$${metrics.revenue.mrr.toLocaleString()}`}
             icon={DollarSign}
-            subtitle="Monthly Recurring Revenue"
+            subtitle={
+              metrics.revenue.stripePremiumCount > 0
+                ? `${metrics.revenue.stripePremiumCount} paying customers`
+                : metrics.revenue.manualPremiumCount > 0
+                ? `${metrics.revenue.manualPremiumCount} manual (no revenue)`
+                : 'No paying customers yet'
+            }
             color="green"
           />
+          
+          {/* ✅ UPDATED: Shows Stripe-only weekly revenue */}
           <StatCard
             title="Expected This Week"
             value={`$${metrics.revenue.expectedWeekly.toFixed(2)}`}
             icon={TrendingUp}
-            subtitle={`${metrics.users.premium} × $7 ÷ 4.33`}
+            subtitle={
+              metrics.revenue.stripePremiumCount > 0
+                ? `${metrics.revenue.stripePremiumCount} × $7 ÷ 4.33`
+                : 'No Stripe revenue yet'
+            }
             color="green"
           />
+          
+          {/* ✅ UPDATED: Shows Stripe-only monthly revenue */}
           <StatCard
             title="Expected This Month"
             value={`$${metrics.revenue.expectedMonthly.toLocaleString()}`}
             icon={DollarSign}
-            subtitle={`${metrics.users.premium} premium users`}
+            subtitle={
+              metrics.revenue.stripePremiumCount > 0
+                ? `${metrics.revenue.stripePremiumCount} Stripe users`
+                : 'No Stripe revenue yet'
+            }
             color="blue"
           />
+          
           <StatCard
             title="Cancelled"
             value={metrics.revenue.cancelledThisMonth}
@@ -433,6 +468,9 @@ export default function AdminDashboard() {
                         <p className="text-sm text-neutral-600">
                           {activity.action === 'signed_up' ? 'Signed up' : 'Active user'} • 
                           <span className="capitalize"> {activity.status}</span>
+                          {activity.source && activity.source !== 'not set' && (
+                            <span className="text-neutral-400"> ({activity.source})</span>
+                          )}
                         </p>
                       </div>
                     </div>
