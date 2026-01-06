@@ -1,8 +1,9 @@
-// COMPLETE FIXED VERSION
+// COMPLETE FILE - ADMIN DASHBOARD API ROUTE WITH FIXES
 // Location: src/app/api/admin/dashboard/route.ts
 // Action: REPLACE ENTIRE FILE
 // ✅ FIX 1: Removed ALL accountStatus filters - counts all users
 // ✅ FIX 2: Revenue only counts Stripe premium users (not manual)
+// ✅ FIX 3: Database size rounded to 1 decimal place
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -255,13 +256,19 @@ export async function GET() {
     // F) SYSTEM HEALTH
     // ============================================
     
-    // Get database stats
+    // Get database stats with rounded size
+    const estimatedSizeKB = (totalUsers * 2) + (totalAnalyses * 5)
+    const estimatedSizeMB = estimatedSizeKB / 1024
+    
     const dbStats = {
       totalUsers,
       totalAnalyses,
       totalGroups: await prisma.analysisGroup.count(),
       totalBanners: await prisma.banner.count(),
-      estimatedSize: `${((totalUsers * 2) + (totalAnalyses * 5)) / 1024}MB`
+      // ✅ FIXED: Round to 1 decimal place or show KB
+      estimatedSize: estimatedSizeMB < 1 
+        ? `${Math.round(estimatedSizeKB)}KB` 
+        : `${estimatedSizeMB.toFixed(1)}MB`
     }
 
     // Feature toggle status
@@ -325,8 +332,8 @@ export async function GET() {
       users: {
         total: totalUsers,
         premium: premiumUsers,
-        premiumStripe: stripePremiumUsers,  // NEW: Stripe premium count
-        premiumManual: manualPremiumUsers,  // NEW: Manual premium count
+        premiumStripe: stripePremiumUsers,
+        premiumManual: manualPremiumUsers,
         trial: trialUsers,
         free: freeUsers,
         active30d: activeUsers,
@@ -348,12 +355,12 @@ export async function GET() {
       
       // B) Revenue & Billing (STRIPE ONLY)
       revenue: {
-        mrr,  // Only Stripe premium users
+        mrr,
         expectedWeekly: Math.round(expectedWeekly * 100) / 100,
         expectedMonthly: expectedMonthly,
         cancelledThisMonth,
-        stripePremiumCount: stripePremiumUsers,  // NEW: For transparency
-        manualPremiumCount: manualPremiumUsers   // NEW: For transparency
+        stripePremiumCount: stripePremiumUsers,
+        manualPremiumCount: manualPremiumUsers
       },
       
       // C) Growth & Conversion

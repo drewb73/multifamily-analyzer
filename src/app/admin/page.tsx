@@ -1,8 +1,10 @@
-// COMPLETE FILE - REPLACE YOUR ENTIRE src/app/admin/page.tsx WITH THIS
+// COMPLETE FILE - MOBILE FRIENDLY ADMIN DASHBOARD WITH ALL FIXES
 // Location: src/app/admin/page.tsx
 // Action: REPLACE ENTIRE FILE
-// ✅ UPDATED: Shows Stripe vs Manual premium users
-// ✅ UPDATED: Revenue only shows Stripe users
+// ✅ Mobile-responsive grids
+// ✅ Fixed database stats bleeding at 1024px
+// ✅ Shows Stripe vs Manual premium users
+// ✅ Rounded database size display
 
 'use client'
 
@@ -30,8 +32,8 @@ interface DashboardMetrics {
   users: {
     total: number
     premium: number
-    premiumStripe: number      // NEW
-    premiumManual: number      // NEW
+    premiumStripe: number
+    premiumManual: number
     trial: number
     free: number
     active30d: number
@@ -53,8 +55,8 @@ interface DashboardMetrics {
     expectedWeekly: number
     expectedMonthly: number
     cancelledThisMonth: number
-    stripePremiumCount: number    // NEW
-    manualPremiumCount: number    // NEW
+    stripePremiumCount: number
+    manualPremiumCount: number
   }
   growth: {
     newSignupsWeek: number
@@ -89,7 +91,7 @@ interface DashboardMetrics {
     email: string
     name: string
     status: string
-    source: string              // NEW
+    source: string
     createdAt: string
     action: string
   }>
@@ -129,7 +131,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
           <p className="text-neutral-600">Loading dashboard...</p>
@@ -140,7 +142,7 @@ export default function AdminDashboard() {
 
   if (error || !metrics) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-neutral-900 font-semibold mb-2">Failed to Load Dashboard</p>
@@ -156,14 +158,14 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900">Admin Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900">Admin Dashboard</h1>
           <p className="text-neutral-600 mt-1">Overview of your platform metrics</p>
         </div>
         <button 
           onClick={fetchMetrics}
-          className="btn-secondary flex items-center gap-2"
+          className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           <Activity className="w-4 h-4" />
           Refresh
@@ -174,8 +176,8 @@ export default function AdminDashboard() {
       {/* A) USERS OVERVIEW */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Users Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Users Overview</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Users"
             value={metrics.users.total.toLocaleString()}
@@ -183,8 +185,6 @@ export default function AdminDashboard() {
             subtitle={`${metrics.users.active30d} active (30d)`}
             color="blue"
           />
-          
-          {/* ✅ UPDATED: Shows Stripe vs Manual breakdown */}
           <StatCard
             title="Premium Users"
             value={metrics.users.premium.toLocaleString()}
@@ -196,7 +196,6 @@ export default function AdminDashboard() {
             }
             color="green"
           />
-          
           <StatCard
             title="Trial Users"
             value={metrics.users.trial.toLocaleString()}
@@ -218,8 +217,8 @@ export default function AdminDashboard() {
       {/* ANALYSES */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Analyses</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Analyses</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Analyses"
             value={metrics.analyses.total.toLocaleString()}
@@ -250,13 +249,11 @@ export default function AdminDashboard() {
       </section>
 
       {/* ============================================ */}
-      {/* B) REVENUE & BILLING - Stripe Only */}
+      {/* B) REVENUE & BILLING */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Revenue & Billing</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* ✅ UPDATED: Shows Stripe-only revenue with context */}
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Revenue & Billing</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="MRR"
             value={`$${metrics.revenue.mrr.toLocaleString()}`}
@@ -270,8 +267,6 @@ export default function AdminDashboard() {
             }
             color="green"
           />
-          
-          {/* ✅ UPDATED: Shows Stripe-only weekly revenue */}
           <StatCard
             title="Expected This Week"
             value={`$${metrics.revenue.expectedWeekly.toFixed(2)}`}
@@ -283,8 +278,6 @@ export default function AdminDashboard() {
             }
             color="green"
           />
-          
-          {/* ✅ UPDATED: Shows Stripe-only monthly revenue */}
           <StatCard
             title="Expected This Month"
             value={`$${metrics.revenue.expectedMonthly.toLocaleString()}`}
@@ -296,7 +289,6 @@ export default function AdminDashboard() {
             }
             color="blue"
           />
-          
           <StatCard
             title="Cancelled"
             value={metrics.revenue.cancelledThisMonth}
@@ -311,8 +303,8 @@ export default function AdminDashboard() {
       {/* C) GROWTH & CONVERSION */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Growth & Conversion</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Growth & Conversion</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="New Signups (Month)"
             value={metrics.growth.newSignupsMonth.toLocaleString()}
@@ -355,8 +347,8 @@ export default function AdminDashboard() {
       {/* E) ALERTS & ACTION ITEMS */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Alerts & Action Items</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Alerts & Action Items</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <AlertCard
             title="Trials Expiring Soon"
             count={metrics.alerts.trialsExpiring24h}
@@ -385,48 +377,58 @@ export default function AdminDashboard() {
       {/* F) SYSTEM HEALTH */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">System Health</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">System Health</h2>
         
-        {/* Database Stats */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-neutral-200 mb-4">
+        {/* Database Stats - FIXED for 1024px */}
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-neutral-200 mb-4 overflow-hidden">
           <div className="flex items-center gap-2 mb-4">
-            <Database className="w-5 h-5 text-neutral-600" />
+            <Database className="w-5 h-5 text-neutral-600 flex-shrink-0" />
             <h3 className="font-semibold text-neutral-900">Database</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div>
-              <p className="text-sm text-neutral-600">Users</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.system.database.totalUsers}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-neutral-600 truncate">Users</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                {metrics.system.database.totalUsers}
+              </p>
             </div>
-            <div>
-              <p className="text-sm text-neutral-600">Analyses</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.system.database.totalAnalyses}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-neutral-600 truncate">Analyses</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                {metrics.system.database.totalAnalyses}
+              </p>
             </div>
-            <div>
-              <p className="text-sm text-neutral-600">Groups</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.system.database.totalGroups}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-neutral-600 truncate">Groups</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                {metrics.system.database.totalGroups}
+              </p>
             </div>
-            <div>
-              <p className="text-sm text-neutral-600">Banners</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.system.database.totalBanners}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-neutral-600 truncate">Banners</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                {metrics.system.database.totalBanners}
+              </p>
             </div>
-            <div>
-              <p className="text-sm text-neutral-600">Est. Size</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.system.database.estimatedSize}</p>
+            <div className="min-w-0 col-span-2 sm:col-span-1">
+              <p className="text-xs sm:text-sm text-neutral-600 truncate">Est. Size</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                {metrics.system.database.estimatedSize}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Feature Toggles */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-neutral-200">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-neutral-200">
           <div className="flex items-center gap-2 mb-4">
             <Settings className="w-5 h-5 text-neutral-600" />
             <h3 className="font-semibold text-neutral-900">Feature Status</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {Object.entries(metrics.system.features).map(([key, value]) => (
               <div key={key} className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${value ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="text-sm text-neutral-700">
                   {key.replace(/([A-Z])/g, ' $1').trim()}
                 </span>
@@ -440,7 +442,7 @@ export default function AdminDashboard() {
       {/* G) RECENT ACTIVITY */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Recent Activity</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Recent Activity</h2>
         <div className="bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden">
           <div className="divide-y divide-neutral-200">
             {metrics.recentActivity.length === 0 ? (
@@ -449,23 +451,25 @@ export default function AdminDashboard() {
               </div>
             ) : (
               metrics.recentActivity.map((activity) => (
-                <div key={activity.id} className="p-4 hover:bg-neutral-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                <div key={activity.id} className="p-3 sm:p-4 hover:bg-neutral-50 transition-colors">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                         activity.status === 'premium' ? 'bg-green-100' :
                         activity.status === 'trial' ? 'bg-yellow-100' :
                         'bg-neutral-100'
                       }`}>
-                        <Users className={`w-5 h-5 ${
+                        <Users className={`w-4 h-4 sm:w-5 sm:h-5 ${
                           activity.status === 'premium' ? 'text-green-600' :
                           activity.status === 'trial' ? 'text-yellow-600' :
                           'text-neutral-600'
                         }`} />
                       </div>
-                      <div>
-                        <p className="font-medium text-neutral-900">{activity.name || activity.email}</p>
-                        <p className="text-sm text-neutral-600">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-neutral-900 truncate text-sm sm:text-base">
+                          {activity.name || activity.email}
+                        </p>
+                        <p className="text-xs sm:text-sm text-neutral-600">
                           {activity.action === 'signed_up' ? 'Signed up' : 'Active user'} • 
                           <span className="capitalize"> {activity.status}</span>
                           {activity.source && activity.source !== 'not set' && (
@@ -474,7 +478,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-sm text-neutral-500">
+                    <div className="text-xs sm:text-sm text-neutral-500 whitespace-nowrap">
                       {new Date(activity.createdAt).toLocaleDateString()}
                     </div>
                   </div>
@@ -489,23 +493,23 @@ export default function AdminDashboard() {
       {/* QUICK ACTIONS */}
       {/* ============================================ */}
       <section>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <a href="/admin/users" className="btn-secondary flex items-center justify-center gap-2 py-3">
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <a href="/admin/users" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <Users className="w-4 h-4" />
-            Manage Users
+            <span className="hidden sm:inline">Manage</span> Users
           </a>
-          <a href="/admin/features" className="btn-secondary flex items-center justify-center gap-2 py-3">
+          <a href="/admin/features" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <Settings className="w-4 h-4" />
-            Feature Toggles
+            <span className="hidden sm:inline">Feature</span> Toggles
           </a>
-          <a href="/admin/banners" className="btn-secondary flex items-center justify-center gap-2 py-3">
+          <a href="/admin/banners" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <AlertTriangle className="w-4 h-4" />
-            Manage Banners
+            <span className="hidden sm:inline">Manage</span> Banners
           </a>
-          <a href="/dashboard" className="btn-secondary flex items-center justify-center gap-2 py-3">
+          <a href="/dashboard" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <BarChart3 className="w-4 h-4" />
-            View as User
+            <span className="hidden sm:inline">View as</span> User
           </a>
         </div>
       </section>
