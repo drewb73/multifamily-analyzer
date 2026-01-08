@@ -1,10 +1,14 @@
-// src/components/dashboard/CreateGroupModal.tsx
+// COMPLETE FILE - CREATE/EDIT GROUP MODAL WITH DELETE BUTTON
+// Location: src/components/dashboard/CreateGroupModal.tsx
+// Action: REPLACE ENTIRE FILE
+// ✅ Added delete button when editing groups
+
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Trash2 } from 'lucide-react'
 import * as Icons from 'lucide-react'
-import { createGroup, updateGroup, GROUP_COLORS, GROUP_ICONS } from '@/lib/api/groups'
+import { createGroup, updateGroup, deleteGroup, GROUP_COLORS, GROUP_ICONS } from '@/lib/api/groups'
 
 interface CreateGroupModalProps {
   isOpen: boolean
@@ -30,6 +34,8 @@ export function CreateGroupModal({
   const [selectedColor, setSelectedColor] = useState('#3B82F6')
   const [selectedIcon, setSelectedIcon] = useState('Folder')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Load edit data when modal opens in edit mode
@@ -47,6 +53,7 @@ export function CreateGroupModal({
       setSelectedIcon('Folder')
     }
     setError(null)
+    setShowDeleteConfirm(false)
   }, [isOpen, editGroup])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,6 +93,24 @@ export function CreateGroupModal({
       setError(err.message || 'Failed to save group')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!editGroup) return
+
+    setIsDeleting(true)
+    setError(null)
+
+    try {
+      await deleteGroup(editGroup.id)
+      onSuccess()
+      onClose()
+    } catch (err: any) {
+      console.error('Error deleting group:', err)
+      setError(err.message || 'Failed to delete group')
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -237,20 +262,20 @@ export function CreateGroupModal({
             )}
           </div>
 
-          {/* Buttons */}
+          {/* Action Buttons */}
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeleting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeleting}
             >
               {isSubmitting 
                 ? 'Saving...' 
@@ -260,6 +285,47 @@ export function CreateGroupModal({
               }
             </button>
           </div>
+
+          {/* Delete Button (only in edit mode) */}
+          {editGroup && (
+            <div className="pt-4 border-t border-neutral-200">
+              {!showDeleteConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full px-4 py-2 flex items-center justify-center gap-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors"
+                  disabled={isSubmitting || isDeleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Group
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-neutral-600 text-center">
+                    Are you sure? Analyses won't be deleted, just ungrouped.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      className="flex-1 px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>
