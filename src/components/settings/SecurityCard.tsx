@@ -1,5 +1,5 @@
 // src/components/settings/SecurityCard.tsx
-// Routes to /reset-password (which has current password + email verification)
+// Routes to /reset-password (EMAIL VERIFICATION ONLY)
 'use client'
 
 import { Shield, Key, AlertCircle, ArrowRight } from 'lucide-react'
@@ -35,7 +35,7 @@ export function SecurityCard() {
             <ArrowRight className="w-4 h-4" />
           </button>
           <p className="text-xs text-neutral-500 mt-2">
-            Requires current password + email verification
+            Requires email verification
           </p>
         </div>
         
@@ -44,9 +44,9 @@ export function SecurityCard() {
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-700">
-              <p className="font-medium mb-1">Enhanced Security</p>
+              <p className="font-medium mb-1">Secure Password Changes</p>
               <p>
-                For your protection, changing your password requires both your current password and email verification.
+                Changing your password requires email verification to confirm you own the account.
               </p>
             </div>
           </div>
