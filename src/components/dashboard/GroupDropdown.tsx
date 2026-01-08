@@ -1,4 +1,3 @@
-// src/components/dashboard/GroupDropdown.tsx
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -69,6 +68,9 @@ export function GroupDropdown({
       await updateAnalysis(analysisId, { groupId })
       onGroupChanged()
       setIsOpen(false)
+      
+      // Reload page to update counts in both desktop sidebar and mobile dropdown
+      window.location.reload()
     } catch (error) {
       console.error('Error updating group:', error)
       alert('Failed to update group. Please try again.')

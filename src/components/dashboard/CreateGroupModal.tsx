@@ -1,8 +1,3 @@
-// COMPLETE FILE - CREATE/EDIT GROUP MODAL WITH DELETE BUTTON
-// Location: src/components/dashboard/CreateGroupModal.tsx
-// Action: REPLACE ENTIRE FILE
-// ✅ Added delete button when editing groups
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -88,6 +83,9 @@ export function CreateGroupModal({
 
       onSuccess()
       onClose()
+      
+      // Force full page reload to ensure desktop/mobile stay in sync
+      window.location.reload()
     } catch (err: any) {
       console.error('Error saving group:', err)
       setError(err.message || 'Failed to save group')
@@ -106,6 +104,9 @@ export function CreateGroupModal({
       await deleteGroup(editGroup.id)
       onSuccess()
       onClose()
+      
+      // Force full page reload to ensure desktop/mobile stay in sync
+      window.location.reload()
     } catch (err: any) {
       console.error('Error deleting group:', err)
       setError(err.message || 'Failed to delete group')
