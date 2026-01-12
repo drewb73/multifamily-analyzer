@@ -203,7 +203,13 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
       })
 
       if (!downgradeResponse.ok) {
-        const data = await downgradeResponse.json()
+        let data
+        try {
+          const text = await downgradeResponse.text()
+          data = text ? JSON.parse(text) : {}
+        } catch (parseError) {
+          throw new Error('Failed to downgrade user')
+        }
         throw new Error(data.error || 'Failed to downgrade user')
       }
 
@@ -218,7 +224,14 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
         body: JSON.stringify({ adminPin: pendingDeletePin })
       })
 
-      const data = await deleteResponse.json()
+      // Safe JSON parsing
+      let data
+      try {
+        const text = await deleteResponse.text()
+        data = text ? JSON.parse(text) : {}
+      } catch (parseError) {
+        throw new Error('Failed to delete account after downgrade')
+      }
 
       if (!deleteResponse.ok) {
         throw new Error(data.error || 'Failed to delete account after downgrade')
@@ -256,7 +269,15 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
         body: JSON.stringify({ adminPin })
       })
 
-      const data = await response.json()
+      // Safe JSON parsing - check if response has content
+      let data
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : {}
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        throw new Error('Invalid response from server')
+      }
 
       if (!response.ok) {
         // Check if this is a premium account error
@@ -301,7 +322,15 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
         body: JSON.stringify({ adminPin: nuclearPin })
       })
 
-      const data = await response.json()
+      // Safe JSON parsing
+      let data
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : {}
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        throw new Error('Invalid response from server')
+      }
 
       if (!response.ok) {
         // Check if this is a premium account error
