@@ -37,6 +37,7 @@ model User {
   
   // Premium Subscription
   subscriptionEndsAt DateTime? // For recurring subscriptions
+  cancelledAt      DateTime? // When user clicked cancel (for churn tracking)
   stripeCustomerId   String?   // For Stripe integration (future)
   stripeSubscriptionId String? // For Stripe integration (future)
   

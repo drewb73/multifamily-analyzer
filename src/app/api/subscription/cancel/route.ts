@@ -53,10 +53,7 @@ export async function POST(request: NextRequest) {
     // =============================================================
 
     const now = new Date()
-    const billingPeriodEnd = user.subscriptionEndsAt || now
-
-    // Calculate days remaining in billing period
-    const daysRemaining = Math.max(0, Math.ceil((billingPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    const billingPeriodEnd = user.subscriptionEndsAt || now // For production note only
 
     // DEMO MODE: Immediate cancellation
     // In production, subscriptionStatus would stay 'premium' until subscriptionEndsAt
@@ -64,6 +61,7 @@ export async function POST(request: NextRequest) {
       where: { id: user.id },
       data: {
         subscriptionStatus: 'free', // DEMO: immediate downgrade
+        cancelledAt: now,            // Track when user clicked cancel
         // subscriptionEndsAt: keep the date (user has premium until this date in production)
         // In production: subscriptionStatus stays 'premium', just cancel auto-renewal
       }
@@ -77,14 +75,15 @@ export async function POST(request: NextRequest) {
         id: updatedUser.id,
         subscriptionStatus: updatedUser.subscriptionStatus,
         subscriptionEndsAt: updatedUser.subscriptionEndsAt,
+        cancelledAt: updatedUser.cancelledAt,
       },
       billingInfo: {
         cancelledAt: now,
-        accessUntil: billingPeriodEnd,
-        daysRemaining,
+        accessUntil: now, // DEMO: immediate cancellation
+        daysRemaining: 0,  // DEMO: no days remaining
       },
       note: {
-        demo: 'Demo mode: Immediate cancellation. In production, you would keep premium access until the end of your billing period.',
+        demo: 'Demo mode: Immediate cancellation. Premium access ended immediately.',
         production: `In production, you would keep premium until ${billingPeriodEnd.toLocaleDateString()}`
       }
     }, { status: 200 })

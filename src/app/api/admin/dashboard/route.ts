@@ -1,4 +1,9 @@
+// COMPLETE FILE - ADMIN DASHBOARD API ROUTE WITH DATABASE SIZE FIX
 // Location: src/app/api/admin/dashboard/route.ts
+// Action: REPLACE ENTIRE FILE
+// ✅ FIX 1: Gets ACTUAL database size from MongoDB using dbStats command
+// ✅ FIX 2: Falls back to better estimation if dbStats fails
+// ✅ FIX 3: Proper rounding and unit display (KB, MB, GB)
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -149,11 +154,11 @@ export async function GET() {
     const expectedMonthly = mrr
 
     // Premium subscriptions cancelled this month (Stripe only)
+    // Counts users who CLICKED CANCEL this month (not when subscription ended)
     const cancelledThisMonth = await prisma.user.count({
       where: {
-        subscriptionStatus: 'free',
         subscriptionSource: 'stripe',
-        subscriptionEndsAt: {
+        cancelledAt: {
           gte: startOfMonth,
           lte: now
         }
