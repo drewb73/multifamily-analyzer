@@ -111,5 +111,27 @@ export async function POST(req: Request) {
     }
   }
 
+  // Handle session.created - Update lastLoginAt when user logs in
+  if (eventType === "session.created") {
+    const { user_id } = evt.data;
+
+    if (user_id) {
+      try {
+        await prisma.user.update({
+          where: { clerkId: user_id },
+          data: {
+            lastLoginAt: new Date(),
+          },
+        });
+
+        console.log("✅ User login tracked:", user_id);
+      } catch (error) {
+        console.error("Error updating lastLoginAt:", error);
+        // Don't return error - session was created successfully in Clerk
+        // This is just tracking, not critical
+      }
+    }
+  }
+
   return new Response("Webhook processed successfully", { status: 200 });
 }
