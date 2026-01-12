@@ -1,9 +1,4 @@
-// COMPLETE FILE - ADMIN DASHBOARD API ROUTE WITH DATABASE SIZE FIX
 // Location: src/app/api/admin/dashboard/route.ts
-// Action: REPLACE ENTIRE FILE
-// ✅ FIX 1: Gets ACTUAL database size from MongoDB using dbStats command
-// ✅ FIX 2: Falls back to better estimation if dbStats fails
-// ✅ FIX 3: Proper rounding and unit display (KB, MB, GB)
 
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -243,9 +238,30 @@ export async function GET() {
       })
     ])
 
-    // Average analyses per ALL premium user
+    // Get premium user IDs
+    const premiumUserIds = await prisma.user.findMany({
+      where: {
+        subscriptionStatus: 'premium'
+      },
+      select: {
+        id: true
+      }
+    })
+
+    const premiumUserIdList = premiumUserIds.map(u => u.id)
+
+    // Count ONLY analyses created by premium users
+    const premiumUserAnalyses = await prisma.propertyAnalysis.count({
+      where: {
+        userId: {
+          in: premiumUserIdList
+        }
+      }
+    })
+
+    // Average analyses per premium user (now accurate!)
     const avgAnalysesPerUser = premiumUsers > 0 
-      ? totalAnalyses / premiumUsers 
+      ? premiumUserAnalyses / premiumUsers 
       : 0
 
     // ============================================

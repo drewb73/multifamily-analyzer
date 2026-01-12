@@ -71,7 +71,7 @@ export function SortDropdown({ value, onChange }: SortDropdownProps) {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20 min-w-[220px] max-h-[400px] overflow-y-auto">
+        <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20 min-w-[220px] max-h-[400px] overflow-y-auto">
           {SORT_OPTIONS.map((option) => {
             const isSelected = option.value === value
 

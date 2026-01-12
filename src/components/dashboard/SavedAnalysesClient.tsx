@@ -1,11 +1,4 @@
-// COMPLETE FILE - MOBILE-FRIENDLY SAVED ANALYSES CLIENT (ALL TYPE ERRORS FIXED)
 // Location: src/components/dashboard/SavedAnalysesClient.tsx
-// Action: REPLACE ENTIRE FILE
-// ✅ Fixed all TypeScript errors
-// ✅ Groups sidebar → dropdown on mobile
-// ✅ Filters and sort stacked on mobile
-// ✅ Group dropdown above address in cards on mobile
-
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
@@ -251,6 +244,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         }
         
         if (selectedGroupId && selectedGroupId !== 'no-group') {
+          // Specific group selected - fetch all counts separately
           const allResponse = await fetchAnalyses(countsParams)
           setAllAnalysesCount(allResponse.total || 0)
           
@@ -259,18 +253,20 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
             onlyUngrouped: true,
           })
           setUngroupedCount(ungroupedResponse.total || 0)
+        } else if (selectedGroupId === 'no-group') {
+          // "No Group" selected - fetch total count separately, use response for ungrouped count
+          const allResponse = await fetchAnalyses(countsParams)
+          setAllAnalysesCount(allResponse.total || 0)
+          setUngroupedCount(response.total || 0)
         } else {
+          // "All Analyses" selected - fetch ungrouped count separately
           setAllAnalysesCount(response.total || 0)
           
-          if (selectedGroupId === 'no-group') {
-            setUngroupedCount(response.total || 0)
-          } else {
-            const ungroupedResponse = await fetchAnalyses({
-              ...countsParams,
-              onlyUngrouped: true,
-            })
-            setUngroupedCount(ungroupedResponse.total || 0)
-          }
+          const ungroupedResponse = await fetchAnalyses({
+            ...countsParams,
+            onlyUngrouped: true,
+          })
+          setUngroupedCount(ungroupedResponse.total || 0)
         }
       } else {
         // Free/Trial user - load from local storage
