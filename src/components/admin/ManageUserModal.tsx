@@ -61,6 +61,11 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
   const [showAdminPinInput, setShowAdminPinInput] = useState(false)
   const [showNuclearConfirm, setShowNuclearConfirm] = useState(false)
   const [nuclearPin, setNuclearPin] = useState('')
+  
+  // Premium account downgrade prompts
+  const [showDowngradePrompt, setShowDowngradePrompt] = useState(false)
+  const [showNuclearDowngradePrompt, setShowNuclearDowngradePrompt] = useState(false)
+  const [pendingDeletePin, setPendingDeletePin] = useState('')
 
   // Handle save user info
   const handleSaveInfo = async () => {
@@ -182,6 +187,59 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
   }
 
   // Handle delete account
+  // Handle downgrade to free and then delete
+  const handleDowngradeAndDelete = async (isNuclear: boolean = false) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Step 1: Downgrade user to free
+      const downgradeResponse = await fetch(`/api/admin/users/${user.id}/subscription`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionStatus: 'free'
+        })
+      })
+
+      if (!downgradeResponse.ok) {
+        const data = await downgradeResponse.json()
+        throw new Error(data.error || 'Failed to downgrade user')
+      }
+
+      // Step 2: Try delete again
+      const deleteEndpoint = isNuclear 
+        ? `/api/admin/users/${user.id}/nuclear-delete`
+        : `/api/admin/users/${user.id}`
+      
+      const deleteResponse = await fetch(deleteEndpoint, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPin: pendingDeletePin })
+      })
+
+      const data = await deleteResponse.json()
+
+      if (!deleteResponse.ok) {
+        throw new Error(data.error || 'Failed to delete account after downgrade')
+      }
+
+      setSuccess(isNuclear ? 'User downgraded to free and permanently deleted' : 'User downgraded to free and marked for deletion')
+      setTimeout(() => {
+        onUpdate()
+        onClose()
+      }, 1500)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+      setShowDowngradePrompt(false)
+      setShowNuclearDowngradePrompt(false)
+      setPendingDeletePin('')
+    }
+  }
+
+  // Handle mark for deletion (soft delete)
   const handleDeleteAccount = async () => {
     if (!adminPin) {
       setError('Admin PIN is required to delete accounts')
@@ -201,10 +259,19 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
       const data = await response.json()
 
       if (!response.ok) {
+        // Check if this is a premium account error
+        if (data.code === 'PREMIUM_ACCOUNT') {
+          // Show downgrade prompt
+          setPendingDeletePin(adminPin)
+          setShowDowngradePrompt(true)
+          setShowDeleteConfirm(false)
+          setIsLoading(false)
+          return
+        }
         throw new Error(data.error || 'Failed to delete account')
       }
 
-      setSuccess('Account deleted successfully')
+      setSuccess('Account marked for deletion successfully')
       setTimeout(() => {
         onUpdate()
         onClose()
@@ -237,6 +304,15 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
       const data = await response.json()
 
       if (!response.ok) {
+        // Check if this is a premium account error
+        if (data.code === 'PREMIUM_ACCOUNT') {
+          // Show downgrade prompt
+          setPendingDeletePin(nuclearPin)
+          setShowNuclearDowngradePrompt(true)
+          setShowNuclearConfirm(false)
+          setIsLoading(false)
+          return
+        }
         throw new Error(data.error || 'Failed to permanently delete account')
       }
 
@@ -968,6 +1044,116 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
           )}
         </div>
       </div>
+
+      {/* Downgrade Prompt Modal (Mark for Deletion) */}
+      {showDowngradePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-neutral-900 mb-1">
+                  Premium Account Detected
+                </h3>
+                <p className="text-sm text-neutral-600">
+                  This user has an active <span className="font-semibold text-primary-600">{user.subscriptionStatus}</span> subscription.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-neutral-700 mb-2">
+                <strong>To prevent billing issues and revenue loss,</strong> premium/enterprise accounts 
+                must be downgraded to <strong>free tier</strong> before deletion.
+              </p>
+              <p className="text-sm text-neutral-600">
+                Would you like to automatically downgrade this user to free tier and then mark their account for deletion?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDowngradePrompt(false)
+                  setPendingDeletePin('')
+                  setAdminPin('')
+                }}
+                className="flex-1 py-3 px-4 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDowngradeAndDelete(false)}
+                disabled={isLoading}
+                className="flex-1 py-3 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Processing...' : 'Downgrade & Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Downgrade Prompt Modal (Nuclear Delete) */}
+      {showNuclearDowngradePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-red-600">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-700 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-xl">⚠️</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  Premium Account - Nuclear Delete Blocked
+                </h3>
+                <p className="text-sm text-red-100">
+                  This user has an active <span className="font-bold">{user.subscriptionStatus}</span> subscription.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-950 border-2 border-red-600 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-100 mb-3 font-semibold">
+                ⛔ SAFETY BLOCK ACTIVATED
+              </p>
+              <p className="text-sm text-red-200 mb-2">
+                Deleting premium/enterprise accounts can cause:
+              </p>
+              <ul className="text-xs text-red-200 space-y-1 mb-3">
+                <li>• Billing disputes and chargebacks</li>
+                <li>• Stripe subscription orphaning</li>
+                <li>• Revenue loss</li>
+                <li>• Customer service issues</li>
+              </ul>
+              <p className="text-sm text-white font-bold">
+                Would you like to downgrade to free tier first, then proceed with permanent deletion?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowNuclearDowngradePrompt(false)
+                  setPendingDeletePin('')
+                  setNuclearPin('')
+                }}
+                className="flex-1 py-3 px-4 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDowngradeAndDelete(true)}
+                disabled={isLoading}
+                className="flex-1 py-3 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-2 border-red-400"
+              >
+                {isLoading ? 'PROCESSING...' : 'Downgrade & DELETE'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

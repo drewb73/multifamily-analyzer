@@ -58,6 +58,7 @@ export async function DELETE(
         email: true, 
         firstName: true, 
         lastName: true,
+        subscriptionStatus: true,  // Check subscription status
         _count: {
           select: {
             propertyAnalyses: true
@@ -71,6 +72,17 @@ export async function DELETE(
         success: false,
         error: 'User not found'
       }, { status: 404 })
+    }
+
+    // SAFETY CHECK: Prevent deletion of premium/enterprise accounts
+    if (userToDelete.subscriptionStatus === 'premium' || userToDelete.subscriptionStatus === 'enterprise') {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Cannot delete premium/enterprise account',
+        code: 'PREMIUM_ACCOUNT',
+        message: 'This user has an active premium or enterprise subscription. Please downgrade them to free tier first to prevent billing issues and revenue loss.',
+        subscriptionStatus: userToDelete.subscriptionStatus
+      }, { status: 400 })
     }
 
     // NUCLEAR DELETE - Immediate and permanent

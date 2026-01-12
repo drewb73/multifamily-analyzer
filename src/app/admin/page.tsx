@@ -75,6 +75,9 @@ interface DashboardMetrics {
       totalAnalyses: number
       totalGroups: number
       totalBanners: number
+      totalProperties: number
+      totalLegacyAnalyses: number
+      totalAdminLogs: number
       estimatedSize: string
     }
     features: {
@@ -385,9 +388,11 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-neutral-200 mb-4 overflow-hidden">
           <div className="flex items-center gap-2 mb-4">
             <Database className="w-5 h-5 text-neutral-600 flex-shrink-0" />
-            <h3 className="font-semibold text-neutral-900">Database</h3>
+            <h3 className="font-semibold text-neutral-900">Database Statistics</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          
+          {/* Main stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4">
             <div className="min-w-0">
               <p className="text-xs sm:text-sm text-neutral-600 truncate">Users</p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
@@ -414,11 +419,46 @@ export default function AdminDashboard() {
             </div>
             <div className="min-w-0 col-span-2 sm:col-span-1">
               <p className="text-xs sm:text-sm text-neutral-600 truncate">Est. Size</p>
-              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-primary-600 truncate">
                 {metrics.system.database.estimatedSize}
               </p>
             </div>
           </div>
+          
+          {/* Additional stats (only show if non-zero) */}
+          {(metrics.system.database.totalProperties > 0 || 
+            metrics.system.database.totalLegacyAnalyses > 0 || 
+            metrics.system.database.totalAdminLogs > 0) && (
+            <div className="pt-4 border-t border-neutral-200">
+              <p className="text-xs text-neutral-500 mb-2">Additional Data:</p>
+              <div className="grid grid-cols-3 gap-3">
+                {metrics.system.database.totalProperties > 0 && (
+                  <div>
+                    <p className="text-xs text-neutral-600">Legacy Properties</p>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {metrics.system.database.totalProperties}
+                    </p>
+                  </div>
+                )}
+                {metrics.system.database.totalLegacyAnalyses > 0 && (
+                  <div>
+                    <p className="text-xs text-neutral-600">Legacy Analyses</p>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {metrics.system.database.totalLegacyAnalyses}
+                    </p>
+                  </div>
+                )}
+                {metrics.system.database.totalAdminLogs > 0 && (
+                  <div>
+                    <p className="text-xs text-neutral-600">Admin Logs</p>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {metrics.system.database.totalAdminLogs}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Feature Toggles */}

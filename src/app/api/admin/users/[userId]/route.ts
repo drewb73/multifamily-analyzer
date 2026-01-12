@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
-import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// PATCH - Update user information
+// PATCH - Update user subscription
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
@@ -35,27 +34,54 @@ export async function PATCH(
 
     const { userId } = await params
     const body = await request.json()
-    const { firstName, lastName, email: newEmail, company } = body
+    const { subscriptionStatus, premiumDuration } = body
+
+    // Calculate dates based on new status
+    let updateData: any = {
+      subscriptionStatus,
+      subscriptionSource: 'manual' // Always manual when set by admin
+    }
+
+    if (subscriptionStatus === 'trial') {
+      // Set trial to 72 hours from now
+      const trialEnd = new Date()
+      trialEnd.setHours(trialEnd.getHours() + 72)
+      updateData.trialEndsAt = trialEnd
+      updateData.hasUsedTrial = true
+    } else if (subscriptionStatus === 'premium') {
+      // Set subscription based on duration (default 30 days)
+      const duration = premiumDuration || 30
+      const subEnd = new Date()
+      
+      if (duration === 9999) {
+        // "Forever" - set to 100 years from now
+        subEnd.setFullYear(subEnd.getFullYear() + 100)
+      } else {
+        subEnd.setDate(subEnd.getDate() + duration)
+      }
+      
+      updateData.subscriptionEndsAt = subEnd
+    } else if (subscriptionStatus === 'free') {
+      // Clear dates
+      updateData.trialEndsAt = null
+      updateData.subscriptionEndsAt = null
+    }
 
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        firstName,
-        lastName,
-        email: newEmail,
-        company
-      }
+      data: updateData
     })
 
     // Log action
     await prisma.adminLog.create({
       data: {
         adminEmail: email,
-        action: 'user_updated',
+        action: 'subscription_updated',
         details: {
           userId,
-          changes: { firstName, lastName, email: newEmail, company }
+          newStatus: subscriptionStatus,
+          updatedFields: updateData
         }
       }
     })
@@ -65,115 +91,10 @@ export async function PATCH(
       user: updatedUser
     })
   } catch (error: any) {
-    console.error('Update user error:', error)
+    console.error('Update subscription error:', error)
     return NextResponse.json({ 
       success: false,
-      error: error.message || 'Failed to update user'
-    }, { status: 500 })
-  }
-}
-
-// DELETE - Mark user account for deletion (soft delete)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  try {
-    const clerkUser = await currentUser()
-    
-    if (!clerkUser) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authenticated'
-      }, { status: 401 })
-    }
-
-    const email = clerkUser.emailAddresses[0]?.emailAddress
-    
-    // Verify user is admin
-    const adminUser = await prisma.user.findUnique({
-      where: { email },
-      select: { isAdmin: true }
-    })
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Not authorized'
-      }, { status: 403 })
-    }
-
-    const { userId } = await params
-    const body = await request.json()
-    const { adminPin } = body
-
-    // Verify admin PIN
-    const correctPin = process.env.ADMIN_PIN
-
-    if (!correctPin || adminPin !== correctPin) {
-      // Add delay to prevent brute force
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      return NextResponse.json({ 
-        success: false,
-        error: 'Invalid admin PIN'
-      }, { status: 401 })
-    }
-
-    // Get user details before marking for deletion
-    const userToDelete = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { 
-        clerkId: true,
-        email: true, 
-        firstName: true, 
-        lastName: true,
-        accountStatus: true
-      }
-    })
-
-    if (!userToDelete) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'User not found'
-      }, { status: 404 })
-    }
-
-    // Mark user for deletion (soft delete)
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        accountStatus: 'pending_deletion',
-        markedForDeletionAt: new Date(),
-        deletedBy: email
-      }
-    })
-
-    // Log action
-    await prisma.adminLog.create({
-      data: {
-        adminEmail: email,
-        action: 'user_marked_for_deletion',
-        details: {
-          userId,
-          userEmail: userToDelete.email,
-          userName: `${userToDelete.firstName || ''} ${userToDelete.lastName || ''}`.trim(),
-          clerkId: userToDelete.clerkId,
-          markedBy: email,
-          willDeleteAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days from now
-        }
-      }
-    })
-
-    return NextResponse.json({ 
-      success: true,
-      message: 'User account marked for deletion. Data will be kept for 60 days.'
-    })
-  } catch (error: any) {
-    console.error('Mark for deletion error:', error)
-    return NextResponse.json({ 
-      success: false,
-      error: error.message || 'Failed to mark user for deletion'
+      error: error.message || 'Failed to update subscription'
     }, { status: 500 })
   }
 }

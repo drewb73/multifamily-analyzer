@@ -318,10 +318,25 @@ export async function GET() {
     // F) SYSTEM HEALTH - DATABASE SIZE
     // ============================================
     
-    // Get additional table counts
-    const [totalGroups, totalBanners] = await Promise.all([
+    // Get counts for ALL models
+    const [
+      totalGroups, 
+      totalBanners, 
+      totalProperties,
+      totalLegacyAnalyses,
+      totalPromoModals,
+      totalDiscountCodes,
+      totalCodeRedemptions,
+      totalAdminLogs
+    ] = await Promise.all([
       prisma.analysisGroup.count(),
-      prisma.banner.count()
+      prisma.banner.count(),
+      prisma.property.count(),           // Legacy model
+      prisma.analysis.count(),           // Legacy model
+      prisma.promoModal.count(),
+      prisma.discountCode.count(),
+      prisma.codeRedemption.count(),
+      prisma.adminLog.count()
     ])
     
     // ✅ FIX: Get ACTUAL database size from MongoDB
@@ -351,17 +366,31 @@ export async function GET() {
         throw new Error('dbStats command did not return OK')
       }
     } catch (dbStatsError) {
-      // If dbStats fails (permissions, etc.), use improved estimation
-      // Better estimation: ~1KB per user, ~50KB per analysis (JSON data is large!)
-      // Plus ~0.5KB per group, ~0.5KB per banner, plus 10% overhead for indexes
+      // If dbStats fails (permissions, etc.), use comprehensive estimation
       console.warn('Could not get actual DB size, using estimation:', dbStatsError)
       
+      // Comprehensive size estimation including ALL models
       const estimatedBytes = (
-        (totalUsers * 1024) +           // ~1KB per user
-        (totalAnalyses * 51200) +       // ~50KB per analysis (JSON data + results)
-        (totalGroups * 512) +           // ~0.5KB per group
-        (totalBanners * 512) +          // ~0.5KB per banner
-        (totalAnalyses * 5120)          // ~5KB index overhead per analysis
+        // Core models
+        (totalUsers * 1024) +                    // ~1KB per user (basic info)
+        (totalAnalyses * 51200) +                // ~50KB per PropertyAnalysis (large JSON data)
+        (totalGroups * 512) +                    // ~0.5KB per group
+        (totalBanners * 2048) +                  // ~2KB per banner (HTML content)
+        
+        // Legacy models (may have data from old versions)
+        (totalProperties * 2048) +               // ~2KB per legacy Property
+        (totalLegacyAnalyses * 10240) +          // ~10KB per legacy Analysis
+        
+        // Admin/System models
+        (totalPromoModals * 2048) +              // ~2KB per promo modal
+        (totalDiscountCodes * 512) +             // ~0.5KB per discount code
+        (totalCodeRedemptions * 512) +           // ~0.5KB per redemption
+        (totalAdminLogs * 1024) +                // ~1KB per admin log entry
+        (1 * 512) +                              // ~0.5KB for SystemSettings (only 1 record)
+        
+        // Index overhead (MongoDB creates indexes automatically)
+        (totalAnalyses * 5120) +                 // ~5KB index per analysis (multiple indexes)
+        (totalUsers * 1024)                      // ~1KB index per user
       )
       
       estimatedSize = formatDatabaseSize(estimatedBytes) + ' (est.)'
@@ -372,6 +401,9 @@ export async function GET() {
       totalAnalyses,
       totalGroups,
       totalBanners,
+      totalProperties,
+      totalLegacyAnalyses,
+      totalAdminLogs,
       estimatedSize
     }
 
