@@ -153,9 +153,19 @@ export async function GET() {
     // Expected monthly revenue - ONLY Stripe
     const expectedMonthly = mrr
 
-    // Premium subscriptions cancelled this month (Stripe only)
-    // Counts users who CLICKED CANCEL this month (not when subscription ended)
+    // Subscriptions cancelled this month (ALL sources - manual + stripe)
+    // Counts users who CLICKED CANCEL this month (retention/churn metric)
     const cancelledThisMonth = await prisma.user.count({
+      where: {
+        cancelledAt: {
+          gte: startOfMonth,
+          lte: now
+        }
+      }
+    })
+
+    // Stripe cancellations only (for churn rate calculation)
+    const stripeCancelledThisMonth = await prisma.user.count({
       where: {
         subscriptionSource: 'stripe',
         cancelledAt: {
@@ -207,7 +217,7 @@ export async function GET() {
 
     // Churn rate (Stripe cancellations / Stripe premium users)
     const churnRate = stripePremiumUsers > 0 
-      ? (cancelledThisMonth / stripePremiumUsers) * 100 
+      ? (stripeCancelledThisMonth / stripePremiumUsers) * 100 
       : 0
 
     // ============================================
@@ -481,7 +491,9 @@ export async function GET() {
           signUpEnabled: systemSettings?.signUpEnabled ?? true,
           stripeEnabled: systemSettings?.stripeEnabled ?? true,
           analysisEnabled: systemSettings?.analysisEnabled ?? true,
-          pdfExportEnabled: systemSettings?.pdfExportEnabled ?? true
+          pdfExportEnabled: systemSettings?.pdfExportEnabled ?? true,
+          savedDraftsEnabled: systemSettings?.savedDraftsEnabled ?? true,
+          accountDeletionEnabled: systemSettings?.accountDeletionEnabled ?? true
         }
       },
       

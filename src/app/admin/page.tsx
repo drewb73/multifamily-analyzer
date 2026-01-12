@@ -84,6 +84,8 @@ interface DashboardMetrics {
       stripeEnabled: boolean
       analysisEnabled: boolean
       pdfExportEnabled: boolean
+      savedDraftsEnabled: boolean
+      accountDeletionEnabled: boolean
     }
   }
   recentActivity: Array<{
@@ -426,14 +428,31 @@ export default function AdminDashboard() {
             <h3 className="font-semibold text-neutral-900">Feature Status</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {Object.entries(metrics.system.features).map(([key, value]) => (
-              <div key={key} className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${value ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-sm text-neutral-700">
-                  {key.replace(/([A-Z])/g, ' $1').trim()}
-                </span>
-              </div>
-            ))}
+            {Object.entries(metrics.system.features).map(([key, value]) => {
+              // Format feature names better
+              const featureNames: Record<string, string> = {
+                maintenanceMode: 'Maintenance Mode',
+                dashboardEnabled: 'Dashboard',
+                signUpEnabled: 'Sign Up',
+                stripeEnabled: 'Stripe Payments',
+                analysisEnabled: 'Property Analysis',
+                pdfExportEnabled: 'PDF Export',
+                savedDraftsEnabled: 'Saved Drafts',
+                accountDeletionEnabled: 'Account Deletion'
+              }
+              
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${value ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="text-sm text-neutral-700">
+                    {featureNames[key] || key}
+                  </span>
+                  <span className="text-xs text-neutral-500 ml-auto">
+                    {value ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
