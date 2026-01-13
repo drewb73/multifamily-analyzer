@@ -521,9 +521,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                     const cashOnCashReturn = (analysis.cashOnCashReturn || results?.keyMetrics?.cashOnCashReturn || 0)
                     const annualCashFlow = (analysis.cashFlow || results?.keyMetrics?.annualCashFlow || 0)
                     
-                    const savedDate = analysis.createdAt 
-                      ? new Date(analysis.createdAt).getTime()
-                      : analysis.lastModified || Date.now()
+                    // Use updatedAt to show when analysis was last modified, fallback to createdAt
+                    const savedDate = analysis.updatedAt 
+                      ? new Date(analysis.updatedAt).getTime()
+                      : analysis.createdAt 
+                        ? new Date(analysis.createdAt).getTime()
+                        : analysis.lastModified || Date.now()
                     
                     return (
                       <Card key={analysis.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
@@ -569,7 +572,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                               <p>🏢 {property.totalUnits || 0} units • {formatCurrency(property.purchasePrice || 0)}</p>
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3 flex-shrink-0" />
-                                <span>Saved {formatTimeAgo(savedDate)}</span>
+                                <span>Updated {formatTimeAgo(savedDate)}</span>
                               </div>
                             </div>
 
