@@ -43,6 +43,8 @@ export async function GET() {
         stripeSubscriptionId: true,
         trialEndsAt: true,
         subscriptionEndsAt: true,
+        hasUsedTrial: true,
+        lastLoginAt: true, // ✅ Added for "Inactive 60+ days" filter
         createdAt: true,
         _count: {
           select: {
