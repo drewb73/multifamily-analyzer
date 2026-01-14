@@ -57,7 +57,7 @@ export default function AdminLayout({
 
     try {
       // Check if user is admin
-      const response = await fetch('/api/admin/check-status')
+      const response = await fetch('/api/nreadr/check-status')
       const data = await response.json()
 
       if (!data.isAdmin) {
@@ -85,7 +85,7 @@ export default function AdminLayout({
     setIsVerifying(true)
 
     try {
-      const response = await fetch('/api/admin/verify-pin', {
+      const response = await fetch('/api/nreadr/verify-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin })
@@ -240,16 +240,16 @@ export default function AdminLayout({
           }`}
         >
           <nav className="p-4">
-            <AdminNavLink href="/admin" icon={BarChart3} pathname={pathname}>
+            <AdminNavLink href="/nreadr" icon={BarChart3} pathname={pathname}>
               Dashboard
             </AdminNavLink>
-            <AdminNavLink href="/admin/users" icon={Users} pathname={pathname}>
+            <AdminNavLink href="/nreadr/users" icon={Users} pathname={pathname}>
               Users
             </AdminNavLink>
-            <AdminNavLink href="/admin/features" icon={Settings} pathname={pathname}>
+            <AdminNavLink href="/nreadr/features" icon={Settings} pathname={pathname}>
               Features
             </AdminNavLink>
-            <AdminNavLink href="/admin/banners" icon={MessageSquare} pathname={pathname}>
+            <AdminNavLink href="/nreadr/banners" icon={MessageSquare} pathname={pathname}>
               Banners
             </AdminNavLink>
           </nav>
@@ -261,16 +261,16 @@ export default function AdminLayout({
             {/* Desktop Sidebar Navigation (Hidden on Mobile) */}
             <aside className="hidden lg:block w-64 flex-shrink-0">
               <nav className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
-                <AdminNavLink href="/admin" icon={BarChart3} pathname={pathname}>
+                <AdminNavLink href="/nreadr" icon={BarChart3} pathname={pathname}>
                   Dashboard
                 </AdminNavLink>
-                <AdminNavLink href="/admin/users" icon={Users} pathname={pathname}>
+                <AdminNavLink href="/nreadr/users" icon={Users} pathname={pathname}>
                   Users
                 </AdminNavLink>
-                <AdminNavLink href="/admin/features" icon={Settings} pathname={pathname}>
+                <AdminNavLink href="/nreadr/features" icon={Settings} pathname={pathname}>
                   Features
                 </AdminNavLink>
-                <AdminNavLink href="/admin/banners" icon={MessageSquare} pathname={pathname}>
+                <AdminNavLink href="/nreadr/banners" icon={MessageSquare} pathname={pathname}>
                   Banners
                 </AdminNavLink>
               </nav>

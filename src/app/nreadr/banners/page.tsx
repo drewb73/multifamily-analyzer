@@ -93,8 +93,8 @@ export default function AdminBannersPage() {
     setIsLoading(true)
     try {
       const [bannersRes, promoRes] = await Promise.all([
-        fetch('/api/admin/banners'),
-        fetch('/api/admin/promo-modal'),
+        fetch('/api/nreadr/banners'),
+        fetch('/api/nreadr/promo-modal'),
       ])
 
       const bannersData = await bannersRes.json()
@@ -132,7 +132,7 @@ export default function AdminBannersPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/admin/banners', {
+      const response = await fetch('/api/nreadr/banners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBanner),
@@ -218,7 +218,7 @@ export default function AdminBannersPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/admin/promo-modal', {
+      const response = await fetch('/api/nreadr/promo-modal', {
         method: promoModal ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(promoForm),

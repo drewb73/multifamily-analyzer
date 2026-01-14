@@ -161,7 +161,7 @@ export default function AdminUsersPage() {
   const loadUsers = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/admin/users')
+      const response = await fetch('/api/nreadr/users')
       const data = await response.json()
       
       if (data.success) {
@@ -202,7 +202,7 @@ export default function AdminUsersPage() {
     setIsBulkDeleting(true)
 
     try {
-      const response = await fetch('/api/admin/users/bulk-mark-deletion', {
+      const response = await fetch('/api/nreadr/users/bulk-mark-deletion', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -118,7 +118,7 @@ export default function AdminDashboard() {
   const fetchMetrics = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/dashboard')
+      const response = await fetch('/api/nreadr/dashboard')
       
       if (!response.ok) {
         throw new Error('Failed to fetch metrics')
@@ -359,21 +359,21 @@ export default function AdminDashboard() {
             count={metrics.alerts.trialsExpiring24h}
             description="Expiring in next 24 hours"
             type="warning"
-            actionLink="/admin/users?filter=trials_expiring"
+            actionLink="/nreadr/users?filter=trials_expiring"
           />
           <AlertCard
             title="Trials This Week"
             count={metrics.alerts.trialsExpiring7d}
             description="Expiring in next 7 days"
             type="info"
-            actionLink="/admin/users?filter=trials_expiring_week"
+            actionLink="/nreadr/users?filter=trials_expiring_week"
           />
           <AlertCard
             title="Pending Deletions"
             count={metrics.alerts.pendingDeletions}
             description="Accounts pending deletion"
             type={metrics.alerts.pendingDeletions > 0 ? 'error' : 'success'}
-            actionLink="/admin/users?filter=pending_deletion"
+            actionLink="/nreadr/users?filter=pending_deletion"
           />
         </div>
       </section>
@@ -554,15 +554,15 @@ export default function AdminDashboard() {
       <section>
         <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <a href="/admin/users" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
+          <a href="/nreadr/users" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">Manage</span> Users
           </a>
-          <a href="/admin/features" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
+          <a href="/nreadr/features" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <Settings className="w-4 h-4" />
             <span className="hidden sm:inline">Feature</span> Toggles
           </a>
-          <a href="/admin/banners" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
+          <a href="/nreadr/banners" className="btn-secondary flex items-center justify-center gap-2 py-3 text-sm sm:text-base">
             <AlertTriangle className="w-4 h-4" />
             <span className="hidden sm:inline">Manage</span> Banners
           </a>

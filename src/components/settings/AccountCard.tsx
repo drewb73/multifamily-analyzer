@@ -34,7 +34,7 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
   useEffect(() => {
     const checkAdmin = async () => {
       try {
-        const response = await fetch('/api/admin/check-status')
+        const response = await fetch('/api/nreadr/check-status')
         const data = await response.json()
         setIsAdmin(data.isAdmin || false)
       } catch (error) {
@@ -200,7 +200,7 @@ export function AccountCard({ subscriptionStatus, trialEndsAt, onRefresh }: Acco
                   </div>
                 </div>
                 <Link 
-                  href="/admin"
+                  href="/nreadr"
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
                 >
                   Open Console

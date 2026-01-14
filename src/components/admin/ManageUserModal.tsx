@@ -74,7 +74,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
+      const response = await fetch(`/api/nreadr/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}/subscription`, {
+      const response = await fetch(`/api/nreadr/users/${user.id}/subscription`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,7 +155,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}/admin`, {
+      const response = await fetch(`/api/nreadr/users/${user.id}/admin`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +194,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
 
     try {
       // Step 1: Downgrade user to free
-      const downgradeResponse = await fetch(`/api/admin/users/${user.id}/subscription`, {
+      const downgradeResponse = await fetch(`/api/nreadr/users/${user.id}/subscription`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,7 +263,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     setError(null)
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
+      const response = await fetch(`/api/nreadr/users/${user.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminPin })
@@ -316,7 +316,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     setError(null)
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}/nuclear-delete`, {
+      const response = await fetch(`/api/nreadr/users/${user.id}/nuclear-delete`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminPin: nuclearPin })
@@ -886,7 +886,7 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                       setIsLoading(true)
                       setError(null)
                       try {
-                        const response = await fetch(`/api/admin/users/${user.id}/restore`, {
+                        const response = await fetch(`/api/nreadr/users/${user.id}/restore`, {
                           method: 'POST'
                         })
                         const data = await response.json()

@@ -51,7 +51,7 @@ export default function AdminFeaturesPage() {
   const loadSettings = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/admin/settings')
+      const response = await fetch('/api/nreadr/settings')
       const data = await response.json()
       
       if (data.success) {
@@ -96,7 +96,7 @@ export default function AdminFeaturesPage() {
     setSuccess(null)
 
     try {
-      const response = await fetch('/api/admin/settings', {
+      const response = await fetch('/api/nreadr/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
@@ -129,7 +129,7 @@ export default function AdminFeaturesPage() {
 
     try {
       // Verify PIN and apply changes
-      const response = await fetch('/api/admin/settings/verify', {
+      const response = await fetch('/api/nreadr/settings/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
