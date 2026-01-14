@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/about',
   '/maintenance',
   '/api/webhooks/clerk(.*)',
+  '/api/webhooks/stripe(.*)',
   '/api/system-settings',
   '/api/emergency-maintenance-off',  // Emergency route
   '/api/promo-modal/active',

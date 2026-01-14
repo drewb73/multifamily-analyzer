@@ -1,5 +1,5 @@
 // src/app/pricing/page.tsx
-// UPDATED for Stripe Integration
+// FIX 1: Auto-redirect to dashboard after success
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -44,12 +44,17 @@ export default function PricingPage() {
       setShowSuccessMessage(true)
       // Remove the query param from URL
       window.history.replaceState({}, '', '/pricing')
+      
+      // FIX 1: Auto-redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 3000)
     } else if (checkout === 'canceled') {
       setShowCanceledMessage(true)
       // Remove the query param from URL
       window.history.replaceState({}, '', '/pricing')
     }
-  }, [searchParams])
+  }, [searchParams, router])
 
   // Auto-trigger checkout after sign up
   useEffect(() => {
@@ -91,7 +96,7 @@ export default function PricingPage() {
   // Handle Free Trial Click
   const handleFreeTrial = () => {
     if (!user) {
-      // New user - go to sign up
+      // New user - go to sign up (NO redirect_url for free trial)
       router.push('/sign-up')
       return
     }
@@ -115,7 +120,7 @@ export default function PricingPage() {
   // Handle Premium Click - NOW WITH STRIPE!
   const handlePremium = async () => {
     if (!user) {
-      // New user - save intent and redirect to sign up
+      // FIX 2: New user - save intent and redirect to sign up with proper redirect_url
       sessionStorage.setItem('intended_plan', 'premium')
       router.push('/sign-up?redirect_url=/pricing?start_checkout=true')
       return
@@ -273,13 +278,7 @@ export default function PricingPage() {
               <p className="text-green-700 mb-3">
                 Welcome to Premium! Your subscription is now active and you have access to all features.
               </p>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-              >
-                Go to Dashboard
-                <ArrowLeft className="w-4 h-4 rotate-180" />
-              </button>
+              <p className="text-sm text-green-600">Redirecting to dashboard...</p>
             </div>
           </div>
         )}

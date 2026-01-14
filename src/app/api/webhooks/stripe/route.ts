@@ -1,4 +1,5 @@
 // src/app/api/webhooks/stripe/route.ts
+// FIX 4: Updated webhook to handle cancel_at_period_end properly
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe'
@@ -44,23 +45,23 @@ export async function POST(request: NextRequest) {
     // STEP 2: Handle different event types
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
+        await handleCheckoutSessionCompleted(event.data.object as any)
         break
 
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+        await handleSubscriptionUpdated(event.data.object as any)
         break
 
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+        await handleSubscriptionDeleted(event.data.object as any)
         break
 
       case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)
+        await handleInvoicePaymentSucceeded(event.data.object as any)
         break
 
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice)
+        await handleInvoicePaymentFailed(event.data.object as any)
         break
 
       default:
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
 /**
  * Handle successful checkout - new subscription created
  */
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: any) {
   console.log('🎉 Checkout completed:', session.id)
 
   // Get user ID from metadata
@@ -102,19 +103,17 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 
   // Fetch full subscription details from Stripe
-  const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
-  const subscription = subscriptionResponse as Stripe.Subscription
+  const subscription: any = await stripe.subscriptions.retrieve(subscriptionId)
 
   // Get period end timestamp
-  const periodEnd = typeof subscription.current_period_end === 'number' 
-    ? subscription.current_period_end 
-    : Date.now() / 1000 + (30 * 24 * 60 * 60) // Default to 30 days from now
+  const periodEnd = subscription.current_period_end || Date.now() / 1000 + (30 * 24 * 60 * 60)
 
   // Update user in database
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
       subscriptionStatus: 'premium',
+      subscriptionSource: 'stripe',
       stripeCustomerId: session.customer as string,
       stripeSubscriptionId: subscriptionId,
       subscriptionEndsAt: new Date(periodEnd * 1000),
@@ -145,8 +144,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
 /**
  * Handle subscription updates (plan changes, renewals, etc.)
+ * FIX 4: Now handles cancel_at_period_end properly
  */
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+async function handleSubscriptionUpdated(subscription: any) {
   console.log('🔄 Subscription updated:', subscription.id)
 
   // Find user by Stripe subscription ID
@@ -159,6 +159,38 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     return
   }
 
+  // FIX 4: Check if subscription is set to cancel at period end
+  if (subscription.cancel_at_period_end === true) {
+    console.log('⚠️ Subscription marked for cancellation at period end')
+    
+    // Update cancelledAt but KEEP premium status until period end
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        cancelledAt: new Date(),
+        // Keep subscriptionStatus as 'premium'
+        // Keep subscriptionEndsAt as is
+      }
+    })
+    
+    await prisma.adminLog.create({
+      data: {
+        adminEmail: 'stripe-webhook',
+        action: 'subscription_cancel_scheduled',
+        details: {
+          userId: user.id,
+          userEmail: user.email,
+          subscriptionId: subscription.id,
+          cancelAtPeriodEnd: true,
+          periodEnd: subscription.current_period_end,
+        }
+      }
+    })
+    
+    console.log('✅ Subscription cancellation scheduled:', user.email)
+    return
+  }
+
   // Determine new status based on subscription status
   let newStatus: 'premium' | 'free' = 'premium'
   
@@ -167,15 +199,14 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   // Get period end timestamp
-  const periodEnd = typeof subscription.current_period_end === 'number' 
-    ? subscription.current_period_end 
-    : Date.now() / 1000 + (30 * 24 * 60 * 60)
+  const periodEnd = subscription.current_period_end || Date.now() / 1000 + (30 * 24 * 60 * 60)
 
   // Update user
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionStatus: newStatus,
+      subscriptionSource: 'stripe',
       subscriptionEndsAt: new Date(periodEnd * 1000),
     }
   })
@@ -201,8 +232,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 /**
  * Handle subscription cancellation
+ * This only fires when subscription ACTUALLY ends (at period end)
  */
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+async function handleSubscriptionDeleted(subscription: any) {
   console.log('❌ Subscription deleted:', subscription.id)
 
   // Find user by Stripe subscription ID
@@ -244,7 +276,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 /**
  * Handle successful invoice payment (renewals)
  */
-async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+async function handleInvoicePaymentSucceeded(invoice: any) {
   console.log('✅ Invoice payment succeeded:', invoice.id)
 
   if (!invoice.subscription) {
@@ -263,19 +295,17 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   }
 
   // Fetch subscription to get period end
-  const subscriptionResponse = await stripe.subscriptions.retrieve(invoice.subscription as string)
-  const subscription = subscriptionResponse as Stripe.Subscription
+  const subscription: any = await stripe.subscriptions.retrieve(invoice.subscription as string)
 
   // Get period end timestamp
-  const periodEnd = typeof subscription.current_period_end === 'number' 
-    ? subscription.current_period_end 
-    : Date.now() / 1000 + (30 * 24 * 60 * 60)
+  const periodEnd = subscription.current_period_end || Date.now() / 1000 + (30 * 24 * 60 * 60)
 
   // Update subscription end date
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionStatus: 'premium',
+      subscriptionSource: 'stripe',
       subscriptionEndsAt: new Date(periodEnd * 1000),
     }
   })
@@ -303,7 +333,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 /**
  * Handle failed invoice payment
  */
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+async function handleInvoicePaymentFailed(invoice: any) {
   console.log('❌ Invoice payment failed:', invoice.id)
 
   if (!invoice.subscription) {
