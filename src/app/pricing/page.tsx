@@ -1,14 +1,12 @@
-// FILE 2 of 8: REPLACE ENTIRE FILE
-// Location: src/app/pricing/page.tsx
-// Action: REPLACE YOUR ENTIRE pricing/page.tsx WITH THIS
-
+// src/app/pricing/page.tsx
+// UPDATED for Stripe Integration
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X } from 'lucide-react'
+import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X, AlertCircle } from 'lucide-react'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { StripeMaintenancePage } from '@/components/StripeMaintenancePage'
 
@@ -24,10 +22,13 @@ interface SubscriptionData {
 export default function PricingPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { settings } = useSystemSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null)
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  const [showCanceledMessage, setShowCanceledMessage] = useState(false)
 
   // Fetch subscription status if user is logged in
   useEffect(() => {
@@ -35,6 +36,32 @@ export default function PricingPage() {
       fetchSubscriptionStatus()
     }
   }, [isLoaded, user])
+
+  // Check for checkout result messages
+  useEffect(() => {
+    const checkout = searchParams.get('checkout')
+    if (checkout === 'success') {
+      setShowSuccessMessage(true)
+      // Remove the query param from URL
+      window.history.replaceState({}, '', '/pricing')
+    } else if (checkout === 'canceled') {
+      setShowCanceledMessage(true)
+      // Remove the query param from URL
+      window.history.replaceState({}, '', '/pricing')
+    }
+  }, [searchParams])
+
+  // Auto-trigger checkout after sign up
+  useEffect(() => {
+    const startCheckout = searchParams.get('start_checkout')
+    if (startCheckout === 'true' && user && !isProcessing) {
+      // User just signed up and was redirected back
+      // Auto-trigger the checkout
+      handlePremiumCheckout()
+      // Remove the query param
+      window.history.replaceState({}, '', '/pricing')
+    }
+  }, [searchParams, user, isProcessing])
 
   const fetchSubscriptionStatus = async () => {
     setIsLoadingSubscription(true)
@@ -85,11 +112,12 @@ export default function PricingPage() {
     }
   }
 
-  // Handle Premium Click
-  const handlePremium = () => {
+  // Handle Premium Click - NOW WITH STRIPE!
+  const handlePremium = async () => {
     if (!user) {
-      // New user - go to sign up, they'll get trial first
-      router.push('/sign-up')
+      // New user - save intent and redirect to sign up
+      sessionStorage.setItem('intended_plan', 'premium')
+      router.push('/sign-up?redirect_url=/pricing?start_checkout=true')
       return
     }
 
@@ -97,9 +125,40 @@ export default function PricingPage() {
     if (subscriptionData?.status === 'premium' || subscriptionData?.status === 'enterprise') {
       // Already premium - go to dashboard
       router.push('/dashboard')
-    } else {
-      // Trial or free user - go to settings to upgrade
-      router.push('/dashboard/settings')
+      return
+    }
+
+    // Not premium - start Stripe checkout
+    await handlePremiumCheckout()
+  }
+
+  // NEW: Handle Stripe Checkout
+  const handlePremiumCheckout = async () => {
+    setIsProcessing(true)
+    try {
+      const response = await fetch('/api/subscription/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create checkout session')
+      }
+
+      const { url } = await response.json()
+      
+      // Redirect to Stripe Checkout
+      window.location.href = url
+    } catch (error) {
+      console.error('Checkout error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.')
+      setIsProcessing(false)
     }
   }
 
@@ -156,17 +215,17 @@ export default function PricingPage() {
   const getPremiumButtonProps = () => {
     if (!user) {
       return {
-        label: 'Get Premium Now',
+        label: 'Subscribe Now',
         disabled: false,
         description: 'Billed monthly, cancel anytime'
       }
     }
 
-    if (isLoadingSubscription) {
+    if (isLoadingSubscription || isProcessing) {
       return {
         label: 'Loading...',
         disabled: true,
-        description: 'Checking your status...'
+        description: 'Processing...'
       }
     }
 
@@ -205,24 +264,57 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
       <div className="container mx-auto px-4 py-16">
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="max-w-2xl mx-auto mb-8 bg-green-50 border border-green-200 rounded-lg p-6 flex items-start gap-4">
+            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-900 mb-1">Payment Successful! 🎉</h3>
+              <p className="text-green-700 mb-3">
+                Welcome to Premium! Your subscription is now active and you have access to all features.
+              </p>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+              >
+                Go to Dashboard
+                <ArrowLeft className="w-4 h-4 rotate-180" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Canceled Message */}
+        {showCanceledMessage && (
+          <div className="max-w-2xl mx-auto mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6 flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-yellow-900 mb-1">Checkout Canceled</h3>
+              <p className="text-yellow-700">
+                No worries! You can subscribe anytime you're ready.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Back Button - Goes to home for new users, dashboard for logged in */}
         <div className="mb-8">
           <Link 
-            href={user ? "/dashboard" : "/"}
-            className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 transition-colors"
+            href={user ? "/dashboard" : "/"} 
+            className="inline-flex items-center gap-2 text-neutral-600 hover:text-primary-600 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>{user ? "Back to Dashboard" : "Back to Home"}</span>
+            Back to {user ? "Dashboard" : "Home"}
           </Link>
         </div>
 
         {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-6xl font-display font-bold text-neutral-900 mb-6">
-            Simple, Transparent Pricing
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-neutral-900 mb-4">
+            Choose Your Plan
           </h1>
           <p className="text-xl text-neutral-600 max-w-2xl mx-auto">
-            Start with a 72-hour free trial. No credit card required.
+            Start with a free 72-hour trial. No credit card required.
             Upgrade to Premium anytime for just $7/month.
           </p>
         </div>
@@ -348,8 +440,9 @@ export default function PricingPage() {
             <button
               onClick={handlePremium}
               disabled={premiumButton.disabled || isProcessing}
-              className="w-full py-4 px-6 bg-white text-primary-700 rounded-lg font-bold hover:bg-primary-50 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 px-6 bg-white text-primary-700 rounded-lg font-bold hover:bg-primary-50 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
+              {isProcessing && <Loader2 className="w-5 h-5 animate-spin" />}
               {premiumButton.label}
             </button>
 
@@ -421,8 +514,10 @@ export default function PricingPage() {
             </p>
             <button
               onClick={user ? handlePremium : handleFreeTrial}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl"
+              disabled={isProcessing}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              {isProcessing && <Loader2 className="w-5 h-5 animate-spin" />}
               <Sparkles className="w-5 h-5" />
               {user ? 'Upgrade to Premium' : 'Start Free Trial Now'}
             </button>
