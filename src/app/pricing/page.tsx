@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X, AlertCircle } from 'lucide-react'
+import { Check, ArrowLeft, Sparkles, Zap, Clock, Loader2, CheckCircle, X, AlertCircle, Crown } from 'lucide-react'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { StripeMaintenancePage } from '@/components/StripeMaintenancePage'
 
@@ -29,6 +29,7 @@ export default function PricingPage() {
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showCanceledMessage, setShowCanceledMessage] = useState(false)
+  const [showPremiumDetected, setShowPremiumDetected] = useState(false)
 
   // Fetch subscription status if user is logged in
   useEffect(() => {
@@ -36,6 +37,20 @@ export default function PricingPage() {
       fetchSubscriptionStatus()
     }
   }, [isLoaded, user])
+
+  // Check for premium user detection (coming from sign-in)
+  useEffect(() => {
+    const fromSignIn = searchParams.get('from')
+    if (fromSignIn === 'signin' && subscriptionData) {
+      if (subscriptionData.status === 'premium' || subscriptionData.status === 'enterprise') {
+        setShowPremiumDetected(true)
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 3000)
+      }
+    }
+  }, [searchParams, subscriptionData, router])
 
   // Check for checkout result messages
   useEffect(() => {
@@ -59,14 +74,17 @@ export default function PricingPage() {
   // Auto-trigger checkout after sign up
   useEffect(() => {
     const startCheckout = searchParams.get('start_checkout')
-    if (startCheckout === 'true' && user && !isProcessing) {
-      // User just signed up and was redirected back
-      // Auto-trigger the checkout
-      handlePremiumCheckout()
+    if (startCheckout === 'true' && user && !isProcessing && subscriptionData) {
+      // Only trigger checkout if user is NOT already premium
+      if (subscriptionData.status !== 'premium' && subscriptionData.status !== 'enterprise') {
+        // User just signed up and was redirected back
+        // Auto-trigger the checkout
+        handlePremiumCheckout()
+      }
       // Remove the query param
       window.history.replaceState({}, '', '/pricing')
     }
-  }, [searchParams, user, isProcessing])
+  }, [searchParams, user, isProcessing, subscriptionData])
 
   const fetchSubscriptionStatus = async () => {
     setIsLoadingSubscription(true)
@@ -292,6 +310,20 @@ export default function PricingPage() {
               <p className="text-yellow-700">
                 No worries! You can subscribe anytime you're ready.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Premium Detected Message */}
+        {showPremiumDetected && (
+          <div className="max-w-2xl mx-auto mb-8 bg-primary-50 border border-primary-200 rounded-lg p-6 flex items-start gap-4">
+            <Crown className="w-6 h-6 text-primary-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-primary-900 mb-1">Premium User Detected! 👋</h3>
+              <p className="text-primary-700">
+                You already have a premium subscription.
+              </p>
+              <p className="text-sm text-primary-600 mt-1">Redirecting to dashboard...</p>
             </div>
           </div>
         )}
