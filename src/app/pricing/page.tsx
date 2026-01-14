@@ -1,5 +1,4 @@
 // src/app/pricing/page.tsx
-// FIX 1: Auto-redirect to dashboard after success
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -17,6 +16,7 @@ interface SubscriptionData {
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
   hasUsedTrial: boolean
+  cancelledAt: string | null
 }
 
 export default function PricingPage() {
@@ -30,6 +30,8 @@ export default function PricingPage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [showCanceledMessage, setShowCanceledMessage] = useState(false)
   const [showPremiumDetected, setShowPremiumDetected] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [webhookStatus, setWebhookStatus] = useState<string>('')
 
   // Fetch subscription status if user is logged in
   useEffect(() => {
@@ -52,39 +54,65 @@ export default function PricingPage() {
     }
   }, [searchParams, subscriptionData, router])
 
-  // Check for checkout result messages
+  // FIX 2: Check for checkout success and show loading screen
   useEffect(() => {
     const checkout = searchParams.get('checkout')
     if (checkout === 'success') {
-      setShowSuccessMessage(true)
-      // Remove the query param from URL
-      window.history.replaceState({}, '', '/pricing')
+      setIsProcessingPayment(true)
+      setWebhookStatus('Processing your payment...')
       
-      // FIX 1: Auto-redirect to dashboard after 3 seconds
+      // Poll for subscription status
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/subscription/status')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.subscription?.status === 'premium' || data.subscription?.status === 'enterprise') {
+              setWebhookStatus('Payment successful! Redirecting...')
+              clearInterval(pollInterval)
+              
+              // Wait 1 second then redirect
+              setTimeout(() => {
+                router.push('/dashboard')
+              }, 1000)
+            }
+          }
+        } catch (error) {
+          console.error('Error polling subscription:', error)
+        }
+      }, 1000) // Poll every second
+      
+      // Cleanup and force redirect after 10 seconds
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 3000)
+        clearInterval(pollInterval)
+        if (isProcessingPayment) {
+          router.push('/dashboard')
+        }
+      }, 10000)
+      
+      return () => clearInterval(pollInterval)
     } else if (checkout === 'canceled') {
       setShowCanceledMessage(true)
-      // Remove the query param from URL
       window.history.replaceState({}, '', '/pricing')
     }
   }, [searchParams, router])
 
-  // Auto-trigger checkout after sign up
+  // FIX 1: Auto-trigger checkout after sign up - IMPROVED
   useEffect(() => {
     const startCheckout = searchParams.get('start_checkout')
-    if (startCheckout === 'true' && user && !isProcessing && subscriptionData) {
-      // Only trigger checkout if user is NOT already premium
-      if (subscriptionData.status !== 'premium' && subscriptionData.status !== 'enterprise') {
-        // User just signed up and was redirected back
-        // Auto-trigger the checkout
-        handlePremiumCheckout()
-      }
-      // Remove the query param
+    
+    if (startCheckout === 'true' && user && isLoaded && !isProcessing) {
+      // Remove the query param immediately
       window.history.replaceState({}, '', '/pricing')
+      
+      // Small delay to ensure user state is ready
+      const timer = setTimeout(() => {
+        handlePremiumCheckout()
+      }, 500)
+      
+      return () => clearTimeout(timer)
     }
-  }, [searchParams, user, isProcessing, subscriptionData])
+  }, [searchParams, user, isLoaded, isProcessing])
 
   const fetchSubscriptionStatus = async () => {
     setIsLoadingSubscription(true)
@@ -92,7 +120,13 @@ export default function PricingPage() {
       const response = await fetch('/api/subscription/status')
       if (response.ok) {
         const data = await response.json()
-        setSubscriptionData(data)
+        setSubscriptionData({
+          status: data.subscription.status,
+          trialEndsAt: data.subscription.trialEndsAt,
+          subscriptionEndsAt: data.subscription.subscriptionEndsAt,
+          hasUsedTrial: data.subscription.hasUsedTrial,
+          cancelledAt: data.subscription.cancelledAt
+        })
       }
     } catch (error) {
       console.error('Failed to fetch subscription status:', error)
@@ -138,7 +172,7 @@ export default function PricingPage() {
   // Handle Premium Click - NOW WITH STRIPE!
   const handlePremium = async () => {
     if (!user) {
-      // FIX 2: New user - save intent and redirect to sign up with proper redirect_url
+      // FIX 1: New user - save intent and redirect to sign up with proper redirect_url
       sessionStorage.setItem('intended_plan', 'premium')
       router.push('/sign-up?redirect_url=/pricing?start_checkout=true')
       return
@@ -270,37 +304,43 @@ export default function PricingPage() {
   const trialButton = getTrialButtonProps()
   const premiumButton = getPremiumButtonProps()
 
-  // Show loading state while checking user AND system settings
-  if (!isLoaded || !settings) {
+  // Show loading screen during payment processing
+  if (isProcessingPayment) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+        <div className="max-w-md w-full mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Loader2 className="w-8 h-8 text-success-600 animate-spin" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+              Processing Your Payment
+            </h2>
+            
+            <p className="text-neutral-600 mb-6">
+              {webhookStatus || 'Please wait while we confirm your payment...'}
+            </p>
+            
+            <div className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+              <CheckCircle className="w-4 h-4 text-success-500" />
+              <span>This usually takes just a few seconds</span>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Check if Stripe is disabled - show maintenance page
-  if (!settings.stripeEnabled) {
+  // Check for Stripe disabled/maintenance mode
+  if (settings && !settings.stripeEnabled) {
     return <StripeMaintenancePage />
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
-      <div className="container mx-auto px-4 py-16">
-        {/* Success Message */}
-        {showSuccessMessage && (
-          <div className="max-w-2xl mx-auto mb-8 bg-green-50 border border-green-200 rounded-lg p-6 flex items-start gap-4">
-            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-green-900 mb-1">Payment Successful! 🎉</h3>
-              <p className="text-green-700 mb-3">
-                Welcome to Premium! Your subscription is now active and you have access to all features.
-              </p>
-              <p className="text-sm text-green-600">Redirecting to dashboard...</p>
-            </div>
-          </div>
-        )}
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
         {/* Canceled Message */}
         {showCanceledMessage && (
           <div className="max-w-2xl mx-auto mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6 flex items-start gap-4">
@@ -328,7 +368,7 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Back Button - Goes to home for new users, dashboard for logged in */}
+        {/* Back Button */}
         <div className="mb-8">
           <Link 
             href={user ? "/dashboard" : "/"} 
@@ -412,148 +452,141 @@ export default function PricingPage() {
             </p>
           </div>
 
-          {/* Premium Plan - Highlighted */}
-          <div className={`bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl shadow-2xl p-8 border-2 border-primary-500 relative ${
-            !premiumButton.disabled && 'transform md:scale-105'
-          }`}>
+          {/* Premium Card */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-primary-500 relative">
             {/* Popular Badge */}
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <div className="bg-secondary-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+              <span className="px-4 py-1 bg-primary-500 text-white text-sm font-semibold rounded-full flex items-center gap-1">
                 <Sparkles className="w-4 h-4" />
                 Most Popular
-              </div>
+              </span>
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-6 h-6 text-white" />
-              <h3 className="text-2xl font-bold text-white">
+              <Zap className="w-6 h-6 text-primary-600" />
+              <h3 className="text-2xl font-bold text-neutral-900">
                 Premium
               </h3>
             </div>
             
             <div className="mb-6">
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold text-white">$7</span>
-                <span className="text-primary-100">/month</span>
+                <span className="text-5xl font-bold text-neutral-900">$7</span>
+                <span className="text-neutral-600">/month</span>
               </div>
-              <p className="text-sm text-primary-100 mt-2">
-                Unlimited access, cancel anytime
+              <p className="text-sm text-neutral-600 mt-2">
+                Billed monthly, cancel anytime
               </p>
             </div>
 
             <ul className="space-y-4 mb-8">
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Unlimited property analyses</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">Unlimited property analysis</span>
               </li>
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Save unlimited properties</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">Advanced metrics & comparisons</span>
               </li>
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Professional PDF exports</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">Save unlimited properties</span>
               </li>
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Create property groups</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">PDF export & reporting</span>
               </li>
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Priority email support</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">Create property groups</span>
               </li>
               <li className="flex items-start gap-3">
-                <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
-                <span className="text-white font-medium">Early access to new features</span>
+                <Check className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
+                <span className="text-neutral-700">Priority support</span>
               </li>
             </ul>
 
             <button
               onClick={handlePremium}
               disabled={premiumButton.disabled || isProcessing}
-              className="w-full py-4 px-6 bg-white text-primary-700 rounded-lg font-bold hover:bg-primary-50 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 px-6 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg font-semibold hover:from-primary-700 hover:to-primary-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isProcessing && <Loader2 className="w-5 h-5 animate-spin" />}
-              {premiumButton.label}
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <Crown className="w-5 h-5" />
+                  {premiumButton.label}
+                </>
+              )}
             </button>
 
-            <p className="text-xs text-center text-primary-100 mt-4">
+            <p className="text-xs text-center text-neutral-500 mt-4">
               {premiumButton.description}
             </p>
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="mt-16 max-w-3xl mx-auto">
+        {/* Features Comparison */}
+        <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-neutral-900 text-center mb-8">
-            Frequently Asked Questions
+            Compare Plans
           </h2>
           
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                What's included in the free trial?
-              </h3>
-              <p className="text-neutral-600">
-                The free trial gives you 72 hours to test our property analysis tools. You can run calculations and see cash flow projections, but you won't be able to save properties, export PDFs, or create property groups. Upgrade to Premium for unlimited access to all features.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                What happens after my free trial?
-              </h3>
-              <p className="text-neutral-600">
-                After 72 hours, your trial expires and you'll no longer be able to analyze properties. You can upgrade to Premium anytime to get unlimited access to all features including saving properties, PDF exports, and property groups.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Can I cancel my Premium subscription?
-              </h3>
-              <p className="text-neutral-600">
-                Yes! You can cancel anytime from your account settings. You'll keep Premium access until the end of your billing period.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Do I need a credit card for the free trial?
-              </h3>
-              <p className="text-neutral-600">
-                Nope! Start your free trial with just an email address. No payment required upfront.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 shadow-md">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Can I get another free trial?
-              </h3>
-              <p className="text-neutral-600">
-                Free trials are one per user. Once your trial expires, you can upgrade to Premium for unlimited access to all features.
-              </p>
-            </div>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-neutral-900 font-semibold">Feature</th>
+                  <th className="px-6 py-4 text-center text-neutral-900 font-semibold">Free Trial</th>
+                  <th className="px-6 py-4 text-center text-neutral-900 font-semibold">Premium</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200">
+                <tr>
+                  <td className="px-6 py-4 text-neutral-700">Property Analysis</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 text-neutral-700">Save Properties</td>
+                  <td className="px-6 py-4 text-center text-neutral-400">—</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 text-neutral-700">PDF Export</td>
+                  <td className="px-6 py-4 text-center text-neutral-400">—</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 text-neutral-700">Property Groups</td>
+                  <td className="px-6 py-4 text-center text-neutral-400">—</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-4 text-neutral-700">Priority Support</td>
+                  <td className="px-6 py-4 text-center text-neutral-400">—</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-success-500 mx-auto" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        {/* CTA Section - Only show if not already premium */}
-        {(!user || (subscriptionData && subscriptionData.status !== 'premium' && subscriptionData.status !== 'enterprise')) && (
-          <div className="mt-16 text-center">
-            <p className="text-neutral-600 mb-4">
-              Ready to analyze your first property?
-            </p>
-            <button
-              onClick={user ? handlePremium : handleFreeTrial}
-              disabled={isProcessing}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing && <Loader2 className="w-5 h-5 animate-spin" />}
-              <Sparkles className="w-5 h-5" />
-              {user ? 'Upgrade to Premium' : 'Start Free Trial Now'}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

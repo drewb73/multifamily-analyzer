@@ -83,7 +83,17 @@ export default function SignUpPage() {
         // This prevents "Session already exists" and redirect loop issues
         await new Promise(resolve => setTimeout(resolve, 2000))
         
-        router.push('/dashboard')
+        // ✅ FIX: Check for redirect_url parameter
+        const urlParams = new URLSearchParams(window.location.search)
+        const redirectUrl = urlParams.get('redirect_url')
+        
+        if (redirectUrl) {
+          // Decode and redirect to the specified URL
+          router.push(decodeURIComponent(redirectUrl))
+        } else {
+          // Default to dashboard
+          router.push('/dashboard')
+        }
       }
     } catch (err: any) {
       console.error('Verification error:', err)

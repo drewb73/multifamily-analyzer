@@ -51,12 +51,12 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         const response = await fetch('/api/subscription/status')
         if (response.ok) {
           const data = await response.json()
-          setSubscriptionEndsAt(data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null)
-          if (data.cancelledAt) {
-            setCancelledAt(new Date(data.cancelledAt))
+          setSubscriptionEndsAt(data.subscription?.subscriptionEndsAt ? new Date(data.subscription.subscriptionEndsAt) : null)
+          if (data.subscription?.cancelledAt) {
+            setCancelledAt(new Date(data.subscription.cancelledAt))
           }
-          if (data.subscriptionStatus) {
-            setSubscriptionStatus(data.subscriptionStatus)
+          if (data.subscription?.status) {
+            setSubscriptionStatus(data.subscription.status)
           }
         }
       } catch (error) {

@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true,
+      subscriptionEndsAt: user.subscriptionEndsAt,
       message: user.subscriptionEndsAt 
         ? `Subscription cancelled. You will have access until ${user.subscriptionEndsAt.toLocaleDateString()}`
         : 'Subscription cancelled. You will have access until the end of your billing period.'
