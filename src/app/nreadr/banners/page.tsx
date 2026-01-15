@@ -164,7 +164,7 @@ export default function AdminBannersPage() {
     if (!confirm('Are you sure you want to delete this banner?')) return
 
     try {
-      const response = await fetch(`/api/admin/banners/${id}`, {
+      const response = await fetch(`/api/nreadr/banners/${id}`, {
         method: 'DELETE',
       })
 
@@ -186,7 +186,7 @@ export default function AdminBannersPage() {
 
   const toggleBanner = async (id: string, isActive: boolean) => {
     try {
-      const response = await fetch(`/api/admin/banners/${id}`, {
+      const response = await fetch(`/api/nreadr/banners/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive }),
