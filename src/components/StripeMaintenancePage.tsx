@@ -1,6 +1,6 @@
-// FILE 1 of 8: NEW FILE
-// Location: src/components/StripeMaintenancePage.tsx
-// Action: CREATE THIS NEW FILE
+// FILE LOCATION: /src/components/StripeMaintenancePage.tsx
+// FIX: Button now goes directly to dashboard with router.push('/dashboard')
+// instead of router.back() which could go to any previous page
 
 'use client'
 
@@ -62,11 +62,11 @@ export function StripeMaintenancePage({
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {showBackButton && (
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push('/dashboard')}  // ✅ FIXED: Direct navigation to dashboard
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Dashboard
+                Go to Dashboard
               </button>
             )}
             

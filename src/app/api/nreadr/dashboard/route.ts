@@ -60,6 +60,17 @@ export async function GET() {
 
     // Calculate date ranges
     const now = new Date()
+    
+    // ✅ UPDATED: Calculate current week (Sunday to Saturday) for revenue calculation
+    const currentDayOfWeek = now.getDay() // 0 = Sunday, 6 = Saturday
+    const startOfCurrentWeek = new Date(now)
+    startOfCurrentWeek.setDate(now.getDate() - currentDayOfWeek) // Go back to Sunday
+    startOfCurrentWeek.setHours(0, 0, 0, 0) // Start of day
+    
+    const endOfCurrentWeek = new Date(startOfCurrentWeek)
+    endOfCurrentWeek.setDate(startOfCurrentWeek.getDate() + 6) // Saturday
+    endOfCurrentWeek.setHours(23, 59, 59, 999) // End of day
+    
     const startOfWeek = new Date(now)
     startOfWeek.setDate(now.getDate() - 7)
     
@@ -147,8 +158,21 @@ export async function GET() {
     // MRR - ONLY from Stripe users (not manual)
     const mrr = stripePremiumUsers * premiumPrice
     
-    // Expected weekly revenue - ONLY Stripe
-    const expectedWeekly = (stripePremiumUsers * premiumPrice) / 4.33
+    // ✅ FIXED: Count actual renewals THIS WEEK (Sunday-Saturday)
+    const renewalsThisWeek = await prisma.user.count({
+      where: {
+        subscriptionStatus: 'premium',
+        subscriptionSource: 'stripe',
+        cancelledAt: null, // Only count active (not cancelled) subscriptions
+        subscriptionEndsAt: {
+          gte: startOfCurrentWeek,
+          lte: endOfCurrentWeek
+        }
+      }
+    })
+    
+    // Expected weekly revenue - ACTUAL renewals this week × $7
+    const expectedWeekly = renewalsThisWeek * premiumPrice
     
     // Expected monthly revenue - ONLY Stripe
     const expectedMonthly = mrr
