@@ -347,11 +347,28 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
           {/* Delete Account */}
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="btn-outline-danger w-full flex items-center justify-center gap-2"
+            disabled={!systemSettings?.accountDeletionEnabled}
+            className={`w-full flex items-center justify-center gap-2 ${
+              systemSettings?.accountDeletionEnabled
+                ? 'btn-outline-danger'
+                : 'btn-outline-danger opacity-50 cursor-not-allowed'
+            }`}
+            title={
+              !systemSettings?.accountDeletionEnabled
+                ? 'Account deletion is currently disabled by administrator'
+                : 'Delete your account permanently'
+            }
           >
             <Trash2 className="w-5 h-5" />
             Delete Account
           </button>
+          
+          {/* Show message when deletion is disabled */}
+          {!systemSettings?.accountDeletionEnabled && (
+            <p className="text-xs text-neutral-500 text-center -mt-2">
+              Account deletion is temporarily disabled
+            </p>
+          )}
         </div>
       </div>
       
