@@ -31,8 +31,9 @@ interface UserData {
   stripeSubscriptionId: string | null
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
+  cancelledAt: string | null // ✅ Added - Cancelled subscription date
   hasUsedTrial: boolean
-  lastLoginAt: string | null // ✅ Added
+  lastLoginAt: string | null
   createdAt: string
   _count: {
     propertyAnalyses: number
@@ -51,13 +52,13 @@ export default function AdminUsersPage() {
   const [filterSubscription, setFilterSubscription] = useState<string>('all')
   const [filterAccountStatus, setFilterAccountStatus] = useState<string>('all')
   const [filterAdmin, setFilterAdmin] = useState<string>('all')
-  const [filterInactive, setFilterInactive] = useState<boolean>(false) // ✅ New
+  const [filterInactive, setFilterInactive] = useState<boolean>(false)
   
   // Sort states
   const [sortBy, setSortBy] = useState<string>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   
-  // Bulk selection states ✅ New
+  // Bulk selection states
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [adminPin, setAdminPin] = useState('')
@@ -105,7 +106,7 @@ export default function AdminUsersPage() {
       filtered = filtered.filter(user => !user.isAdmin)
     }
     
-    // ✅ Apply inactive filter (60+ days since last login)
+    // Apply inactive filter (60+ days since last login)
     if (filterInactive) {
       const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
       filtered = filtered.filter(user => {
@@ -138,7 +139,7 @@ export default function AdminUsersPage() {
           const dateB = b.subscriptionEndsAt ? new Date(b.subscriptionEndsAt).getTime() : 0
           compareValue = dateA - dateB
           break
-        case 'lastLoginAt': // ✅ New sorting option
+        case 'lastLoginAt':
           const loginA = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0
           const loginB = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0
           compareValue = loginA - loginB
@@ -175,7 +176,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  // ✅ Bulk selection handlers
+  // Bulk selection handlers
   const toggleUserSelection = (userId: string) => {
     const newSelection = new Set(selectedUserIds)
     if (newSelection.has(userId)) {
@@ -255,16 +256,21 @@ export default function AdminUsersPage() {
     })
   }
 
-  // ✅ Calculate days since last login
+  // Calculate days since last login
   const getDaysSinceLogin = (lastLoginAt: string | null): number | null => {
     if (!lastLoginAt) return null
     const daysSince = Math.floor((Date.now() - new Date(lastLoginAt).getTime()) / (1000 * 60 * 60 * 24))
     return daysSince
   }
 
-  // Get subscription badge
-  const getSubscriptionBadge = (status: string) => {
-    switch (status) {
+  // ✅ Updated: Get subscription badge - now accepts full user object
+  const getSubscriptionBadge = (user: UserData) => {
+    // ✅ Check if premium but cancelled
+    if (user.subscriptionStatus === 'premium' && user.cancelledAt) {
+      return { text: 'Premium - Cancelled', color: 'bg-warning-100 text-warning-700' }
+    }
+    
+    switch (user.subscriptionStatus) {
       case 'premium':
         return { text: 'Premium', color: 'bg-success-100 text-success-700' }
       case 'trial':
@@ -272,7 +278,7 @@ export default function AdminUsersPage() {
       case 'free':
         return { text: 'Free', color: 'bg-neutral-100 text-neutral-700' }
       default:
-        return { text: status, color: 'bg-neutral-100 text-neutral-700' }
+        return { text: user.subscriptionStatus, color: 'bg-neutral-100 text-neutral-700' }
     }
   }
 
@@ -298,7 +304,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {/* ✅ Bulk delete button */}
+          {/* Bulk delete button */}
           {selectedUserIds.size > 0 && (
             <button
               onClick={() => setShowBulkDeleteModal(true)}
@@ -410,7 +416,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* ✅ Inactive 60+ days filter toggle */}
+        {/* Inactive 60+ days filter toggle */}
         <div className="mt-4 pt-4 border-t border-neutral-200">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -492,7 +498,7 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <>
-          {/* ✅ Select all checkbox */}
+          {/* Select all checkbox */}
           {currentUsers.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex items-center gap-3">
               <button
@@ -516,7 +522,7 @@ export default function AdminUsersPage() {
 
           <div className="space-y-4">
             {currentUsers.map((user) => {
-              const badge = getSubscriptionBadge(user.subscriptionStatus)
+              const badge = getSubscriptionBadge(user) // ✅ Now passes full user object
               const displayName = user.firstName || user.lastName 
                 ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
                 : 'No name set'
@@ -531,7 +537,7 @@ export default function AdminUsersPage() {
                   } ${isSelected ? 'ring-2 ring-primary-500' : ''}`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* ✅ Checkbox */}
+                    {/* Checkbox */}
                     <button
                       onClick={() => toggleUserSelection(user.id)}
                       className="mt-1"
@@ -562,7 +568,7 @@ export default function AdminUsersPage() {
                                 🗑️ Pending Deletion
                               </span>
                             )}
-                            {/* ✅ Inactive badge */}
+                            {/* Inactive badge */}
                             {daysSinceLogin !== null && daysSinceLogin >= 60 && (
                               <span className="inline-flex items-center px-2 py-0.5 bg-warning-100 text-warning-700 rounded text-xs font-medium">
                                 ⚠️ Inactive {daysSinceLogin} days
@@ -584,7 +590,7 @@ export default function AdminUsersPage() {
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
                               {badge.text}
                             </span>
-                            {user.subscriptionStatus === 'premium' && (
+                            {user.subscriptionStatus === 'premium' && !user.cancelledAt && (
                               <span className="text-xs text-neutral-500">
                                 {user.stripeSubscriptionId ? '💳' : '🎁'}
                               </span>
@@ -592,7 +598,7 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
 
-                        {/* ✅ Last Login */}
+                        {/* Last Login */}
                         <div>
                           <div className="text-neutral-500 text-xs mb-1">Last Login</div>
                           <div className={`text-neutral-900 ${daysSinceLogin && daysSinceLogin >= 60 ? 'text-warning-600 font-medium' : ''}`}>
@@ -646,13 +652,22 @@ export default function AdminUsersPage() {
                           </div>
                         )}
 
+                        {/* ✅ Updated: Show "Expires" if cancelled, "Renews" if active */}
                         {user.subscriptionEndsAt && user.subscriptionStatus === 'premium' && (
                           <div>
-                            <div className="text-neutral-500 text-xs mb-1">Renews</div>
-                            <div className="flex items-center gap-1 text-success-600">
+                            <div className="text-neutral-500 text-xs mb-1">
+                              {user.cancelledAt ? 'Expires' : 'Renews'}
+                            </div>
+                            <div className={`flex items-center gap-1 ${user.cancelledAt ? 'text-warning-600' : 'text-success-600'}`}>
                               <Calendar className="w-3 h-3" />
                               {formatDate(user.subscriptionEndsAt)}
                             </div>
+                            {/* ✅ Show "No future charge" when cancelled */}
+                            {user.cancelledAt && (
+                              <div className="text-xs text-neutral-500 mt-0.5">
+                                (No future charge)
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -730,7 +745,7 @@ export default function AdminUsersPage() {
         </>
       )}
 
-      {/* ✅ Bulk Delete Modal */}
+      {/* Bulk Delete Modal */}
       {showBulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">

@@ -29,6 +29,7 @@ interface UserData {
   stripeSubscriptionId: string | null
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
+  cancelledAt: string | null // ✅ ADDED - Cancelled subscription date
   hasUsedTrial: boolean
   createdAt: string
   _count: {
@@ -370,7 +371,13 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
     })
   }
 
+  // ✅ UPDATED - Now checks for cancelled state
   const getSubscriptionBadge = (status: string) => {
+    // Check if premium but cancelled
+    if (status === 'premium' && user.cancelledAt) {
+      return { text: 'Premium - Cancelled', color: 'bg-warning-100 text-warning-700' }
+    }
+    
     switch (status) {
       case 'premium':
         return { text: 'Premium', color: 'bg-success-100 text-success-700' }
@@ -562,6 +569,23 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
           {/* Subscription Tab */}
           {tab === 'subscription' && (
             <div className="space-y-6">
+              {/* ✅ ADDED - Cancelled Subscription Warning Banner */}
+              {user.cancelledAt && user.subscriptionStatus === 'premium' && (
+                <div className="bg-warning-50 border-2 border-warning-300 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-warning-900 mb-1">
+                        Subscription Cancelled
+                      </h4>
+                      <p className="text-sm text-warning-700">
+                        Premium access continues until expiration. No further charges will be made.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Subscription Status
@@ -714,6 +738,14 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                     </span>
                   </div>
 
+                  {/* ✅ ADDED - Show cancelled date when subscription is cancelled */}
+                  {user.cancelledAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">Cancelled On</span>
+                      <span className="text-sm text-neutral-900">{formatDate(user.cancelledAt)}</span>
+                    </div>
+                  )}
+
                   {/* Show subscription source */}
                   {user.subscriptionStatus === 'premium' && (
                     <div className="flex items-center justify-between">
@@ -734,9 +766,18 @@ export function ManageUserModal({ user, onClose, onUpdate }: ManageUserModalProp
                   {user.subscriptionEndsAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-neutral-600">
-                        {user.stripeSubscriptionId ? 'Renews' : 'Expires'}
+                        {/* ✅ UPDATED - Show "Expires" if cancelled, "Renews" if active */}
+                        {user.cancelledAt ? 'Expires' : (user.stripeSubscriptionId ? 'Renews' : 'Expires')}
                       </span>
                       <span className="text-sm text-neutral-900">{formatDate(user.subscriptionEndsAt)}</span>
+                    </div>
+                  )}
+
+                  {/* ✅ ADDED - Show $0.00 next charge when cancelled */}
+                  {user.cancelledAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">Next Charge</span>
+                      <span className="text-sm text-success-700 font-medium">$0.00 (No charge)</span>
                     </div>
                   )}
                 </div>
