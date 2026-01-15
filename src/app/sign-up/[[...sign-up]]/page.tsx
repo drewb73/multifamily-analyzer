@@ -1,9 +1,11 @@
-// src/app/sign-up/[[...sign-up]]/page.tsx
+// FILE LOCATION: /src/app/sign-up/[[...sign-up]]/page.tsx
+// FIX #1: Handle redirect_url parameter to enable checkout flow after signup
+
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSignUp } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, AlertCircle, Eye, EyeOff, Loader2, User, CheckCircle } from 'lucide-react'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
@@ -12,6 +14,7 @@ import { AuthMaintenancePage } from '@/components/auth/AuthMaintenancePage'
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { settings: systemSettings, isLoading: settingsLoading } = useSystemSettings()
   
   const [firstName, setFirstName] = useState('')
@@ -79,19 +82,18 @@ export default function SignUpPage() {
       if (completeSignUp.status === 'complete') {
         await setActive({ session: completeSignUp.createdSessionId })
         
-        // ✅ FIX: Wait for webhook to create user in database
-        // This prevents "Session already exists" and redirect loop issues
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
-        // ✅ FIX: Check for redirect_url parameter
+        // ✅ FIX #1: Check for redirect_url parameter
         const urlParams = new URLSearchParams(window.location.search)
         const redirectUrl = urlParams.get('redirect_url')
         
+        // Wait for webhook to create user in database
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // If redirect_url exists, go there (for checkout flow)
+        // Otherwise, go to dashboard (normal signup flow)
         if (redirectUrl) {
-          // Decode and redirect to the specified URL
           router.push(decodeURIComponent(redirectUrl))
         } else {
-          // Default to dashboard
           router.push('/dashboard')
         }
       }

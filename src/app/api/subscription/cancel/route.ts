@@ -1,5 +1,6 @@
-// src/app/api/subscription/cancel/route.ts
-// FIX 4: Cancel subscription but keep access until period end
+// FILE LOCATION: /src/app/api/subscription/cancel/route.ts
+// FIX #3: Return subscriptionEndsAt so AccountCard can show the exact date
+
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No active subscription' }, { status: 400 })
     }
 
-    // FIX 4: Cancel at period end in Stripe (keeps access until then)
+    // Cancel at period end in Stripe (keeps access until then)
     const subscription = await stripe.subscriptions.update(
       user.stripeSubscriptionId,
       {
@@ -58,12 +59,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // ✅ FIX #3: Return subscriptionEndsAt so frontend can display it
     return NextResponse.json({ 
       success: true,
-      subscriptionEndsAt: user.subscriptionEndsAt,
       message: user.subscriptionEndsAt 
         ? `Subscription cancelled. You will have access until ${user.subscriptionEndsAt.toLocaleDateString()}`
-        : 'Subscription cancelled. You will have access until the end of your billing period.'
+        : 'Subscription cancelled. You will have access until the end of your billing period.',
+      subscriptionEndsAt: user.subscriptionEndsAt, // ✅ FIX #3: Return this field
+      cancelledAt: new Date() // ✅ FIX #3: Return this field
     })
   } catch (error: any) {
     console.error('Cancellation error:', error)

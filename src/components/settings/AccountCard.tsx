@@ -1,4 +1,6 @@
-// src/components/settings/AccountCard.tsx
+// FILE LOCATION: /src/components/settings/AccountCard.tsx
+// FIX #3: Read cancelledAt from data.subscription.cancelledAt (correct API structure)
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -51,12 +53,22 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         const response = await fetch('/api/subscription/status')
         if (response.ok) {
           const data = await response.json()
-          setSubscriptionEndsAt(data.subscription?.subscriptionEndsAt ? new Date(data.subscription.subscriptionEndsAt) : null)
-          if (data.subscription?.cancelledAt) {
-            setCancelledAt(new Date(data.subscription.cancelledAt))
-          }
-          if (data.subscription?.status) {
-            setSubscriptionStatus(data.subscription.status)
+          
+          // ✅ FIX #3: Read from correct API structure (data.subscription.X)
+          if (data.subscription) {
+            setSubscriptionEndsAt(
+              data.subscription.subscriptionEndsAt 
+                ? new Date(data.subscription.subscriptionEndsAt) 
+                : null
+            )
+            setCancelledAt(
+              data.subscription.cancelledAt 
+                ? new Date(data.subscription.cancelledAt) 
+                : null
+            )
+            if (data.subscription.status) {
+              setSubscriptionStatus(data.subscription.status)
+            }
           }
         }
       } catch (error) {
@@ -131,8 +143,10 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         throw new Error(data.error || 'Failed to cancel subscription')
       }
 
-      // Update local state
-      setCancelledAt(new Date())
+      // ✅ FIX #3: Update local state with returned data
+      if (data.cancelledAt) {
+        setCancelledAt(new Date(data.cancelledAt))
+      }
       if (data.subscriptionEndsAt) {
         setSubscriptionEndsAt(new Date(data.subscriptionEndsAt))
       }

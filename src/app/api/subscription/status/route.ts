@@ -1,4 +1,6 @@
-// src/app/api/subscription/status/route.ts
+// FILE LOCATION: /src/app/api/subscription/status/route.ts
+// FIX #3: Return cancelledAt field so AccountCard can show cancellation warning
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
         trialEndsAt: true,
         hasUsedTrial: true,
         subscriptionEndsAt: true,
-        cancelledAt: true,
+        cancelledAt: true, // ✅ FIX #3: Include cancelledAt
         stripeCustomerId: true,
         stripeSubscriptionId: true,
         createdAt: true,
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
         trialExpired,
         hasUsedTrial: user.hasUsedTrial,
         subscriptionEndsAt: user.subscriptionEndsAt,
-        cancelledAt: user.cancelledAt,
+        cancelledAt: user.cancelledAt, // ✅ FIX #3: Return cancelledAt
         canUpgrade,
         canCancel,
         isPremium: user.subscriptionStatus === 'premium' || user.subscriptionStatus === 'enterprise',
