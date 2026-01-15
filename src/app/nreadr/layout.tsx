@@ -19,7 +19,8 @@ import {
   BarChart3,
   LogOut,
   Menu,
-  X
+  X,
+  Clock
 } from 'lucide-react'
 
 export default function AdminLayout({
@@ -252,6 +253,9 @@ export default function AdminLayout({
             <AdminNavLink href="/nreadr/banners" icon={MessageSquare} pathname={pathname}>
               Banners
             </AdminNavLink>
+            <AdminNavLink href="/nreadr/expirations" icon={Clock} pathname={pathname}>
+              Expirations
+            </AdminNavLink>
           </nav>
         </div>
 
@@ -272,6 +276,9 @@ export default function AdminLayout({
                 </AdminNavLink>
                 <AdminNavLink href="/nreadr/banners" icon={MessageSquare} pathname={pathname}>
                   Banners
+                </AdminNavLink>
+                <AdminNavLink href="/nreadr/expirations" icon={Clock} pathname={pathname}>
+                  Expirations
                 </AdminNavLink>
               </nav>
             </aside>
