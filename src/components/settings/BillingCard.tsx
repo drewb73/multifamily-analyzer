@@ -1,18 +1,18 @@
-// FILE 5 of 8: REPLACE ENTIRE FILE
-// Location: src/components/settings/BillingCard.tsx
-// Action: REPLACE YOUR ENTIRE BillingCard.tsx WITH THIS
+// FILE LOCATION: /src/components/settings/BillingCard.tsx
+// IMPROVEMENT: Show proper billing info for cancelled subscriptions
 
 'use client'
 
 import { useState } from 'react'
-import { CreditCard, Calendar, Receipt } from 'lucide-react'
+import { CreditCard, Calendar, Receipt, AlertTriangle } from 'lucide-react'
 import { SubscriptionStatus } from '@/lib/subscription'
 import { BillingHistoryModal } from './BillingHistoryModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface BillingCardProps {
   subscriptionStatus: SubscriptionStatus
-  subscriptionEndsAt: Date | null // Next billing date (end of current period)
+  subscriptionEndsAt: Date | null // Next billing date OR expiration date (if cancelled)
+  cancelledAt: Date | null // ✅ NEW: Track if subscription is cancelled
   billingHistory: Array<{
     id: string
     date: Date
@@ -22,7 +22,12 @@ interface BillingCardProps {
   }>
 }
 
-export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHistory }: BillingCardProps) {
+export function BillingCard({ 
+  subscriptionStatus, 
+  subscriptionEndsAt, 
+  cancelledAt, // ✅ NEW
+  billingHistory 
+}: BillingCardProps) {
   const [showHistory, setShowHistory] = useState(false)
   const { settings } = useSystemSettings()
   
@@ -31,7 +36,10 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
     return null
   }
   
-  // Format next billing date
+  // ✅ NEW: Check if subscription is cancelled but still active
+  const isCancelledButActive = cancelledAt && subscriptionEndsAt && new Date() < subscriptionEndsAt
+  
+  // Format next billing/expiration date
   const getNextBillingDate = () => {
     if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
       return 'N/A'
@@ -45,7 +53,7 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
     })
   }
 
-  // Calculate days until next billing
+  // Calculate days until next billing/expiration
   const getDaysUntilBilling = () => {
     if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
       return null
@@ -59,10 +67,11 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
     return Math.max(0, diffDays)
   }
   
+  // ✅ UPDATED: Show "Premium - Cancelled" if cancelled
   const getPlanDisplay = () => {
     switch (subscriptionStatus) {
       case 'premium':
-        return 'Premium - $7/month'
+        return isCancelledButActive ? 'Premium - Cancelled' : 'Premium - $7/month'
       case 'enterprise':
         return 'Enterprise - Custom'
       case 'trial':
@@ -85,6 +94,21 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
           </h2>
         </div>
         
+        {/* ✅ NEW: Cancellation Warning */}
+        {isCancelledButActive && (
+          <div className="mb-6 p-4 bg-warning-50 border border-warning-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-warning-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-warning-900">Subscription Cancelled</p>
+                <p className="text-sm text-warning-700 mt-1">
+                  No further charges will be made. Your premium access continues until the expiration date below.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="space-y-4">
           {/* Current Plan */}
           <div>
@@ -92,9 +116,11 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
             <div className="font-medium text-neutral-900">{getPlanDisplay()}</div>
           </div>
           
-          {/* Next Billing Date */}
+          {/* ✅ UPDATED: Show "Subscription Expiration Date" if cancelled */}
           <div>
-            <div className="text-sm text-neutral-500 mb-2">Next Billing Date</div>
+            <div className="text-sm text-neutral-500 mb-2">
+              {isCancelledButActive ? 'Subscription Expiration Date' : 'Next Billing Date'}
+            </div>
             <div className="text-neutral-900">
               {showBillingInfo ? (
                 <div className="space-y-1">
@@ -104,7 +130,10 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
                   </div>
                   {daysRemaining !== null && daysRemaining > 0 && (
                     <p className="text-xs text-neutral-600 ml-6">
-                      {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining in billing period
+                      {isCancelledButActive 
+                        ? `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} of premium access remaining`
+                        : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining in billing period`
+                      }
                     </p>
                   )}
                 </div>
@@ -116,16 +145,29 @@ export function BillingCard({ subscriptionStatus, subscriptionEndsAt, billingHis
             </div>
           </div>
 
-          {/* Billing Amount */}
+          {/* ✅ UPDATED: Show $0.00 if cancelled */}
           {showBillingInfo && (
             <div>
               <div className="text-sm text-neutral-500 mb-2">Next Charge</div>
               <div className="font-medium text-neutral-900">
-                $7.00 USD
+                {isCancelledButActive ? (
+                  <>
+                    <span className="line-through text-neutral-400 mr-2">$7.00</span>
+                    <span className="text-success-600">$0.00 USD</span>
+                  </>
+                ) : (
+                  '$7.00 USD'
+                )}
               </div>
               <p className="text-xs text-neutral-600 mt-1">
-                Charged monthly on the {subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 'N/A'}
-                {getOrdinalSuffix(subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 1)} of each month
+                {isCancelledButActive ? (
+                  'No further charges will be made'
+                ) : (
+                  <>
+                    Charged monthly on the {subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 'N/A'}
+                    {getOrdinalSuffix(subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 1)} of each month
+                  </>
+                )}
               </p>
             </div>
           )}

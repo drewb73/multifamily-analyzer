@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/pricing/page.tsx
-// FIX #2: Add loading screen with real-time webhook polling after payment
+// IMPROVEMENT: Immediate loading states to prevent pricing page flashes
 
 'use client'
 
@@ -33,9 +33,26 @@ export default function PricingPage() {
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
   const [showCanceledMessage, setShowCanceledMessage] = useState(false)
   
-  // FIX #2: Loading screen state
+  // ✅ FIX: Immediate loading states to prevent flashes
   const [showLoadingScreen, setShowLoadingScreen] = useState(false)
   const [webhookStatus, setWebhookStatus] = useState('Processing your payment...')
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false)
+
+  // Check immediately on mount if we should show loading
+  useEffect(() => {
+    const checkout = searchParams.get('checkout')
+    const startCheckout = searchParams.get('start_checkout')
+    
+    // ✅ FIX: Show loading immediately for payment success
+    if (checkout === 'success') {
+      setShowLoadingScreen(true)
+    }
+    
+    // ✅ FIX: Show "redirecting to checkout" for auto-checkout
+    if (startCheckout === 'true' && user) {
+      setIsRedirectingToCheckout(true)
+    }
+  }, [])
 
   // Fetch subscription status if user is logged in
   useEffect(() => {
@@ -44,7 +61,7 @@ export default function PricingPage() {
     }
   }, [isLoaded, user])
 
-  // FIX #2: Check for payment success and show loading screen
+  // Handle payment success with loading screen
   useEffect(() => {
     const checkout = searchParams.get('checkout')
     if (checkout === 'success' && user) {
@@ -57,7 +74,7 @@ export default function PricingPage() {
     }
   }, [searchParams, user])
 
-  // FIX #2: Real-time webhook polling
+  // Real-time webhook polling
   const pollSubscriptionStatus = async () => {
     let attempts = 0
     const maxAttempts = 30 // 30 seconds max
@@ -108,6 +125,8 @@ export default function PricingPage() {
         const status = subscriptionData.subscription.status
         // Only trigger checkout if user is NOT already premium
         if (status !== 'premium' && status !== 'enterprise') {
+          // ✅ FIX: Show loading state immediately
+          setIsRedirectingToCheckout(true)
           handlePremiumCheckout()
         }
         // Remove the query param
@@ -183,6 +202,8 @@ export default function PricingPage() {
       return
     }
 
+    // ✅ FIX: Show loading immediately
+    setIsRedirectingToCheckout(true)
     // Not premium - start Stripe checkout
     await handlePremiumCheckout()
   }
@@ -214,6 +235,7 @@ export default function PricingPage() {
       console.error('Checkout error:', error)
       alert(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.')
       setIsProcessing(false)
+      setIsRedirectingToCheckout(false)
     }
   }
 
@@ -290,7 +312,37 @@ export default function PricingPage() {
     return <StripeMaintenancePage />
   }
 
-  // FIX #2: Show loading screen during webhook processing
+  // ✅ FIX: Show "Redirecting to checkout" loading screen
+  if (isRedirectingToCheckout) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="relative mb-6">
+            <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <Crown className="w-12 h-12 text-primary-600" />
+            </div>
+          </div>
+          
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-4" />
+          
+          <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+            Redirecting to Checkout
+          </h2>
+          <p className="text-neutral-600">
+            Please wait while we prepare your payment...
+          </p>
+          
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ✅ FIX: Show payment success loading screen
   if (showLoadingScreen) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50">

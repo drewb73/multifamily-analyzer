@@ -1,6 +1,5 @@
-// FILE 4 of 8: REPLACE ENTIRE FILE
-// Location: src/app/dashboard/settings/page.tsx
-// Action: REPLACE YOUR ENTIRE settings/page.tsx WITH THIS
+// FILE LOCATION: /src/app/dashboard/settings/page.tsx
+// IMPROVEMENT: Fetch and pass cancelledAt to BillingCard for cancelled subscription display
 
 'use client'
 
@@ -26,10 +25,12 @@ export default function SettingsPage() {
     status: SubscriptionStatus
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
+    cancelledAt: Date | null // ✅ NEW: Track cancellation date
   }>({
     status: 'free',
     trialEndsAt: null,
-    subscriptionEndsAt: null
+    subscriptionEndsAt: null,
+    cancelledAt: null // ✅ NEW
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   
@@ -49,11 +50,12 @@ export default function SettingsPage() {
           company: data.company || ''
         })
         
-        // Set subscription data
+        // ✅ UPDATED: Also fetch cancelledAt
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
-          subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null
+          subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null,
+          cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null // ✅ NEW
         })
         
         // Set billing history (will be populated after Stripe integration)
@@ -144,11 +146,12 @@ export default function SettingsPage() {
         {/* Security */}
         <SecurityCard />
         
-        {/* Billing - Only show if Stripe enabled */}
+        {/* ✅ UPDATED: Pass cancelledAt to BillingCard */}
         {settings?.stripeEnabled ? (
           <BillingCard
             subscriptionStatus={subscriptionData.status}
             subscriptionEndsAt={subscriptionData.subscriptionEndsAt}
+            cancelledAt={subscriptionData.cancelledAt} // ✅ NEW: Pass cancellation date
             billingHistory={billingHistory}
           />
         ) : (

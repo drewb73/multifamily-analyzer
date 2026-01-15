@@ -1,4 +1,6 @@
-// src/app/api/user/profile/route.ts
+// FILE LOCATION: /src/app/api/user/profile/route.ts
+// IMPROVEMENT: Return cancelledAt field for cancelled subscription display
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -41,7 +43,8 @@ export async function GET(request: NextRequest) {
       company: (user as any).company || '',
       subscriptionStatus: user.subscriptionStatus || 'free',
       trialEndsAt: user.trialEndsAt,
-      subscriptionEndsAt: user.subscriptionEndsAt, // ✅ FIXED - was subscriptionDate
+      subscriptionEndsAt: user.subscriptionEndsAt,
+      cancelledAt: user.cancelledAt, // ✅ NEW: Return cancellation date
       billingHistory: [] // Will be populated after Stripe integration
     })
   } catch (error) {
