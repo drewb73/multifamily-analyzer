@@ -1,3 +1,6 @@
+// FILE LOCATION: /src/app/api/nreadr/settings/route.ts
+// FIXED: Added dealiqEnabled field support
+
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -37,6 +40,7 @@ export async function GET() {
           pdfExportEnabled: true,
           savedDraftsEnabled: true,
           accountDeletionEnabled: true,
+          dealiqEnabled: false, // ← ADDED
         }
       })
     }
@@ -89,6 +93,7 @@ export async function PATCH(request: Request) {
         pdfExportEnabled: body.pdfExportEnabled,
         savedDraftsEnabled: body.savedDraftsEnabled,
         accountDeletionEnabled: body.accountDeletionEnabled,
+        dealiqEnabled: body.dealiqEnabled, // ← ADDED
         updatedBy: user.email
       }
     })
