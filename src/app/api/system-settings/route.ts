@@ -1,3 +1,6 @@
+// FILE LOCATION: /src/app/api/system-settings/route.ts
+// FIXED: Added dealiqEnabled to response
+
 import { NextResponse } from 'next/server'
 import { getSystemSettings } from '@/lib/settings'
 
@@ -19,7 +22,8 @@ export async function GET() {
         maintenanceMessage: settings.maintenanceMessage,
         signUpEnabled: settings.signUpEnabled,
         dashboardEnabled: settings.dashboardEnabled,
-        stripeEnabled: settings.stripeEnabled
+        stripeEnabled: settings.stripeEnabled,
+        dealiqEnabled: settings.dealiqEnabled // ← ADDED
       }
     })
   } catch (error) {
@@ -36,7 +40,8 @@ export async function GET() {
         maintenanceMessage: null,
         signUpEnabled: true,
         dashboardEnabled: true,
-        stripeEnabled: true
+        stripeEnabled: true,
+        dealiqEnabled: false // ← ADDED
       }
     })
   }
