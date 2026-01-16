@@ -7,103 +7,76 @@
 
 export const DEAL_STAGES = [
   {
-    id: 'prospect',
-    label: 'Prospect',
-    description: 'Initial lead or property identified',
+    id: 'prospecting',
+    label: 'Prospecting',
+    description: 'Initial property research and lead generation',
     color: 'neutral',
     probability: 10,
     order: 0,
     icon: '🔍'
   },
   {
-    id: 'analyzing',
-    label: 'Analyzing',
-    description: 'Running numbers, initial underwriting',
+    id: 'lead_qualification',
+    label: 'Lead Qualification',
+    description: 'Qualifying the opportunity and initial screening',
     color: 'blue',
-    probability: 20,
+    probability: 25,
     order: 1,
+    icon: '📋'
+  },
+  {
+    id: 'formal_underwriting',
+    label: 'Formal Underwriting/Analysis',
+    description: 'Detailed financial analysis and due diligence prep',
+    color: 'purple',
+    probability: 40,
+    order: 2,
     icon: '📊'
   },
   {
-    id: 'tour_scheduled',
-    label: 'Tour Scheduled',
-    description: 'Property tour booked',
-    color: 'cyan',
-    probability: 30,
-    order: 2,
-    icon: '📅'
-  },
-  {
-    id: 'tour_completed',
-    label: 'Tour Completed',
-    description: 'Toured property, preparing offer',
-    color: 'purple',
-    probability: 40,
-    order: 3,
-    icon: '✅'
-  },
-  {
-    id: 'offer_made',
-    label: 'Offer Made',
-    description: 'LOI or offer submitted',
+    id: 'offer_loi',
+    label: 'Offer/LOI',
+    description: 'Letter of Intent or formal offer submitted',
     color: 'yellow',
-    probability: 50,
-    order: 4,
+    probability: 60,
+    order: 3,
     icon: '📝'
   },
   {
-    id: 'under_contract',
-    label: 'Under Contract',
-    description: 'PSA executed, earnest money deposited',
+    id: 'negotiation',
+    label: 'Negotiation & Terms',
+    description: 'Negotiating price, terms, and contract details',
     color: 'orange',
-    probability: 70,
+    probability: 75,
+    order: 4,
+    icon: '🤝'
+  },
+  {
+    id: 'in_contract',
+    label: 'In Contract',
+    description: 'Under contract, performing due diligence',
+    color: 'indigo',
+    probability: 90,
     order: 5,
     icon: '📄'
   },
   {
-    id: 'due_diligence',
-    label: 'Due Diligence',
-    description: 'Inspections, financial review, etc.',
-    color: 'indigo',
-    probability: 75,
-    order: 6,
-    icon: '🔎'
-  },
-  {
-    id: 'financing',
-    label: 'Financing',
-    description: 'Loan application and approval',
-    color: 'violet',
-    probability: 85,
-    order: 7,
-    icon: '🏦'
-  },
-  {
-    id: 'closing',
-    label: 'Closing',
-    description: 'Final walkthrough, preparing for close',
-    color: 'green',
-    probability: 95,
-    order: 8,
-    icon: '🏁'
-  },
-  {
     id: 'closed_won',
-    label: 'Closed - Won',
+    label: 'Closed Won',
     description: 'Deal successfully closed!',
     color: 'success',
     probability: 100,
-    order: 9,
+    order: 6,
     icon: '🎉',
     isFinal: true
   },
   {
     id: 'closed_lost',
-    label: 'Closed - Lost',
-    description: 'Deal fell through or cancelled',
+    label: 'Closed Cancelled/Lost',
+    description: 'Deal cancelled or fell through',
     color: 'error',
     probability: 0,
-    order: 10,
+    order: 7,
     icon: '❌',
     isFinal: true
   },
@@ -113,7 +86,7 @@ export const DEAL_STAGES = [
     description: 'Paused, revisit later',
     color: 'gray',
     probability: null,
-    order: 11,
+    order: 8,
     icon: '⏸️',
     isParked: true
   },
@@ -124,7 +97,7 @@ export const DEAL_STAGES = [
 // ============================================
 
 export const FORECAST_STATUS = [
-  { id: 'n/a', label: 'N/A' },
+  { id: 'non_forecastable', label: 'Non Forecastable' },
   { id: 'most_likely', label: 'Most Likely' },
   { id: 'commit', label: 'Commit' },
   { id: 'upside', label: 'Upside' },
@@ -216,59 +189,41 @@ export const FINANCING_TYPES = [
 // ============================================
 
 export const STAGE_COLORS = {
-  prospect: {
+  prospecting: {
     bg: 'bg-neutral-100',
     text: 'text-neutral-700',
     border: 'border-neutral-300',
     dot: 'bg-neutral-500'
   },
-  analyzing: {
+  lead_qualification: {
     bg: 'bg-blue-100',
     text: 'text-blue-700',
     border: 'border-blue-300',
     dot: 'bg-blue-500'
   },
-  tour_scheduled: {
-    bg: 'bg-cyan-100',
-    text: 'text-cyan-700',
-    border: 'border-cyan-300',
-    dot: 'bg-cyan-500'
-  },
-  tour_completed: {
+  formal_underwriting: {
     bg: 'bg-purple-100',
     text: 'text-purple-700',
     border: 'border-purple-300',
     dot: 'bg-purple-500'
   },
-  offer_made: {
+  offer_loi: {
     bg: 'bg-yellow-100',
     text: 'text-yellow-700',
     border: 'border-yellow-300',
     dot: 'bg-yellow-500'
   },
-  under_contract: {
+  negotiation: {
     bg: 'bg-orange-100',
     text: 'text-orange-700',
     border: 'border-orange-300',
     dot: 'bg-orange-500'
   },
-  due_diligence: {
+  in_contract: {
     bg: 'bg-indigo-100',
     text: 'text-indigo-700',
     border: 'border-indigo-300',
     dot: 'bg-indigo-500'
-  },
-  financing: {
-    bg: 'bg-violet-100',
-    text: 'text-violet-700',
-    border: 'border-violet-300',
-    dot: 'bg-violet-500'
-  },
-  closing: {
-    bg: 'bg-green-100',
-    text: 'text-green-700',
-    border: 'border-green-300',
-    dot: 'bg-green-500'
   },
   closed_won: {
     bg: 'bg-success-100',
@@ -312,7 +267,7 @@ export function getStageLabel(stageId: string) {
  * Get stage color classes
  */
 export function getStageColors(stageId: string) {
-  return STAGE_COLORS[stageId as keyof typeof STAGE_COLORS] || STAGE_COLORS.prospect
+  return STAGE_COLORS[stageId as keyof typeof STAGE_COLORS] || STAGE_COLORS.prospecting
 }
 
 /**
