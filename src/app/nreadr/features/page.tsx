@@ -1,3 +1,5 @@
+// FILE LOCATION: /src/app/nreadr/features/page.tsx
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -12,7 +14,8 @@ import {
   Lock,
   Unlock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Briefcase // ← ADDED
 } from 'lucide-react'
 
 interface SystemSettings {
@@ -29,6 +32,7 @@ interface SystemSettings {
   pdfExportEnabled: boolean
   savedDraftsEnabled: boolean
   accountDeletionEnabled: boolean
+  dealiqEnabled: boolean // ← ADDED
   
   updatedAt: string
   updatedBy: string | null
@@ -67,19 +71,22 @@ export default function AdminFeaturesPage() {
     }
   }
 
-  const handleToggle = (field: keyof SystemSettings, value: boolean) => {
+  const handleToggle = (field: keyof SystemSettings, value?: boolean) => {
     if (!settings) return
+    
+    // Use provided value or toggle current value
+    const newValue = value !== undefined ? value : !settings[field]
     
     // Critical toggles require PIN confirmation
     const criticalToggles = ['maintenanceMode', 'dashboardEnabled', 'signUpEnabled']
     
-    if (criticalToggles.includes(field) && value !== settings[field]) {
+    if (criticalToggles.includes(field) && newValue !== settings[field]) {
       // Show PIN confirmation
-      setPendingChanges({ [field]: value })
+      setPendingChanges({ [field]: newValue })
       setShowPinConfirm(true)
     } else {
       // Apply change immediately for non-critical toggles
-      setSettings({ ...settings, [field]: value })
+      setSettings({ ...settings, [field]: newValue })
     }
   }
 
@@ -318,6 +325,15 @@ export default function AdminFeaturesPage() {
               description="Allow users to view saved analyses. When disabled, shows maintenance lock."
               enabled={settings.savedDraftsEnabled}
               onChange={(value) => handleToggle('savedDraftsEnabled', value)}
+            />
+
+            {/* DealIQ CRM */}
+            <ToggleRow
+              icon={Briefcase}
+              title="DealIQ CRM"
+              description="Enable the DealIQ CRM feature for deal tracking and pipeline management. Premium users only."
+              enabled={settings.dealiqEnabled}
+              onChange={(value) => handleToggle('dealiqEnabled', value)}
             />
 
             {/* Account Deletion */}
