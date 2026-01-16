@@ -1,10 +1,5 @@
-// COMPLETE FILE - MOBILE-FRIENDLY SIDEBAR WITH SLIDE-OUT MENU
-// Location: src/components/dashboard/Sidebar.tsx
-// Action: REPLACE ENTIRE FILE
-// ✅ Desktop: Collapsible sidebar (as before)
-// ✅ Mobile: Slide-out menu from left
-// ✅ Includes Sign Out in mobile menu
-// ✅ Subscription status banner in mobile menu
+// FILE LOCATION: /src/components/dashboard/Sidebar.tsx
+// UPDATED: Added DealIQ CRM menu item
 
 'use client'
 
@@ -17,7 +12,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  Briefcase // ← ADDED
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -59,6 +55,13 @@ export default function DashboardSidebar({
       href: '/dashboard/saved',
       icon: FileText,
       locked: !isPremium || !systemSettings?.savedDraftsEnabled,
+    },
+    // ← ADDED: DealIQ CRM menu item
+    {
+      name: 'DealIQ',
+      href: '/dashboard/dealiq',
+      icon: Briefcase,
+      locked: !isPremium || !systemSettings?.dealiqEnabled,
     },
     {
       name: 'Contact Support',

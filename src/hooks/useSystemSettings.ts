@@ -10,7 +10,7 @@ interface SystemSettings {
   signUpEnabled: boolean
   dashboardEnabled: boolean
   stripeEnabled: boolean
-  // Add other settings as needed
+  dealiqEnabled: boolean
 }
 
 export function useSystemSettings() {
