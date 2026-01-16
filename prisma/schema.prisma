@@ -62,6 +62,11 @@ model User {
   analysisGroups     AnalysisGroup[]
 
   @@map("users")
+
+  // DealIQ Relations
+  deals         Deal[]
+  dealNotes     DealNote[]
+  dealChanges   DealChange[]
 }
 
 // Property - Store property data (LEGACY - keeping for backward compatibility)
@@ -127,6 +132,9 @@ model Analysis {
   updatedAt DateTime @updatedAt
 
   @@map("analyses")
+
+  // DealIQ Relations
+  deals Deal[]
 }
 
 // ============================================
@@ -240,6 +248,7 @@ model SystemSettings {
   pdfExportEnabled     Boolean  @default(true)
   savedDraftsEnabled   Boolean  @default(true)
   accountDeletionEnabled Boolean @default(true)
+  dealiqEnabled Boolean @default(false)
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -362,5 +371,139 @@ model AdminLog {
   
   @@map("admin_logs")
   @@index([adminEmail, createdAt])
+  @@index([createdAt])
+}
+
+// ============================================
+// DEALIQ CRM SYSTEM
+// ============================================
+
+model Deal {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  dealId    String   @unique // 7-digit random number (e.g., "1234567")
+  
+  // Ownership
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Property Details (linked to analysis)
+  analysisId String?  @db.ObjectId
+  analysis   Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  
+  // Address (editable)
+  address    String
+  city       String?
+  state      String?
+  zipCode    String?
+  
+  // Financial Details (editable)
+  price           Float
+  squareFeet      Float?
+  units           Int?
+  pricePerUnit    Float?  // Auto-calculated: price / units
+  pricePerSqft    Float?  // Auto-calculated: price / squareFeet
+  
+  // Deal Status
+  stage           String   @default("prospect") // See DEAL_STAGES constant
+  forecastStatus  String   @default("n/a") // "n/a", "commit", "upside", "most_likely"
+  expectedCloseDate DateTime?
+  
+  // Commission Details (for agents)
+  commissionPercent Float?  @default(0)
+  commissionAmount  Float?  @default(0) // Auto-calculated: price * commissionPercent
+  
+  // Investment Details (for investors)
+  originalPurchasePrice Float? // Optional: for investors tracking equity
+  netValue          Float?  // Auto-calculated: price - commission - originalPurchase
+  
+  // Loan Details
+  financingType String? // "financed", "cash"
+  loanTerm      Int?    // Years (e.g., 30)
+  loanRate      Float?  // Interest rate percentage (e.g., 6.5)
+  
+  // Lost Deal Tracking (when stage = "closed_lost")
+  lostReason        String?   // ID from LOST_REASONS
+  lostReasonDetails String?   // Additional notes
+  lostAtStage       String?   // Stage where deal was lost
+  lostDate          DateTime?
+  
+  // On Hold Tracking (when stage = "on_hold")
+  holdReason        String?   // ID from HOLD_REASONS
+  holdReasonDetails String?
+  onHoldDate        DateTime?
+  expectedResumeDate DateTime?
+  
+  // Pipeline Metrics
+  daysInPipeline    Int?      // Auto-calculated
+  previousStage     String?   // Track last stage before current
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stageChangedAt DateTime @default(now())
+  
+  // Relations
+  contacts  DealContact[]
+  notes     DealNote[]
+  changes   DealChange[]
+  
+  @@index([userId])
+  @@index([stage])
+  @@index([createdAt])
+}
+
+model DealContact {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  isPrimary Boolean  @default(false)
+  name      String
+  company   String?
+  role      String?  // "Seller", "Agent", "Lender", "Attorney", etc.
+  email     String?
+  phone     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([dealId])
+}
+
+model DealNote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  content   String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([dealId])
+  @@index([createdAt])
+}
+
+model DealChange {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fieldName     String  // "stage", "price", "expectedCloseDate", etc.
+  previousValue String?
+  newValue      String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([dealId])
   @@index([createdAt])
 }
