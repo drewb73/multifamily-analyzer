@@ -1,11 +1,14 @@
-// src/components/analysis/SaveAnalysisModal.tsx
+// FILE LOCATION: /src/components/analysis/SaveAnalysisModal.tsx
+// UPDATED: Added "Add to DealIQ" checkbox
+
 'use client'
 
 import { useState, useEffect } from 'react'
 import { Button, Card } from '@/components'
-import { X, AlertCircle } from 'lucide-react'
+import { X, AlertCircle, Briefcase } from 'lucide-react'
 import { fetchAnalyses } from '@/lib/api/analyses'
 import { Group, fetchGroups } from '@/lib/api/groups'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface SaveAnalysisModalProps {
   isOpen: boolean
@@ -20,6 +23,7 @@ export interface SaveOptions {
   groupId: string | null
   overrideExisting: boolean
   existingAnalysisId?: string
+  createDeal: boolean // ← ADDED
 }
 
 export function SaveAnalysisModal({ 
@@ -34,8 +38,11 @@ export function SaveAnalysisModal({
   const [groups, setGroups] = useState<Group[]>([])
   const [existingAnalysis, setExistingAnalysis] = useState<any | null>(null)
   const [overrideExisting, setOverrideExisting] = useState(false)
+  const [createDeal, setCreateDeal] = useState(false) // ← ADDED
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const { settings: systemSettings } = useSystemSettings() // ← ADDED
 
   // Load groups and check for existing analysis when modal opens
   useEffect(() => {
@@ -89,11 +96,15 @@ export function SaveAnalysisModal({
       propertyName: propertyName.trim(),
       groupId: selectedGroupId,
       overrideExisting: existingAnalysis ? overrideExisting : false,
-      existingAnalysisId: existingAnalysis?.id
+      existingAnalysisId: existingAnalysis?.id,
+      createDeal // ← ADDED
     })
   }
 
   if (!isOpen) return null
+
+  // Check if DealIQ is enabled
+  const isDealIQEnabled = isPremium && systemSettings?.dealiqEnabled
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -162,6 +173,33 @@ export function SaveAnalysisModal({
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {/* ========================================= */}
+            {/* ADD TO DEALIQ CHECKBOX (NEW!) */}
+            {/* ========================================= */}
+            {isDealIQEnabled && (
+              <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-lg">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createDeal}
+                    onChange={(e) => setCreateDeal(e.target.checked)}
+                    className="w-5 h-5 text-primary-600 focus:ring-primary-500 rounded mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Briefcase className="w-4 h-4 text-primary-600" />
+                      <span className="font-medium text-primary-900">
+                        Add to DealIQ
+                      </span>
+                    </div>
+                    <p className="text-sm text-primary-700">
+                      Create a deal in your CRM pipeline to track this property through acquisition
+                    </p>
+                  </div>
+                </label>
               </div>
             )}
 
