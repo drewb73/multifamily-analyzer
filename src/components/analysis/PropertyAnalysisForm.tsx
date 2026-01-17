@@ -292,11 +292,15 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     setIsSaveModalOpen(true)
   }
 
+  // ========================================
+  // ✨ ONLY CHANGE: Updated handleSaveConfirm
+  // ========================================
   const handleSaveConfirm = async (saveOptions: SaveOptions) => {
     if (!pendingCalculation) return
     
     try {
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      let savedAnalysisId = saveOptions.existingAnalysisId // Track analysis ID for deal creation
       
       if (isPremium) {
         // Premium user - save to database
@@ -306,23 +310,67 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
             results: pendingCalculation,
-            groupId: saveOptions.groupId, // Pass null explicitly to clear group
+            groupId: saveOptions.groupId,
           })
           console.log('✅ Updated existing analysis in database')
         } else {
-          // Create new analysis
-          await saveAnalysisToDatabase({
+          // Create new analysis and capture the ID
+          const savedAnalysis = await saveAnalysisToDatabase({
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
             results: pendingCalculation,
-            groupId: saveOptions.groupId, // Pass null explicitly for no group
+            groupId: saveOptions.groupId,
           })
+          savedAnalysisId = savedAnalysis.id // ✨ NEW: Capture the analysis ID
           console.log('✅ Saved new analysis to database')
         }
+        
+        // ========================================
+        // ✨ NEW: CREATE DEAL IN DEALIQ (if checked)
+        // ========================================
+        if (saveOptions.createDeal && savedAnalysisId) {
+          try {
+            console.log('🎯 Creating deal in DealIQ...')
+            
+            const dealResponse = await fetch('/api/dealiq', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                analysisId: savedAnalysisId,
+                address: formData.property?.address || 'Unknown Address',
+                city: formData.property?.city || null,
+                state: formData.property?.state || null,
+                zipCode: formData.property?.zipCode || null,
+                price: formData.property?.purchasePrice || 0,
+                squareFeet: formData.property?.propertySize || null,
+                units: formData.property?.totalUnits || null,
+                financingType: formData.property?.isCashPurchase ? 'cash' : 'financed',
+              })
+            })
+            
+            const dealData = await dealResponse.json()
+            
+            if (dealData.success) {
+              console.log('✅ Deal created successfully:', dealData.deal.dealId)
+              alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+            } else {
+              console.error('❌ Failed to create deal:', dealData.error)
+              alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+            }
+          } catch (dealError) {
+            console.error('❌ Error creating deal:', dealError)
+            alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+          }
+        } else if (!saveOptions.createDeal) {
+          // User didn't check the box - show normal success message
+          alert('✅ Analysis saved successfully!')
+        }
+        
       } else {
         // Trial/Free user - save to localStorage
         await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
         console.log('✅ Saved analysis to localStorage')
+        alert('✅ Analysis saved locally!')
       }
 
       // Update local state and navigate to results
