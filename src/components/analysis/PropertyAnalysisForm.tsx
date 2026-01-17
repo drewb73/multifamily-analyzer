@@ -1,4 +1,6 @@
-// src/components/analysis/PropertyAnalysisForm.tsx
+// FILE LOCATION: /src/components/analysis/PropertyAnalysisForm.tsx
+// IMPROVED: Better deal creation with duplicate prevention and logging
+
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -293,7 +295,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
   }
 
   // ========================================
-  // ✨ ONLY CHANGE: Updated handleSaveConfirm
+  // ✨ IMPROVED: Updated handleSaveConfirm with duplicate prevention
   // ========================================
   const handleSaveConfirm = async (saveOptions: SaveOptions) => {
     if (!pendingCalculation) return
@@ -321,44 +323,68 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             results: pendingCalculation,
             groupId: saveOptions.groupId,
           })
-          savedAnalysisId = savedAnalysis.id // ✨ NEW: Capture the analysis ID
-          console.log('✅ Saved new analysis to database')
+          savedAnalysisId = savedAnalysis.id // ✨ Capture the analysis ID
+          console.log('✅ Saved new analysis to database, ID:', savedAnalysisId)
         }
         
         // ========================================
-        // ✨ NEW: CREATE DEAL IN DEALIQ (if checked)
+        // ✨ IMPROVED: CREATE DEAL IN DEALIQ (with duplicate prevention)
         // ========================================
         if (saveOptions.createDeal && savedAnalysisId) {
           try {
-            console.log('🎯 Creating deal in DealIQ...')
+            console.log('🎯 Creating deal in DealIQ for analysis:', savedAnalysisId)
             
-            const dealResponse = await fetch('/api/dealiq', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                analysisId: savedAnalysisId,
-                address: formData.property?.address || 'Unknown Address',
-                city: formData.property?.city || null,
-                state: formData.property?.state || null,
-                zipCode: formData.property?.zipCode || null,
-                price: formData.property?.purchasePrice || 0,
-                squareFeet: formData.property?.propertySize || null,
-                units: formData.property?.totalUnits || null,
-                financingType: formData.property?.isCashPurchase ? 'cash' : 'financed',
-              })
-            })
+            // Check if deal already exists for this analysis
+            const checkResponse = await fetch('/api/dealiq')
+            const existingDealsData = await checkResponse.json()
             
-            const dealData = await dealResponse.json()
-            
-            if (dealData.success) {
-              console.log('✅ Deal created successfully:', dealData.deal.dealId)
-              alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+            if (existingDealsData.success && existingDealsData.deals) {
+              const existingDeal = existingDealsData.deals.find((d: any) => d.analysisId === savedAnalysisId)
+              
+              if (existingDeal) {
+                console.log('ℹ️ Deal already exists for this analysis:', existingDeal.dealId)
+                console.log('📍 Existing deal MongoDB ID:', existingDeal.id)
+                console.log('📍 Existing deal ID (7-digit):', existingDeal.dealId)
+                alert(`✅ Analysis saved! Deal #${existingDeal.dealId} is already linked to this analysis.`)
+              } else {
+                // No existing deal - create new one
+                console.log('✨ No existing deal found, creating new one...')
+                
+                const dealResponse = await fetch('/api/dealiq', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    analysisId: savedAnalysisId,
+                    address: formData.property?.address || 'Unknown Address',
+                    city: formData.property?.city || null,
+                    state: formData.property?.state || null,
+                    zipCode: formData.property?.zipCode || null,
+                    price: formData.property?.purchasePrice || 0,
+                    squareFeet: formData.property?.propertySize || null,
+                    units: formData.property?.totalUnits || null,
+                    financingType: formData.property?.isCashPurchase ? 'cash' : 'financed',
+                  })
+                })
+                
+                const dealData = await dealResponse.json()
+                
+                if (dealData.success) {
+                  console.log('✅ Deal created successfully!')
+                  console.log('📍 New deal MongoDB ID:', dealData.deal.id)
+                  console.log('📍 New deal ID (7-digit):', dealData.deal.dealId)
+                  console.log('📍 Deal ID type:', typeof dealData.deal.dealId)
+                  alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+                } else {
+                  console.error('❌ Failed to create deal:', dealData.error)
+                  alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+                }
+              }
             } else {
-              console.error('❌ Failed to create deal:', dealData.error)
-              alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+              console.error('❌ Failed to fetch existing deals:', existingDealsData.error)
+              alert('✅ Analysis saved, but failed to check for existing deals.')
             }
           } catch (dealError) {
-            console.error('❌ Error creating deal:', dealError)
+            console.error('❌ Error in deal creation flow:', dealError)
             alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
           }
         } else if (!saveOptions.createDeal) {

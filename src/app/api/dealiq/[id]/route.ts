@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/app/api/dealiq/[id]/route.ts
 // PURPOSE: Individual deal operations - Get, Update, Delete
-// FIXED: Proper async params handling for Next.js 13+
+// FIXED: Better dealId lookup with logging
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -29,11 +29,13 @@ export async function GET(
     // ✨ FIXED: Await params
     const { id } = await params
 
-    // Find deal by MongoDB ID
-    const deal = await prisma.deal.findFirst({
+    console.log('🔍 Looking for deal with ID:', id, 'for user:', user.id)
+
+    // Try to find by dealId first (the 7-digit number users see)
+    let deal = await prisma.deal.findFirst({
       where: {
-        id: id,
-        userId: user.id // Ensure user owns this deal
+        dealId: id,
+        userId: user.id
       },
       include: {
         analysis: true,
@@ -69,10 +71,63 @@ export async function GET(
       }
     })
 
+    // If not found by dealId, try by MongoDB ID as fallback
     if (!deal) {
+      console.log('❌ Not found by dealId, trying MongoDB ID...')
+      deal = await prisma.deal.findFirst({
+        where: {
+          id: id,
+          userId: user.id
+        },
+        include: {
+          analysis: true,
+          contacts: true,
+          notes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
+          changes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          }
+        }
+      })
+    }
+
+    if (!deal) {
+      console.log('❌ Deal not found with either dealId or MongoDB ID')
+      
+      // Debug: List all deals for this user
+      const userDeals = await prisma.deal.findMany({
+        where: { userId: user.id },
+        select: { id: true, dealId: true, address: true }
+      })
+      console.log('📋 User has these deals:', userDeals)
+      
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
+    console.log('✅ Deal found:', deal.dealId)
     return NextResponse.json({ success: true, deal })
   } catch (error) {
     console.error('Get deal error:', error)
@@ -105,13 +160,24 @@ export async function DELETE(
 
     console.log('🗑️ Attempting to delete deal:', id, 'for user:', user.id)
 
-    // Find deal first to verify ownership
-    const deal = await prisma.deal.findFirst({
+    // Try to find by dealId first (the 7-digit number)
+    let deal = await prisma.deal.findFirst({
       where: {
-        id: id,
+        dealId: id,
         userId: user.id
       }
     })
+
+    // If not found by dealId, try by MongoDB ID as fallback
+    if (!deal) {
+      console.log('Not found by dealId, trying MongoDB ID...')
+      deal = await prisma.deal.findFirst({
+        where: {
+          id: id,
+          userId: user.id
+        }
+      })
+    }
 
     if (!deal) {
       console.log('❌ Deal not found or user does not own it')
@@ -120,9 +186,9 @@ export async function DELETE(
 
     console.log('✅ Deal found, deleting...')
 
-    // Delete the deal (cascade will delete contacts, notes, changes)
+    // Delete the deal using MongoDB ID (cascade will delete contacts, notes, changes)
     await prisma.deal.delete({
-      where: { id: id }
+      where: { id: deal.id }  // Use the MongoDB ID from the found deal
     })
 
     console.log('✅ Deal deleted successfully')
