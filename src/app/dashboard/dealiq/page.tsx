@@ -1,5 +1,6 @@
 // FILE LOCATION: /src/app/dashboard/dealiq/page.tsx
 // PURPOSE: Main DealIQ table view - Shows all deals
+// FIXED: Added horizontal scroll + fixed delete functionality
 
 'use client'
 
@@ -55,22 +56,27 @@ export default function DealIQPage() {
   const handleDelete = async (dealId: string) => {
     try {
       setIsDeleting(true)
+      console.log('🗑️ Deleting deal:', dealId)
+      
       const response = await fetch(`/api/dealiq/${dealId}`, {
         method: 'DELETE'
       })
 
       const data = await response.json()
+      console.log('Delete response:', data)
 
       if (data.success) {
         // Remove from local state
         setDeals(deals.filter(d => d.id !== dealId))
         setDeleteId(null)
+        console.log('✅ Deal deleted successfully')
       } else {
-        alert('Failed to delete deal')
+        console.error('Delete failed:', data.error)
+        alert('Failed to delete deal: ' + (data.error || 'Unknown error'))
       }
     } catch (err) {
       console.error('Delete error:', err)
-      alert('Failed to delete deal')
+      alert('Failed to delete deal: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setIsDeleting(false)
     }
@@ -184,30 +190,30 @@ export default function DealIQPage() {
         </p>
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-lg border border-neutral-200 overflow-hidden">
+      {/* ✨ FIXED: Added horizontal scroll wrapper for mobile */}
+      <div className="hidden md:block overflow-x-auto bg-white rounded-lg border border-neutral-200">
         <table className="min-w-full divide-y divide-neutral-200">
           <thead className="bg-neutral-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Deal ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Address
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Stage
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Forecast
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Close Date
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Created
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                 Actions
               </th>
             </tr>
@@ -228,7 +234,7 @@ export default function DealIQPage() {
                   </td>
 
                   {/* Address */}
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-neutral-900">
                       {deal.address}
                     </div>
@@ -265,7 +271,7 @@ export default function DealIQPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => setDeleteId(deal.id)}
-                      className="text-error-600 hover:text-error-900"
+                      className="text-error-600 hover:text-error-900 transition-colors"
                       title="Delete deal"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -286,14 +292,14 @@ export default function DealIQPage() {
             <div key={deal.id} className="bg-white rounded-lg border border-neutral-200 p-4">
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
-                <div>
+                <div className="flex-1 min-w-0">
                   <Link
                     href={`/dashboard/dealiq/${deal.dealId}`}
                     className="text-primary-600 hover:text-primary-700 font-semibold"
                   >
                     #{deal.dealId}
                   </Link>
-                  <div className="text-sm font-medium text-neutral-900 mt-1">
+                  <div className="text-sm font-medium text-neutral-900 mt-1 break-words">
                     {deal.address}
                   </div>
                   {(deal.city || deal.state) && (
@@ -304,14 +310,15 @@ export default function DealIQPage() {
                 </div>
                 <button
                   onClick={() => setDeleteId(deal.id)}
-                  className="text-error-600 hover:text-error-900 p-2"
+                  className="text-error-600 hover:text-error-900 p-2 ml-2 flex-shrink-0 transition-colors"
+                  title="Delete deal"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Stage & Forecast */}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColors.bg} ${stageColors.text}`}>
                   {getStageLabel(deal.stage)}
                 </span>
@@ -362,14 +369,14 @@ export default function DealIQPage() {
               <button
                 onClick={() => setDeleteId(null)}
                 disabled={isDeleting}
-                className="flex-1 py-2 px-4 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 disabled:opacity-50"
+                className="flex-1 py-2 px-4 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteId)}
                 disabled={isDeleting}
-                className="flex-1 py-2 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 disabled:opacity-50"
+                className="flex-1 py-2 px-4 bg-error-600 text-white rounded-lg font-medium hover:bg-error-700 disabled:opacity-50 transition-colors"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Deal'}
               </button>
