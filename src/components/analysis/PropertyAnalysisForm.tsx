@@ -323,7 +323,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
             results: pendingCalculation,
             groupId: saveOptions.groupId,
           })
-          savedAnalysisId = savedAnalysis.id // ✨ Capture the analysis ID
+          savedAnalysisId = savedAnalysis.analysis?.id // ✨ Capture the analysis ID
           console.log('✅ Saved new analysis to database, ID:', savedAnalysisId)
         }
         

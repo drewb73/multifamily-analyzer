@@ -1,5 +1,6 @@
 // FILE LOCATION: /src/app/dashboard/dealiq/[dealId]/page.tsx
 // PURPOSE: Individual deal detail page with tabs for Account, Contacts, Notes, Activity
+// UPDATED: Integrated AccountDetailsTab component
 
 'use client'
 
@@ -12,14 +13,11 @@ import {
   Users, 
   FileText, 
   History,
-  Calendar,
-  DollarSign,
-  Home,
-  TrendingUp,
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
-import { getStageLabel, getStageColors, getForecastLabel } from '@/lib/dealiq-constants'
+import { getStageLabel, getStageColors } from '@/lib/dealiq-constants'
+import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 
 interface Deal {
   id: string
@@ -34,6 +32,8 @@ interface Deal {
   price: number
   squareFeet: number | null
   units: number | null
+  pricePerUnit: number | null
+  pricePerSqft: number | null
   financingType: string | null
   createdAt: Date
   updatedAt: Date
@@ -87,6 +87,33 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
     loadDeal()
   }, [dealId])
 
+  // Update deal
+  const handleUpdateDeal = async (updates: Partial<Deal>) => {
+    if (!deal) return
+
+    try {
+      console.log('🔄 Updating deal with:', updates)
+      
+      const response = await fetch(`/api/dealiq/${deal.dealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log('✅ Deal updated successfully')
+        setDeal(data.deal)
+      } else {
+        throw new Error(data.error || 'Failed to update deal')
+      }
+    } catch (err) {
+      console.error('Update deal error:', err)
+      throw err
+    }
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -94,15 +121,6 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
-  }
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return 'Not set'
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
   }
 
   if (isLoading) {
@@ -227,10 +245,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       {/* Tab Content */}
       <div>
         {activeTab === 'account' && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6">
-            <h2 className="text-xl font-bold text-neutral-900 mb-4">Account Details</h2>
-            <p className="text-neutral-600">Account details section coming next...</p>
-          </div>
+          <AccountDetailsTab deal={deal} onUpdate={handleUpdateDeal} />
         )}
 
         {activeTab === 'contacts' && (

@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/app/api/dealiq/[id]/route.ts
 // PURPOSE: Individual deal operations - Get, Update, Delete
-// FIXED: Better dealId lookup with logging
+// FIXED: Proper null checks and type guards
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -26,7 +26,6 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // ✨ FIXED: Await params
     const { id } = await params
 
     console.log('🔍 Looking for deal with ID:', id, 'for user:', user.id)
@@ -127,11 +126,217 @@ export async function GET(
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
-    console.log('✅ Deal found:', deal.dealId)
-    return NextResponse.json({ success: true, deal })
+    // ========================================
+    // ✨ FIX: If analysis relation is null but analysisId exists, fetch it manually
+    // ========================================
+    let finalDeal = deal
+    
+    if (!deal.analysis && deal.analysisId) {
+      console.log('⚠️ Analysis relation is null, fetching manually for ID:', deal.analysisId)
+      
+      try {
+        const analysis = await prisma.analysis.findFirst({
+          where: {
+            id: deal.analysisId,
+            userId: user.id
+          }
+        })
+        
+        if (analysis) {
+          console.log('✅ Manually fetched analysis:', analysis.name)
+          // Merge analysis into deal response
+          finalDeal = {
+            ...deal,
+            analysis: analysis
+          }
+        } else {
+          console.log('❌ Analysis not found or user does not own it')
+        }
+      } catch (error) {
+        console.error('Error fetching analysis:', error)
+      }
+    }
+
+    console.log('✅ Deal found:', finalDeal.dealId)
+    console.log('📊 Analysis status:', {
+      hasAnalysisId: !!finalDeal.analysisId,
+      analysisId: finalDeal.analysisId,
+      hasAnalysis: !!finalDeal.analysis,
+      analysisName: finalDeal.analysis?.name
+    })
+
+    return NextResponse.json({ success: true, deal: finalDeal })
   } catch (error) {
     console.error('Get deal error:', error)
     return NextResponse.json({ error: 'Failed to fetch deal' }, { status: 500 })
+  }
+}
+
+// PATCH - Update deal details
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId } = await auth()
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const { id } = await params
+    const body = await request.json()
+
+    console.log('🔄 Updating deal:', id, 'with:', body)
+
+    // Try to find by dealId first
+    let deal = await prisma.deal.findFirst({
+      where: {
+        dealId: id,
+        userId: user.id
+      }
+    })
+
+    // Fallback to MongoDB ID
+    if (!deal) {
+      deal = await prisma.deal.findFirst({
+        where: {
+          id: id,
+          userId: user.id
+        }
+      })
+    }
+
+    if (!deal) {
+      return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
+    }
+
+    // Track what changed for activity log
+    const changes: Array<{ field: string, old: any, new: any }> = []
+
+    // Check for stage change
+    if (body.stage && body.stage !== deal.stage) {
+      changes.push({
+        field: 'stage',
+        old: deal.stage,
+        new: body.stage
+      })
+    }
+
+    // Check for forecast change
+    if (body.forecastStatus && body.forecastStatus !== deal.forecastStatus) {
+      changes.push({
+        field: 'forecastStatus',
+        old: deal.forecastStatus,
+        new: body.forecastStatus
+      })
+    }
+
+    // Check for close date change
+    if (body.expectedCloseDate !== undefined) {
+      const oldDate = deal.expectedCloseDate?.toISOString() || null
+      const newDate = body.expectedCloseDate ? new Date(body.expectedCloseDate).toISOString() : null
+      if (oldDate !== newDate) {
+        changes.push({
+          field: 'expectedCloseDate',
+          old: oldDate,
+          new: newDate
+        })
+      }
+    }
+
+    // Update the deal
+    const updatedDeal = await prisma.deal.update({
+      where: { id: deal.id },
+      data: {
+        stage: body.stage || deal.stage,
+        forecastStatus: body.forecastStatus || deal.forecastStatus,
+        expectedCloseDate: body.expectedCloseDate !== undefined 
+          ? (body.expectedCloseDate ? new Date(body.expectedCloseDate) : null)
+          : deal.expectedCloseDate,
+      },
+      include: {
+        analysis: true,
+        contacts: true,
+        notes: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        changes: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        }
+      }
+    })
+
+    // ✨ Manually fetch analysis if relation is null
+    let finalDeal = updatedDeal
+    
+    if (!updatedDeal.analysis && updatedDeal.analysisId) {
+      const analysis = await prisma.analysis.findFirst({
+        where: {
+          id: updatedDeal.analysisId,
+          userId: user.id
+        }
+      })
+      if (analysis) {
+        finalDeal = {
+          ...updatedDeal,
+          analysis: analysis
+        }
+      }
+    }
+
+    // Create change records for activity log
+    for (const change of changes) {
+      await prisma.dealChange.create({
+        data: {
+          dealId: deal.id,
+          userId: user.id,
+          fieldName: change.field,
+          previousValue: String(change.old),
+          newValue: String(change.new)
+        }
+      })
+    }
+
+    console.log('✅ Deal updated successfully')
+
+    return NextResponse.json({ success: true, deal: finalDeal })
+  } catch (error) {
+    console.error('Update deal error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to update deal',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -155,7 +360,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // ✨ FIXED: Await params
     const { id } = await params
 
     console.log('🗑️ Attempting to delete deal:', id, 'for user:', user.id)
@@ -188,7 +392,7 @@ export async function DELETE(
 
     // Delete the deal using MongoDB ID (cascade will delete contacts, notes, changes)
     await prisma.deal.delete({
-      where: { id: deal.id }  // Use the MongoDB ID from the found deal
+      where: { id: deal.id }
     })
 
     console.log('✅ Deal deleted successfully')
