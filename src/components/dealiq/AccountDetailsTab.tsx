@@ -75,9 +75,15 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
 
   const [tempStage, setTempStage] = useState(deal.stage)
   const [tempForecast, setTempForecast] = useState(deal.forecastStatus)
-  const [tempCloseDate, setTempCloseDate] = useState(
-    deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toISOString().split('T')[0] : ''
-  )
+  const [tempCloseDate, setTempCloseDate] = useState(() => {
+    if (!deal.expectedCloseDate) return ''
+    // Format date to YYYY-MM-DD in local timezone to avoid timezone shift
+    const date = new Date(deal.expectedCloseDate)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })
   const [tempCommissionPercent, setTempCommissionPercent] = useState(deal.commissionPercent || 0)
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
@@ -177,7 +183,8 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const handleSaveCloseDate = async () => {
     setIsSaving(true)
     try {
-      const newDate = tempCloseDate ? new Date(tempCloseDate) : null
+      // Fix timezone issue by appending noon time to avoid day shifting
+      const newDate = tempCloseDate ? new Date(tempCloseDate + 'T12:00:00') : null
       await onUpdate({ expectedCloseDate: newDate })
       setIsEditingCloseDate(false)
     } catch (error) {
@@ -416,13 +423,13 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
           <h3 className="text-lg font-bold text-neutral-900">Deal Tracking</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Stage */}
-          <div>
+          <div className="min-w-0">
             <div className="text-sm text-neutral-500 mb-2">Stage</div>
             {!isEditingStage ? (
               <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStageColors(deal.stage).bg} ${getStageColors(deal.stage).text}`}>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStageColors(deal.stage).bg} ${getStageColors(deal.stage).text} truncate max-w-full`}>
                   {getStageLabel(deal.stage)}
                 </span>
                 <button
@@ -430,17 +437,17 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                     setTempStage(deal.stage)
                     setIsEditingStage(true)
                   }}
-                  className="text-neutral-400 hover:text-primary-600 transition-colors"
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <select
                   value={tempStage}
                   onChange={(e) => setTempStage(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   disabled={isSaving}
                 >
                   {DEAL_STAGES.map(stage => (
@@ -452,14 +459,14 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                 <button
                   onClick={handleSaveStage}
                   disabled={isSaving}
-                  className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <Check className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsEditingStage(false)}
                   disabled={isSaving}
-                  className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -468,7 +475,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
           </div>
 
           {/* Forecast */}
-          <div>
+          <div className="min-w-0">
             <div className="text-sm text-neutral-500 mb-2">Forecast Status</div>
             {!isEditingForecast ? (
               <div className="flex items-center gap-2">
@@ -518,7 +525,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
           </div>
 
           {/* Expected Close Date */}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
               <Calendar className="w-4 h-4" />
               Expected Close
@@ -537,31 +544,31 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                     )
                     setIsEditingCloseDate(true)
                   }}
-                  className="text-neutral-400 hover:text-primary-600 transition-colors"
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <input
                   type="date"
                   value={tempCloseDate}
                   onChange={(e) => setTempCloseDate(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   disabled={isSaving}
                 />
                 <button
                   onClick={handleSaveCloseDate}
                   disabled={isSaving}
-                  className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <Check className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsEditingCloseDate(false)}
                   disabled={isSaving}
-                  className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -570,7 +577,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
           </div>
 
           {/* Created */}
-          <div>
+          <div className="min-w-0">
             <div className="text-sm text-neutral-500 mb-2">Created</div>
             <div className="font-medium text-neutral-900">{createdDate}</div>
           </div>
@@ -788,85 +795,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         </div>
       )}
 
-      {/* Key Metrics Card */}
-      {metrics && (
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary-600" />
-              <h3 className="text-lg font-bold text-neutral-900">Key Metrics</h3>
-            </div>
-            {deal.analysis && (
-              <span className="text-sm text-neutral-500">
-                From analysis: {deal.analysis.name}
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Cap Rate */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">Cap Rate</div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {metrics.capRate != null ? formatPercentage(metrics.capRate * 100, 2) : 'N/A'}
-              </div>
-            </div>
-
-            {/* Cash-on-Cash */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">Cash-on-Cash</div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {metrics.cashOnCashReturn != null ? formatPercentage(metrics.cashOnCashReturn * 100, 2) : 'N/A'}
-              </div>
-            </div>
-
-            {/* NOI */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">Annual NOI</div>
-              <div className="text-xl font-bold text-neutral-900">
-                {formatCurrency(metrics.netOperatingIncome)}
-              </div>
-            </div>
-
-            {/* Cash Flow */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">Annual Cash Flow</div>
-              <div className="text-xl font-bold text-neutral-900">
-                {formatCurrency(metrics.annualCashFlow)}
-              </div>
-            </div>
-
-            {/* GRM */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">GRM</div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {metrics.grossRentMultiplier?.toFixed(2) || 'N/A'}
-              </div>
-            </div>
-
-            {/* DSCR */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">DSCR</div>
-              <div className="text-2xl font-bold text-neutral-900">
-                {metrics.debtServiceCoverageRatio === null || metrics.debtServiceCoverageRatio === undefined
-                  ? 'N/A'
-                  : metrics.debtServiceCoverageRatio === Infinity 
-                  ? '∞' 
-                  : metrics.debtServiceCoverageRatio.toFixed(2)}
-              </div>
-            </div>
-
-            {/* Total Investment */}
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="text-xs text-neutral-500 mb-1">Total Investment</div>
-              <div className="text-xl font-bold text-neutral-900">
-                {formatCurrency(metrics.totalInvestment)}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* P&L Statement with Current vs Market */}
       {plData && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
@@ -875,7 +803,17 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
               <Receipt className="w-5 h-5 text-primary-600" />
               <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>
             </div>
-            <span className="text-sm text-neutral-500">Monthly</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-neutral-500">Monthly</span>
+              {deal.analysis && (
+                <a
+                  href={`/dashboard?analysisId=${deal.analysis.id}`}
+                  className="text-sm text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-1"
+                >
+                  📊 View Analysis
+                </a>
+              )}
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -1028,6 +966,74 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                 </div>
               </div>
             </div>
+
+            {/* KEY METRICS */}
+            {metrics && (
+              <div className="pt-4 border-t border-neutral-200">
+                <div className="text-sm font-semibold text-neutral-900 mb-3">KEY METRICS</div>
+                <div className="grid grid-cols-3 gap-4 text-xs">
+                  {/* Cap Rate */}
+                  <div className="text-neutral-600">• Cap Rate:</div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.current.noi * 12 > 0 
+                      ? formatPercentage((plData.current.noi * 12 / deal.price) * 100, 2)
+                      : 'N/A'}
+                  </div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.market.noi * 12 > 0 
+                      ? formatPercentage((plData.market.noi * 12 / deal.price) * 100, 2)
+                      : 'N/A'}
+                  </div>
+                  
+                  {/* Cash-on-Cash Return */}
+                  {metrics.totalInvestment && metrics.totalInvestment > 0 && (
+                    <>
+                      <div className="text-neutral-600">• Cash-on-Cash:</div>
+                      <div className="text-neutral-900 text-right font-medium">
+                        {formatPercentage((plData.current.cashFlow * 12 / metrics.totalInvestment) * 100, 2)}
+                      </div>
+                      <div className="text-neutral-900 text-right font-medium">
+                        {formatPercentage((plData.market.cashFlow * 12 / metrics.totalInvestment) * 100, 2)}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* GRM */}
+                  <div className="text-neutral-600">• GRM:</div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.current.rentalIncome * 12 > 0 
+                      ? (deal.price / (plData.current.rentalIncome * 12)).toFixed(2)
+                      : 'N/A'}
+                  </div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.market.rentalIncome * 12 > 0 
+                      ? (deal.price / (plData.market.rentalIncome * 12)).toFixed(2)
+                      : 'N/A'}
+                  </div>
+                  
+                  {/* DSCR */}
+                  <div className="text-neutral-600">• DSCR:</div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.current.debtService > 0 
+                      ? (plData.current.noi / plData.current.debtService).toFixed(2)
+                      : 'N/A'}
+                  </div>
+                  <div className="text-neutral-900 text-right font-medium">
+                    {plData.market.debtService > 0 
+                      ? (plData.market.noi / plData.market.debtService).toFixed(2)
+                      : 'N/A'}
+                  </div>
+                </div>
+                
+                {/* Metrics that don't vary */}
+                <div className="mt-3 pt-3 border-t border-neutral-100 text-xs text-neutral-600">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>• Total Investment: <span className="font-medium text-neutral-900">{formatCurrency(metrics.totalInvestment)}</span></div>
+                    {deal.units && <div>• Price/Unit: <span className="font-medium text-neutral-900">{formatCurrency(deal.price / deal.units)}</span></div>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
