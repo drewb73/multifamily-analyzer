@@ -98,6 +98,12 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
 
       if (data.success) {
         console.log('✅ Deal loaded:', data.deal.dealId)
+        console.log('  Property info:', {
+          units: data.deal.units,
+          squareFeet: data.deal.squareFeet,
+          pricePerUnit: data.deal.pricePerUnit,
+          pricePerSqft: data.deal.pricePerSqft
+        })
         console.log('  Has analysis:', !!data.deal.analysis)
         if (data.deal.analysis?.data) {
           const analysisData = typeof data.deal.analysis.data === 'string'
@@ -105,6 +111,10 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
             : data.deal.analysis.data
           console.log('  Analysis down payment:', analysisData?.property?.downPayment)
           console.log('  Analysis loan amount:', analysisData?.property?.loanAmount)
+          console.log('  Analysis property:', {
+            totalUnits: analysisData?.property?.totalUnits,
+            propertySize: analysisData?.property?.propertySize
+          })
         }
         setDeal(data.deal)
       } else {

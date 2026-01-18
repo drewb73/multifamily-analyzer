@@ -90,6 +90,19 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
   const [tempDownPayment, setTempDownPayment] = useState(0)
+  
+  // ✨ NEW: Property information edit states
+  const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [tempAddress, setTempAddress] = useState(deal.address)
+  const [tempCity, setTempCity] = useState(deal.city || '')
+  const [tempState, setTempState] = useState(deal.state || '')
+  const [tempZipCode, setTempZipCode] = useState(deal.zipCode || '')
+  
+  const [isEditingUnits, setIsEditingUnits] = useState(false)
+  const [tempUnits, setTempUnits] = useState(deal.units || 0)
+  
+  const [isEditingSqft, setIsEditingSqft] = useState(false)
+  const [tempSqft, setTempSqft] = useState(deal.squareFeet || 0)
 
   // Format created date as mm/dd/yyyy
   const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
@@ -300,6 +313,183 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     }
   }
 
+  // ✨ NEW: Save address information
+  const handleSaveAddress = async () => {
+    setIsSaving(true)
+    try {
+      console.log('💾 Saving address:', { tempAddress, tempCity, tempState, tempZipCode })
+      
+      // Update Deal first
+      const dealUpdateResponse = await fetch(`/api/dealiq/${deal.dealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          address: tempAddress,
+          city: tempCity,
+          state: tempState,
+          zipCode: tempZipCode
+        })
+      })
+
+      if (!dealUpdateResponse.ok) {
+        throw new Error('Failed to update deal')
+      }
+
+      console.log('✅ Deal updated with new address')
+      
+      // Also update analysis if linked
+      if (deal.analysis?.id) {
+        console.log('📊 Updating analysis...')
+        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: tempAddress,
+            city: tempCity,
+            state: tempState,
+            zipCode: tempZipCode
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to update analysis')
+        }
+        console.log('✅ Analysis updated')
+      }
+      
+      // Add tiny delay to ensure database commits before refetch
+      console.log('⏱️ Waiting for database commit...')
+      await new Promise(resolve => setTimeout(resolve, 150))
+      
+      console.log('🔄 Calling onRefresh to get fresh data...')
+      await onRefresh()
+      console.log('✅ Refresh complete')
+      
+      setIsEditingAddress(false)
+    } catch (error) {
+      console.error('Failed to update address:', error)
+      alert('Failed to update address')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // ✨ NEW: Save units
+  const handleSaveUnits = async () => {
+    setIsSaving(true)
+    try {
+      console.log('💾 Saving units:', tempUnits)
+      
+      const newPricePerUnit = tempUnits > 0 ? deal.price / tempUnits : null
+      
+      // Update Deal first
+      const dealUpdateResponse = await fetch(`/api/dealiq/${deal.dealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          units: tempUnits,
+          pricePerUnit: newPricePerUnit
+        })
+      })
+
+      if (!dealUpdateResponse.ok) {
+        throw new Error('Failed to update deal')
+      }
+
+      console.log('✅ Deal updated with units:', tempUnits)
+      
+      // Update analysis if linked
+      if (deal.analysis?.id) {
+        console.log('📊 Updating analysis...')
+        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            totalUnits: tempUnits
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to update analysis')
+        }
+        console.log('✅ Analysis updated')
+      }
+      
+      // Add tiny delay to ensure database commits before refetch
+      console.log('⏱️ Waiting for database commit...')
+      await new Promise(resolve => setTimeout(resolve, 150))
+      
+      console.log('🔄 Calling onRefresh to get fresh data...')
+      await onRefresh()
+      console.log('✅ Refresh complete')
+      
+      setIsEditingUnits(false)
+    } catch (error) {
+      console.error('Failed to update units:', error)
+      alert('Failed to update units')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // ✨ NEW: Save square feet
+  const handleSaveSqft = async () => {
+    setIsSaving(true)
+    try {
+      console.log('💾 Saving square feet:', tempSqft)
+      
+      const newPricePerSqft = tempSqft > 0 ? deal.price / tempSqft : null
+      
+      // Update Deal first
+      const dealUpdateResponse = await fetch(`/api/dealiq/${deal.dealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          squareFeet: tempSqft,
+          pricePerSqft: newPricePerSqft
+        })
+      })
+
+      if (!dealUpdateResponse.ok) {
+        throw new Error('Failed to update deal')
+      }
+
+      console.log('✅ Deal updated with sqft:', tempSqft)
+      
+      // Update analysis if linked
+      if (deal.analysis?.id) {
+        console.log('📊 Updating analysis...')
+        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertySize: tempSqft
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to update analysis')
+        }
+        console.log('✅ Analysis updated')
+      }
+      
+      // Add tiny delay to ensure database commits before refetch
+      console.log('⏱️ Waiting for database commit...')
+      await new Promise(resolve => setTimeout(resolve, 150))
+      
+      console.log('🔄 Calling onRefresh to get fresh data...')
+      await onRefresh()
+      console.log('✅ Refresh complete')
+      
+      setIsEditingSqft(false)
+    } catch (error) {
+      console.error('Failed to update sqft:', error)
+      alert('Failed to update square feet')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'Not set'
@@ -455,55 +645,212 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Address */}
+          {/* Address - Now Editable */}
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
               <MapPin className="w-4 h-4" />
               Address
             </div>
-            <div className="font-medium text-neutral-900">{deal.address}</div>
-            {(deal.city || deal.state) && (
-              <div className="text-sm text-neutral-600">
-                {deal.city}{deal.city && deal.state ? ', ' : ''}{deal.state} {deal.zipCode}
+            {!isEditingAddress ? (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <div className="font-medium text-neutral-900">{deal.address}</div>
+                  {(deal.city || deal.state) && (
+                    <div className="text-sm text-neutral-600">
+                      {deal.city}{deal.city && deal.state ? ', ' : ''}{deal.state} {deal.zipCode}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setTempAddress(deal.address)
+                    setTempCity(deal.city || '')
+                    setTempState(deal.state || '')
+                    setTempZipCode(deal.zipCode || '')
+                    setIsEditingAddress(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Street Address"
+                    value={tempAddress}
+                    onChange={(e) => setTempAddress(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={tempCity}
+                    onChange={(e) => setTempCity(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                  />
+                  <input
+                    type="text"
+                    placeholder="State"
+                    value={tempState}
+                    onChange={(e) => setTempState(e.target.value)}
+                    className="w-16 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                    maxLength={2}
+                  />
+                  <input
+                    type="text"
+                    placeholder="ZIP"
+                    value={tempZipCode}
+                    onChange={(e) => setTempZipCode(e.target.value)}
+                    className="w-20 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                    maxLength={10}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveAddress}
+                    disabled={isSaving}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingAddress(false)}
+                    disabled={isSaving}
+                    className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Units */}
-          {deal.units && (
-            <div>
-              <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
-                <Home className="w-4 h-4" />
-                Units
-              </div>
-              <div className="font-medium text-neutral-900">{deal.units} units</div>
-              {deal.pricePerUnit && (
-                <div className="text-sm text-neutral-600">
-                  {formatCurrency(deal.pricePerUnit)}/unit
-                </div>
-              )}
+          {/* Units - Now Editable */}
+          <div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
+              <Home className="w-4 h-4" />
+              Units
             </div>
-          )}
-
-          {/* Square Feet */}
-          {deal.squareFeet && (
-            <div>
-              <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
-                <Ruler className="w-4 h-4" />
-                Square Feet
-              </div>
-              <div className="font-medium text-neutral-900">
-                {deal.squareFeet.toLocaleString()} sq ft
-              </div>
-              {deal.pricePerSqft && (
-                <div className="text-sm text-neutral-600">
-                  {formatCurrency(deal.pricePerSqft)}/sq ft
+            {!isEditingUnits ? (
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="font-medium text-neutral-900">
+                    {deal.units ? `${deal.units} units` : 'Not set'}
+                  </div>
+                  {deal.pricePerUnit && (
+                    <div className="text-sm text-neutral-600">
+                      {formatCurrency(deal.pricePerUnit)}/unit
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+                <button
+                  onClick={() => {
+                    setTempUnits(deal.units || 0)
+                    setIsEditingUnits(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={tempUnits}
+                  onChange={(e) => setTempUnits(parseInt(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                  placeholder="Number of units"
+                />
+                <button
+                  onClick={handleSaveUnits}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingUnits(false)}
+                  disabled={isSaving}
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
 
-          {/* Purchase Price */}
+          {/* Square Feet - Now Editable */}
+          <div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
+              <Ruler className="w-4 h-4" />
+              Square Feet
+            </div>
+            {!isEditingSqft ? (
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="font-medium text-neutral-900">
+                    {deal.squareFeet ? `${deal.squareFeet.toLocaleString()} sq ft` : 'Not set'}
+                  </div>
+                  {deal.pricePerSqft && (
+                    <div className="text-sm text-neutral-600">
+                      {formatCurrency(deal.pricePerSqft)}/sq ft
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setTempSqft(deal.squareFeet || 0)
+                    setIsEditingSqft(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  step="100"
+                  value={tempSqft}
+                  onChange={(e) => setTempSqft(parseInt(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                  placeholder="Square footage"
+                />
+                <button
+                  onClick={handleSaveSqft}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingSqft(false)}
+                  disabled={isSaving}
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Purchase Price - Not Editable (will be in #3) */}
           <div>
             <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
               <DollarSign className="w-4 h-4" />
@@ -512,7 +859,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
           </div>
 
-          {/* Financing Type */}
+          {/* Financing Type - Not Editable */}
           <div>
             <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
               <Hash className="w-4 h-4" />

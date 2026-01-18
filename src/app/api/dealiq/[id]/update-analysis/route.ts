@@ -40,9 +40,17 @@ export async function PATCH(
 
     const { id: dealIdOrMongoId } = await params
     const body = await request.json()
-    const { downPayment } = body
+    const { 
+      downPayment, 
+      address, 
+      city, 
+      state, 
+      zipCode, 
+      totalUnits, 
+      propertySize 
+    } = body
 
-    console.log('📥 Request body:', { downPayment, type: typeof downPayment })
+    console.log('📥 Request body:', body)
 
     // Find the deal (using dealId or MongoDB ID)
     let deal = await prisma.deal.findFirst({
@@ -130,77 +138,104 @@ export async function PATCH(
     // ✅ Use Deal's financing type (not analysis)
     const isCashPurchase = dealWithAnalysis.financingType === 'cash'
     
-    if (isCashPurchase) {
-      return NextResponse.json(
-        { 
-          error: 'Cannot update down payment for cash purchases',
-          details: 'This property is marked as an all-cash purchase'
-        },
-        { status: 400 }
-      )
-    }
-
-    // Parse down payment
-    const newDownPayment = typeof downPayment === 'string' 
-      ? parseFloat(downPayment.replace(/,/g, ''))
-      : downPayment
-
-    if (isNaN(newDownPayment) || newDownPayment < 0) {
-      return NextResponse.json(
-        { error: 'Invalid down payment amount' },
-        { status: 400 }
-      )
-    }
-
-    // ✅ Use Deal's price (not analysis price)
-    const purchasePrice = dealWithAnalysis.price || 0
-
-    console.log('✅ Validation values:', {
-      newDownPayment,
-      purchasePrice,
-      source: 'Deal record (not analysis)',
-      isValid: newDownPayment <= purchasePrice
-    })
-
-    if (newDownPayment > purchasePrice) {
-      console.log('❌ VALIDATION FAILED!')
-      return NextResponse.json(
-        { 
-          error: 'Down payment cannot exceed purchase price',
-          details: `Down payment: $${newDownPayment.toLocaleString()}, Purchase price: $${purchasePrice.toLocaleString()}`
-        },
-        { status: 400 }
-      )
-    }
-
-    console.log(`✅ Validation passed! Updating down payment from ${analysisData.property?.downPayment || 'not set'} to ${newDownPayment}`)
-
-    // Calculate new loan amount
-    const newLoanAmount = purchasePrice - newDownPayment
-
-    console.log('💰 New values:', {
-      purchasePrice,
-      newDownPayment,
-      newLoanAmount,
-      percentDown: ((newDownPayment / purchasePrice) * 100).toFixed(2) + '%'
-    })
-
-    // Update the analysis data structure
-    // We'll update/create the property object with down payment info
+    // Start with existing analysis data
     const updatedAnalysisData = {
       ...analysisData,
       property: {
-        ...(analysisData.property || {}),
-        downPayment: newDownPayment,
-        loanAmount: newLoanAmount
-        // Note: We're NOT storing price here since it lives on the Deal
+        ...(analysisData.property || {})
       }
     }
 
-    console.log('📝 Updating analysis with:', {
-      downPayment: newDownPayment,
-      loanAmount: newLoanAmount
-    })
+    console.log('📝 Processing updates...')
+
+    // Handle down payment update
+    if (downPayment !== undefined) {
+      if (isCashPurchase) {
+        return NextResponse.json(
+          { 
+            error: 'Cannot update down payment for cash purchases',
+            details: 'This property is marked as an all-cash purchase'
+          },
+          { status: 400 }
+        )
+      }
+
+      const newDownPayment = typeof downPayment === 'string' 
+        ? parseFloat(downPayment.replace(/,/g, ''))
+        : downPayment
+
+      if (isNaN(newDownPayment) || newDownPayment < 0) {
+        return NextResponse.json(
+          { error: 'Invalid down payment amount' },
+          { status: 400 }
+        )
+      }
+
+      const purchasePrice = dealWithAnalysis.price || 0
+
+      if (newDownPayment > purchasePrice) {
+        return NextResponse.json(
+          { 
+            error: 'Down payment cannot exceed purchase price',
+            details: `Down payment: $${newDownPayment.toLocaleString()}, Purchase price: $${purchasePrice.toLocaleString()}`
+          },
+          { status: 400 }
+        )
+      }
+
+      const newLoanAmount = purchasePrice - newDownPayment
+      
+      updatedAnalysisData.property.downPayment = newDownPayment
+      updatedAnalysisData.property.loanAmount = newLoanAmount
+      
+      console.log('✅ Down payment updated:', newDownPayment)
+    }
+
+    // Handle address updates
+    if (address !== undefined) {
+      updatedAnalysisData.property.address = address
+      console.log('✅ Address updated:', address)
+    }
+    if (city !== undefined) {
+      updatedAnalysisData.property.city = city
+      console.log('✅ City updated:', city)
+    }
+    if (state !== undefined) {
+      updatedAnalysisData.property.state = state
+      console.log('✅ State updated:', state)
+    }
+    if (zipCode !== undefined) {
+      updatedAnalysisData.property.zipCode = zipCode
+      console.log('✅ ZIP code updated:', zipCode)
+    }
+
+    // Handle units update
+    if (totalUnits !== undefined) {
+      const units = typeof totalUnits === 'string' ? parseInt(totalUnits) : totalUnits
+      if (isNaN(units) || units < 1) {
+        return NextResponse.json(
+          { error: 'Invalid number of units' },
+          { status: 400 }
+        )
+      }
+      updatedAnalysisData.property.totalUnits = units
+      console.log('✅ Units updated:', units)
+    }
+
+    // Handle square footage update
+    if (propertySize !== undefined) {
+      const sqft = typeof propertySize === 'string' ? parseInt(propertySize) : propertySize
+      if (isNaN(sqft) || sqft < 1) {
+        return NextResponse.json(
+          { error: 'Invalid square footage' },
+          { status: 400 }
+        )
+      }
+      updatedAnalysisData.property.propertySize = sqft
+      console.log('✅ Square footage updated:', sqft)
+    }
+
+    console.log('📝 Updating analysis in database...')
 
     // Update in propertyAnalysis table
     await prisma.propertyAnalysis.update({
@@ -213,12 +248,21 @@ export async function PATCH(
 
     console.log('✅ Analysis updated successfully!')
 
-    return NextResponse.json({
-      success: true,
-      downPayment: newDownPayment,
-      loanAmount: newLoanAmount,
-      percentDown: ((newDownPayment / purchasePrice) * 100).toFixed(2)
-    })
+    // Return relevant data based on what was updated
+    const response: any = { success: true }
+    
+    if (downPayment !== undefined) {
+      response.downPayment = updatedAnalysisData.property.downPayment
+      response.loanAmount = updatedAnalysisData.property.loanAmount
+    }
+    if (address !== undefined) response.address = address
+    if (city !== undefined) response.city = city
+    if (state !== undefined) response.state = state
+    if (zipCode !== undefined) response.zipCode = zipCode
+    if (totalUnits !== undefined) response.totalUnits = updatedAnalysisData.property.totalUnits
+    if (propertySize !== undefined) response.propertySize = updatedAnalysisData.property.propertySize
+
+    return NextResponse.json(response)
 
   } catch (error) {
     console.error('❌ Error updating analysis:', error)

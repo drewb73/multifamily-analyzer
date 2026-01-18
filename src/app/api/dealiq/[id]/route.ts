@@ -290,6 +290,31 @@ export async function PATCH(
       })
     }
 
+    // ✨ NEW: Check for property field changes
+    if (body.address !== undefined && body.address !== deal.address) {
+      changes.push({
+        field: 'address',
+        old: deal.address,
+        new: body.address
+      })
+    }
+
+    if (body.units !== undefined && body.units !== deal.units) {
+      changes.push({
+        field: 'units',
+        old: deal.units,
+        new: body.units
+      })
+    }
+
+    if (body.squareFeet !== undefined && body.squareFeet !== deal.squareFeet) {
+      changes.push({
+        field: 'squareFeet',
+        old: deal.squareFeet,
+        new: body.squareFeet
+      })
+    }
+
     // Update the deal
     const updatedDeal = await prisma.deal.update({
       where: { id: deal.id },
@@ -299,12 +324,22 @@ export async function PATCH(
         expectedCloseDate: body.expectedCloseDate !== undefined 
           ? (body.expectedCloseDate ? new Date(body.expectedCloseDate) : null)
           : deal.expectedCloseDate,
-        // New fields
+        // Commission fields
         commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : deal.commissionPercent,
         commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : deal.commissionAmount,
         netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
+        // Loan fields
         loanRate: body.loanRate !== undefined ? body.loanRate : deal.loanRate,
         loanTerm: body.loanTerm !== undefined ? body.loanTerm : deal.loanTerm,
+        // ✨ NEW: Property fields
+        address: body.address !== undefined ? body.address : deal.address,
+        city: body.city !== undefined ? body.city : deal.city,
+        state: body.state !== undefined ? body.state : deal.state,
+        zipCode: body.zipCode !== undefined ? body.zipCode : deal.zipCode,
+        units: body.units !== undefined ? body.units : deal.units,
+        pricePerUnit: body.pricePerUnit !== undefined ? body.pricePerUnit : deal.pricePerUnit,
+        squareFeet: body.squareFeet !== undefined ? body.squareFeet : deal.squareFeet,
+        pricePerSqft: body.pricePerSqft !== undefined ? body.pricePerSqft : deal.pricePerSqft,
       },
       include: {
         analysis: true,
