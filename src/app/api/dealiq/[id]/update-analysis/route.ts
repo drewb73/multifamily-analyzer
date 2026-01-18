@@ -1,74 +1,46 @@
-// FILE LOCATION: /src/app/api/dealiq/[id]/update-analysis/route.ts
-// FIXED: Use Deal price (not analysis price) + log full analysis data structure
-
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// Helper to check if ID is a valid MongoDB ObjectId
-const isValidObjectId = (id: string) => /^[a-f\d]{24}$/i.test(id)
-
-// Type for our analysis data structure (flexible since we don't know exact structure)
 interface AnalysisData {
   property?: {
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    purchasePrice?: number
+    downPayment?: number
+    loanAmount?: number
+    loanTerm?: number
+    interestRate?: number
+    propertySize?: number
+    totalUnits?: number
+    isCashPurchase?: boolean
     [key: string]: any
   }
   [key: string]: any
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log('\n🔧 UPDATE ANALYSIS ENDPOINT CALLED')
+    console.log('🔧 UPDATE ANALYSIS ENDPOINT CALLED')
     
-    const { userId: clerkId } = await auth()
-    
-    if (!clerkId) {
+    const { userId } = await auth()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from Clerk ID
-    const user = await prisma.user.findUnique({
-      where: { clerkId }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const { id: dealIdOrMongoId } = await params
+    // ✅ AWAIT params in Next.js 15
+    const { id: dealId } = await params
     const body = await request.json()
-    const { 
-      downPayment, 
-      address, 
-      city, 
-      state, 
-      zipCode, 
-      totalUnits, 
-      propertySize 
-    } = body
-
     console.log('📥 Request body:', body)
 
-    // Find the deal (using dealId or MongoDB ID)
-    let deal = await prisma.deal.findFirst({
-      where: {
-        ...(isValidObjectId(dealIdOrMongoId) 
-          ? {
-              OR: [
-                { dealId: dealIdOrMongoId },
-                { id: dealIdOrMongoId }
-              ]
-            }
-          : { dealId: dealIdOrMongoId }
-        ),
-        userId: user.id
-      },
-      include: {
-        analysis: true
-      }
+    // Fetch the deal to get analysis ID
+    const deal = await prisma.deal.findUnique({
+      where: { id: dealId, userId }
     })
 
     if (!deal) {
@@ -77,51 +49,32 @@ export async function PATCH(
 
     console.log('📊 Deal data:', {
       id: deal.id,
-      price: deal.price,                    // ✅ Price is HERE!
-      financingType: deal.financingType,    // ✅ Financing type is HERE!
-      hasAnalysis: !!deal.analysis
+      price: deal.price,
+      financingType: deal.financingType,
+      hasAnalysisId: !!deal.analysisId
     })
 
-    // Create separate variable for TypeScript
-    let dealWithAnalysis = deal
+    if (!deal.analysisId) {
+      return NextResponse.json({ error: 'Deal has no linked analysis' }, { status: 400 })
+    }
 
-    // If analysis relation is null but analysisId exists, fetch manually
-    if (!deal.analysis && deal.analysisId) {
-      console.log('⚠️ Fetching analysis manually from propertyAnalysis table')
-      
-      const analysis = await prisma.propertyAnalysis.findFirst({
-        where: {
-          id: deal.analysisId,
-          userId: user.id
-        }
-      })
-
-      if (analysis) {
-        console.log('✅ Found analysis:', analysis.name)
-        dealWithAnalysis = {
-          ...deal,
-          analysis: analysis as any
-        }
-      } else {
-        console.log('❌ Analysis not found')
-        return NextResponse.json(
-          { error: 'No analysis linked to this deal' },
-          { status: 400 }
-        )
+    // Fetch analysis from propertyAnalysis table
+    console.log('⚠️ Fetching analysis manually from propertyAnalysis table')
+    const analysis = await prisma.propertyAnalysis.findFirst({
+      where: {
+        id: deal.analysisId,
+        userId: userId
       }
+    })
+
+    if (!analysis) {
+      return NextResponse.json({ error: 'Analysis not found' }, { status: 404 })
     }
 
-    // Verify we have an analysis
-    if (!dealWithAnalysis.analysis) {
-      return NextResponse.json(
-        { error: 'No analysis linked to this deal' },
-        { status: 400 }
-      )
-    }
+    console.log('✅ Found analysis:', analysis.name)
 
-    // Get the analysis data
-    const rawData = dealWithAnalysis.analysis.data
-    
+    // Get current analysis data
+    const rawData = analysis.data
     if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
       return NextResponse.json(
         { error: 'Invalid analysis data structure' },
@@ -131,146 +84,129 @@ export async function PATCH(
 
     const analysisData = rawData as AnalysisData
 
-    // Log the ENTIRE analysis data structure to see what's actually in there
     console.log('📋 FULL Analysis Data Structure:')
     console.log(JSON.stringify(analysisData, null, 2))
 
-    // ✅ Use Deal's financing type (not analysis)
-    const isCashPurchase = dealWithAnalysis.financingType === 'cash'
-    
-    // Start with existing analysis data
-    const updatedAnalysisData = {
-      ...analysisData,
-      property: {
-        ...(analysisData.property || {})
-      }
-    }
-
+    // Process updates
     console.log('📝 Processing updates...')
+    
+    const updatedAnalysisData = { ...analysisData }
+    const updatedProperty = { ...(analysisData.property || {}) }
+    
+    // Track what top-level fields need updating
+    const topLevelUpdates: any = {}
 
     // Handle down payment update
-    if (downPayment !== undefined) {
-      if (isCashPurchase) {
+    if (body.downPayment !== undefined) {
+      const purchasePrice = deal.price || 0
+      const isCashPurchase = deal.financingType === 'cash'
+
+      if (!isCashPurchase && body.downPayment > purchasePrice) {
         return NextResponse.json(
-          { 
-            error: 'Cannot update down payment for cash purchases',
-            details: 'This property is marked as an all-cash purchase'
-          },
+          { error: 'Down payment cannot exceed purchase price' },
           { status: 400 }
         )
       }
 
-      const newDownPayment = typeof downPayment === 'string' 
-        ? parseFloat(downPayment.replace(/,/g, ''))
-        : downPayment
+      const newLoanAmount = isCashPurchase ? 0 : purchasePrice - body.downPayment
 
-      if (isNaN(newDownPayment) || newDownPayment < 0) {
-        return NextResponse.json(
-          { error: 'Invalid down payment amount' },
-          { status: 400 }
-        )
-      }
+      console.log('✅ Validation passed! Updating down payment from', 
+        updatedProperty.downPayment, 'to', body.downPayment)
 
-      const purchasePrice = dealWithAnalysis.price || 0
-
-      if (newDownPayment > purchasePrice) {
-        return NextResponse.json(
-          { 
-            error: 'Down payment cannot exceed purchase price',
-            details: `Down payment: $${newDownPayment.toLocaleString()}, Purchase price: $${purchasePrice.toLocaleString()}`
-          },
-          { status: 400 }
-        )
-      }
-
-      const newLoanAmount = purchasePrice - newDownPayment
+      updatedProperty.downPayment = body.downPayment
+      updatedProperty.loanAmount = newLoanAmount
       
-      updatedAnalysisData.property.downPayment = newDownPayment
-      updatedAnalysisData.property.loanAmount = newLoanAmount
-      
-      console.log('✅ Down payment updated:', newDownPayment)
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.downPayment = body.downPayment
     }
 
-    // Handle address updates
-    if (address !== undefined) {
-      updatedAnalysisData.property.address = address
-      console.log('✅ Address updated:', address)
-    }
-    if (city !== undefined) {
-      updatedAnalysisData.property.city = city
-      console.log('✅ City updated:', city)
-    }
-    if (state !== undefined) {
-      updatedAnalysisData.property.state = state
-      console.log('✅ State updated:', state)
-    }
-    if (zipCode !== undefined) {
-      updatedAnalysisData.property.zipCode = zipCode
-      console.log('✅ ZIP code updated:', zipCode)
+    // Handle address update
+    if (body.address !== undefined) {
+      console.log('✅ Address updated:', body.address)
+      updatedProperty.address = body.address
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.address = body.address
     }
 
-    // Handle units update
-    if (totalUnits !== undefined) {
-      const units = typeof totalUnits === 'string' ? parseInt(totalUnits) : totalUnits
-      if (isNaN(units) || units < 1) {
-        return NextResponse.json(
-          { error: 'Invalid number of units' },
-          { status: 400 }
-        )
-      }
-      updatedAnalysisData.property.totalUnits = units
-      console.log('✅ Units updated:', units)
+    // Handle city update
+    if (body.city !== undefined) {
+      console.log('✅ City updated:', body.city)
+      updatedProperty.city = body.city
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.city = body.city
     }
 
-    // Handle square footage update
-    if (propertySize !== undefined) {
-      const sqft = typeof propertySize === 'string' ? parseInt(propertySize) : propertySize
-      if (isNaN(sqft) || sqft < 1) {
-        return NextResponse.json(
-          { error: 'Invalid square footage' },
-          { status: 400 }
-        )
-      }
-      updatedAnalysisData.property.propertySize = sqft
-      console.log('✅ Square footage updated:', sqft)
+    // Handle state update
+    if (body.state !== undefined) {
+      console.log('✅ State updated:', body.state)
+      updatedProperty.state = body.state
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.state = body.state
     }
 
+    // Handle ZIP code update
+    if (body.zipCode !== undefined) {
+      console.log('✅ ZIP code updated:', body.zipCode)
+      updatedProperty.zipCode = body.zipCode
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.zipCode = body.zipCode
+    }
+
+    // Handle total units update
+    if (body.totalUnits !== undefined) {
+      console.log('✅ Units updated:', body.totalUnits)
+      updatedProperty.totalUnits = body.totalUnits
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.totalUnits = body.totalUnits
+    }
+
+    // Handle property size (square feet) update
+    if (body.propertySize !== undefined) {
+      console.log('✅ Square footage updated:', body.propertySize)
+      updatedProperty.propertySize = body.propertySize
+      // ✅ UPDATE TOP-LEVEL FIELD
+      topLevelUpdates.propertySize = body.propertySize
+    }
+
+    // Update the property object in analysis data
+    updatedAnalysisData.property = updatedProperty
+
+    // Update analysis in database - UPDATE BOTH PLACES!
     console.log('📝 Updating analysis in database...')
-
-    // Update in propertyAnalysis table
+    console.log('📝 Top-level updates:', topLevelUpdates)
+    
     await prisma.propertyAnalysis.update({
-      where: { id: dealWithAnalysis.analysis.id },
+      where: { id: analysis.id },
       data: {
+        // ✅ UPDATE JSON DATA FIELD
         data: updatedAnalysisData as any,
+        
+        // ✅ UPDATE TOP-LEVEL FIELDS (conditionally)
+        ...(topLevelUpdates.address !== undefined && { address: topLevelUpdates.address }),
+        ...(topLevelUpdates.city !== undefined && { city: topLevelUpdates.city }),
+        ...(topLevelUpdates.state !== undefined && { state: topLevelUpdates.state }),
+        ...(topLevelUpdates.zipCode !== undefined && { zipCode: topLevelUpdates.zipCode }),
+        ...(topLevelUpdates.totalUnits !== undefined && { totalUnits: topLevelUpdates.totalUnits }),
+        ...(topLevelUpdates.propertySize !== undefined && { propertySize: topLevelUpdates.propertySize }),
+        ...(topLevelUpdates.downPayment !== undefined && { downPayment: topLevelUpdates.downPayment }),
+        
+        // Always update timestamp
         updatedAt: new Date()
       }
     })
 
     console.log('✅ Analysis updated successfully!')
 
-    // Return relevant data based on what was updated
-    const response: any = { success: true }
-    
-    if (downPayment !== undefined) {
-      response.downPayment = updatedAnalysisData.property.downPayment
-      response.loanAmount = updatedAnalysisData.property.loanAmount
-    }
-    if (address !== undefined) response.address = address
-    if (city !== undefined) response.city = city
-    if (state !== undefined) response.state = state
-    if (zipCode !== undefined) response.zipCode = zipCode
-    if (totalUnits !== undefined) response.totalUnits = updatedAnalysisData.property.totalUnits
-    if (propertySize !== undefined) response.propertySize = updatedAnalysisData.property.propertySize
-
-    return NextResponse.json(response)
+    // Return success with updated values
+    return NextResponse.json({
+      success: true,
+      ...body
+    })
 
   } catch (error) {
     console.error('❌ Error updating analysis:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to update analysis',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to update analysis', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

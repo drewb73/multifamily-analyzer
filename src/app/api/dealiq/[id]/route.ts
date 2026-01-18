@@ -1,217 +1,149 @@
-// FILE LOCATION: /src/app/api/dealiq/[id]/route.ts
-// PURPOSE: Individual deal operations - Get, Update, Delete
-// FIXED: Using propertyAnalysis model with proper TypeScript casting
-
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// GET - Get single deal
+// ✅ GET - Fetch a single deal with all relations
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
-    
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
-    })
+    // ✅ AWAIT params in Next.js 15
+    const { id: paramId } = await params
+    
+    console.log('🔍 Looking for deal with ID:', paramId, 'for user:', userId)
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+    // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    const { id } = await params
-
-    console.log('🔍 Looking for deal with ID:', id, 'for user:', user.id)
-
-    // Try to find by dealId first (the 7-digit number users see)
-    let deal = await prisma.deal.findFirst({
-      where: {
-        dealId: id,
-        userId: user.id
-      },
-      include: {
-        analysis: true,
-        contacts: true,
-        notes: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                firstName: true,
-                lastName: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        changes: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                firstName: true,
-                lastName: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      }
-    })
-
-    // If not found by dealId, try by MongoDB ID as fallback
-    if (!deal) {
-      console.log('❌ Not found by dealId, trying MongoDB ID...')
-      deal = await prisma.deal.findFirst({
-        where: {
-          id: id,
-          userId: user.id
-        },
+    // Use separate queries to avoid Prisma ObjectID validation issues
+    let deal
+    if (isObjectId) {
+      // Query by MongoDB id, then verify userId
+      deal = await prisma.deal.findUnique({
+        where: { id: paramId },
         include: {
-          analysis: true,
           contacts: true,
           notes: {
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
+            orderBy: { createdAt: 'desc' }
           },
           changes: {
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
+            orderBy: { createdAt: 'desc' },
+            take: 50
+          }
+        }
+      })
+      // Check if deal exists and belongs to user
+      if (!deal || deal.userId !== userId) {
+        deal = null
+      }
+    } else {
+      // Query by dealId and userId together
+      deal = await prisma.deal.findFirst({
+        where: {
+          userId: userId,
+          dealId: paramId
+        },
+        include: {
+          contacts: true,
+          notes: {
+            orderBy: { createdAt: 'desc' }
+          },
+          changes: {
+            orderBy: { createdAt: 'desc' },
+            take: 50
           }
         }
       })
     }
 
     if (!deal) {
-      console.log('❌ Deal not found with either dealId or MongoDB ID')
-      
-      // Debug: List all deals for this user
-      const userDeals = await prisma.deal.findMany({
-        where: { userId: user.id },
-        select: { id: true, dealId: true, address: true }
-      })
-      console.log('📋 User has these deals:', userDeals)
-      
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
-    // ========================================
-    // ✨ CRITICAL FIX: Use propertyAnalysis model with proper type casting
-    // ========================================
-    let responseData: any = deal
-    
-    if (!deal.analysis && deal.analysisId) {
+    // Try to fetch analysis if analysisId exists
+    let analysis = null
+    if (deal.analysisId) {
       console.log('⚠️ Analysis relation is null, fetching manually for ID:', deal.analysisId)
       
-      try {
-        // ✨ FIXED: Changed from prisma.analysis to prisma.propertyAnalysis
-        const analysis = await prisma.propertyAnalysis.findFirst({
-          where: {
-            id: deal.analysisId,
-            userId: user.id
-          }
-        })
-        
-        if (analysis) {
-          console.log('✅ Manually fetched analysis:', analysis.name)
-          // Merge analysis into deal response with type casting
-          responseData = {
-            ...deal,
-            analysis: analysis as any
-          }
-        } else {
-          console.log('❌ Analysis not found or user does not own it')
+      analysis = await prisma.propertyAnalysis.findFirst({
+        where: {
+          id: deal.analysisId,
+          userId: userId
         }
-      } catch (error) {
-        console.error('Error fetching analysis:', error)
+      })
+      
+      if (analysis) {
+        console.log('✅ Manually fetched analysis:', analysis.name)
       }
     }
 
-    console.log('✅ Deal found:', responseData.dealId)
+    console.log('✅ Deal found:', deal.dealId)
     console.log('📊 Analysis status:', {
-      hasAnalysisId: !!responseData.analysisId,
-      analysisId: responseData.analysisId,
-      hasAnalysis: !!responseData.analysis,
-      analysisName: responseData.analysis?.name
+      hasAnalysisId: !!deal.analysisId,
+      analysisId: deal.analysisId,
+      hasAnalysis: !!analysis,
+      analysisName: analysis?.name
     })
 
-    return NextResponse.json({ success: true, deal: responseData })
+    return NextResponse.json({
+      deal: {
+        ...deal,
+        analysis: analysis
+      }
+    })
+
   } catch (error) {
-    console.error('Get deal error:', error)
-    return NextResponse.json({ error: 'Failed to fetch deal' }, { status: 500 })
+    console.error('❌ Error fetching deal:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch deal' },
+      { status: 500 }
+    )
   }
 }
 
-// PATCH - Update deal details
+// ✅ PATCH - Update deal fields
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
-    
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const { id } = await params
+    // ✅ AWAIT params in Next.js 15
+    const { id: paramId } = await params
     const body = await request.json()
 
-    console.log('🔄 Updating deal:', id, 'with:', body)
+    console.log('🔄 Updating deal:', paramId, 'with:', body)
 
-    // Try to find by dealId first
-    let deal = await prisma.deal.findFirst({
-      where: {
-        dealId: id,
-        userId: user.id
+    // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
+
+    // Use separate queries to avoid Prisma ObjectID validation issues
+    let deal
+    if (isObjectId) {
+      // Query by MongoDB id, then verify userId
+      deal = await prisma.deal.findUnique({
+        where: { id: paramId }
+      })
+      // Check if deal exists and belongs to user
+      if (!deal || deal.userId !== userId) {
+        deal = null
       }
-    })
-
-    // Fallback to MongoDB ID
-    if (!deal) {
+    } else {
+      // Query by dealId and userId together
       deal = await prisma.deal.findFirst({
         where: {
-          id: id,
-          userId: user.id
+          userId: userId,
+          dealId: paramId
         }
       })
     }
@@ -220,99 +152,71 @@ export async function PATCH(
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
-    // Track what changed for activity log
-    const changes: Array<{ field: string, old: any, new: any }> = []
+    // Track changes for activity log
+    const changes: Array<{ field: string; old: any; new: any }> = []
 
-    // Check for stage change
-    if (body.stage && body.stage !== deal.stage) {
-      changes.push({
-        field: 'stage',
-        old: deal.stage,
-        new: body.stage
-      })
+    // Check what fields changed
+    if (body.stage !== undefined && body.stage !== deal.stage) {
+      changes.push({ field: 'stage', old: deal.stage, new: body.stage })
     }
 
-    // Check for forecast change
-    if (body.forecastStatus && body.forecastStatus !== deal.forecastStatus) {
-      changes.push({
-        field: 'forecastStatus',
-        old: deal.forecastStatus,
-        new: body.forecastStatus
-      })
+    if (body.forecastStatus !== undefined && body.forecastStatus !== deal.forecastStatus) {
+      changes.push({ field: 'forecastStatus', old: deal.forecastStatus, new: body.forecastStatus })
     }
 
-    // Check for close date change
     if (body.expectedCloseDate !== undefined) {
-      const oldDate = deal.expectedCloseDate?.toISOString() || null
-      const newDate = body.expectedCloseDate ? new Date(body.expectedCloseDate).toISOString() : null
-      if (oldDate !== newDate) {
-        changes.push({
-          field: 'expectedCloseDate',
-          old: oldDate,
-          new: newDate
-        })
+      const newDate = body.expectedCloseDate ? new Date(body.expectedCloseDate) : null
+      const oldDate = deal.expectedCloseDate
+      if (newDate?.getTime() !== oldDate?.getTime()) {
+        changes.push({ field: 'expectedCloseDate', old: oldDate, new: newDate })
       }
     }
 
-    // Check for commission percent change
     if (body.commissionPercent !== undefined && body.commissionPercent !== deal.commissionPercent) {
-      changes.push({
-        field: 'commissionPercent',
-        old: deal.commissionPercent,
-        new: body.commissionPercent
-      })
+      changes.push({ field: 'commissionPercent', old: deal.commissionPercent, new: body.commissionPercent })
     }
 
-    // Check for net value change
-    if (body.netValue !== undefined && body.netValue !== deal.netValue) {
-      changes.push({
-        field: 'netValue',
-        old: deal.netValue,
-        new: body.netValue
-      })
-    }
-
-    // Check for loan rate change
     if (body.loanRate !== undefined && body.loanRate !== deal.loanRate) {
-      changes.push({
-        field: 'loanRate',
-        old: deal.loanRate,
-        new: body.loanRate
-      })
+      changes.push({ field: 'loanRate', old: deal.loanRate, new: body.loanRate })
     }
 
-    // Check for loan term change
     if (body.loanTerm !== undefined && body.loanTerm !== deal.loanTerm) {
-      changes.push({
-        field: 'loanTerm',
-        old: deal.loanTerm,
-        new: body.loanTerm
-      })
+      changes.push({ field: 'loanTerm', old: deal.loanTerm, new: body.loanTerm })
     }
 
-    // ✨ NEW: Check for property field changes
+    if (body.netValue !== undefined && body.netValue !== deal.netValue) {
+      changes.push({ field: 'netValue', old: deal.netValue, new: body.netValue })
+    }
+
+    // ✅ Property fields
     if (body.address !== undefined && body.address !== deal.address) {
-      changes.push({
-        field: 'address',
-        old: deal.address,
-        new: body.address
-      })
+      changes.push({ field: 'address', old: deal.address, new: body.address })
+    }
+
+    if (body.city !== undefined && body.city !== deal.city) {
+      changes.push({ field: 'city', old: deal.city, new: body.city })
+    }
+
+    if (body.state !== undefined && body.state !== deal.state) {
+      changes.push({ field: 'state', old: deal.state, new: body.state })
+    }
+
+    if (body.zipCode !== undefined && body.zipCode !== deal.zipCode) {
+      changes.push({ field: 'zipCode', old: deal.zipCode, new: body.zipCode })
     }
 
     if (body.units !== undefined && body.units !== deal.units) {
-      changes.push({
-        field: 'units',
-        old: deal.units,
-        new: body.units
-      })
+      changes.push({ field: 'units', old: deal.units, new: body.units })
     }
 
     if (body.squareFeet !== undefined && body.squareFeet !== deal.squareFeet) {
-      changes.push({
-        field: 'squareFeet',
-        old: deal.squareFeet,
-        new: body.squareFeet
-      })
+      changes.push({ field: 'squareFeet', old: deal.squareFeet, new: body.squareFeet })
+    }
+
+    // Calculate commission if price or percent changed
+    let commissionAmount = deal.commissionAmount
+    if (body.commissionPercent !== undefined && deal.price) {
+      commissionAmount = deal.price * (body.commissionPercent / 100)
     }
 
     // Update the deal
@@ -321,17 +225,14 @@ export async function PATCH(
       data: {
         stage: body.stage || deal.stage,
         forecastStatus: body.forecastStatus || deal.forecastStatus,
-        expectedCloseDate: body.expectedCloseDate !== undefined 
-          ? (body.expectedCloseDate ? new Date(body.expectedCloseDate) : null)
-          : deal.expectedCloseDate,
-        // Commission fields
+        expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : deal.expectedCloseDate,
         commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : deal.commissionPercent,
-        commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : deal.commissionAmount,
-        netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
-        // Loan fields
+        commissionAmount: commissionAmount,
         loanRate: body.loanRate !== undefined ? body.loanRate : deal.loanRate,
         loanTerm: body.loanTerm !== undefined ? body.loanTerm : deal.loanTerm,
-        // ✨ NEW: Property fields
+        netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
+        
+        // ✅ Property fields
         address: body.address !== undefined ? body.address : deal.address,
         city: body.city !== undefined ? body.city : deal.city,
         state: body.state !== undefined ? body.state : deal.state,
@@ -340,150 +241,99 @@ export async function PATCH(
         pricePerUnit: body.pricePerUnit !== undefined ? body.pricePerUnit : deal.pricePerUnit,
         squareFeet: body.squareFeet !== undefined ? body.squareFeet : deal.squareFeet,
         pricePerSqft: body.pricePerSqft !== undefined ? body.pricePerSqft : deal.pricePerSqft,
-      },
-      include: {
-        analysis: true,
-        contacts: true,
-        notes: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                firstName: true,
-                lastName: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        changes: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                firstName: true,
-                lastName: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
+        
+        updatedAt: new Date(),
+        ...(body.stage !== undefined && body.stage !== deal.stage && {
+          stageChangedAt: new Date(),
+          previousStage: deal.stage
+        })
       }
     })
 
-    // ✨ FIXED: Manually fetch analysis if relation is null with proper type casting
-    let responseData: any = updatedDeal
-    
-    if (!updatedDeal.analysis && updatedDeal.analysisId) {
-      const analysis = await prisma.propertyAnalysis.findFirst({
-        where: {
-          id: updatedDeal.analysisId,
-          userId: user.id
-        }
-      })
-      if (analysis) {
-        responseData = {
-          ...updatedDeal,
-          analysis: analysis as any
-        }
-      }
-    }
-
-    // Create change records for activity log
-    for (const change of changes) {
-      await prisma.dealChange.create({
-        data: {
+    // Log changes if any
+    if (changes.length > 0) {
+      await prisma.dealChange.createMany({
+        data: changes.map(change => ({
           dealId: deal.id,
-          userId: user.id,
+          userId: userId,
           fieldName: change.field,
-          previousValue: String(change.old),
-          newValue: String(change.new)
-        }
+          oldValue: change.old?.toString() || null,
+          newValue: change.new?.toString() || null
+        }))
       })
     }
 
     console.log('✅ Deal updated successfully')
 
-    return NextResponse.json({ success: true, deal: responseData })
+    return NextResponse.json({ deal: updatedDeal })
+
   } catch (error) {
-    console.error('Update deal error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to update deal',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('❌ Error updating deal:', error)
+    return NextResponse.json(
+      { error: 'Failed to update deal' },
+      { status: 500 }
+    )
   }
 }
 
-// DELETE - Delete a deal
+// ✅ DELETE - Delete a deal
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
-    
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
-    })
+    // ✅ AWAIT params in Next.js 15
+    const { id: paramId } = await params
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+    console.log('🗑️ Deleting deal:', paramId)
 
-    const { id } = await params
+    // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    console.log('🗑️ Attempting to delete deal:', id, 'for user:', user.id)
-
-    // Try to find by dealId first (the 7-digit number)
-    let deal = await prisma.deal.findFirst({
-      where: {
-        dealId: id,
-        userId: user.id
+    // Use separate queries to avoid Prisma ObjectID validation issues
+    let deal
+    if (isObjectId) {
+      // Query by MongoDB id, then verify userId
+      deal = await prisma.deal.findUnique({
+        where: { id: paramId }
+      })
+      // Check if deal exists and belongs to user
+      if (!deal || deal.userId !== userId) {
+        deal = null
       }
-    })
-
-    // If not found by dealId, try by MongoDB ID as fallback
-    if (!deal) {
-      console.log('Not found by dealId, trying MongoDB ID...')
+    } else {
+      // Query by dealId and userId together
       deal = await prisma.deal.findFirst({
         where: {
-          id: id,
-          userId: user.id
+          userId: userId,
+          dealId: paramId
         }
       })
     }
 
     if (!deal) {
-      console.log('❌ Deal not found or user does not own it')
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
-    console.log('✅ Deal found, deleting...')
-
-    // Delete the deal using MongoDB ID (cascade will delete contacts, notes, changes)
+    // Delete the deal (cascade will handle related records)
     await prisma.deal.delete({
       where: { id: deal.id }
     })
 
     console.log('✅ Deal deleted successfully')
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Deal deleted successfully' 
-    })
+    return NextResponse.json({ success: true })
+
   } catch (error) {
-    console.error('Delete deal error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to delete deal',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('❌ Error deleting deal:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete deal' },
+      { status: 500 }
+    )
   }
 }
