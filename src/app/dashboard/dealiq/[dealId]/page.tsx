@@ -97,7 +97,15 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       const data = await response.json()
 
       if (data.success) {
-        console.log('✅ Deal loaded:', data.deal)
+        console.log('✅ Deal loaded:', data.deal.dealId)
+        console.log('  Has analysis:', !!data.deal.analysis)
+        if (data.deal.analysis?.data) {
+          const analysisData = typeof data.deal.analysis.data === 'string'
+            ? JSON.parse(data.deal.analysis.data)
+            : data.deal.analysis.data
+          console.log('  Analysis down payment:', analysisData?.property?.downPayment)
+          console.log('  Analysis loan amount:', analysisData?.property?.loanAmount)
+        }
         setDeal(data.deal)
       } else {
         setError('Deal not found')
@@ -410,7 +418,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       {/* Tab Content */}
       <div>
         {activeTab === 'account' && (
-          <AccountDetailsTab deal={deal} onUpdate={handleUpdateDeal} />
+          <AccountDetailsTab 
+            deal={deal} 
+            onUpdate={handleUpdateDeal}
+            onRefresh={refetchDeal}
+          />
         )}
 
         {activeTab === 'contacts' && (

@@ -62,9 +62,10 @@ interface Deal {
 interface AccountDetailsTabProps {
   deal: Deal
   onUpdate: (updates: Partial<Deal>) => Promise<void>
+  onRefresh: () => Promise<void>  // New: For refetching after analysis updates
 }
 
-export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
+export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsTabProps) {
   const [isEditingStage, setIsEditingStage] = useState(false)
   const [isEditingForecast, setIsEditingForecast] = useState(false)
   const [isEditingCloseDate, setIsEditingCloseDate] = useState(false)
@@ -123,6 +124,14 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         if (loanAmount > 0 && rate > 0 && term > 0) {
           monthlyPayment = loanAmount * rate * Math.pow(1 + rate, term) / (Math.pow(1 + rate, term) - 1)
         }
+        
+        console.log('💰 Component calculations (from deal.analysis.data):')
+        console.log('  Deal price:', deal.price)
+        console.log('  Down payment from analysis:', downPayment)
+        console.log('  Calculated loan amount:', loanAmount)
+        console.log('  Interest rate:', rate * 12 * 100, '%')
+        console.log('  Loan term:', term / 12, 'years')
+        console.log('  Monthly payment:', monthlyPayment)
       }
     }
   }
@@ -218,6 +227,8 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     setIsSaving(true)
     try {
       await onUpdate({ loanRate: tempLoanRate })
+      // Refetch to get updated calculations
+      await onRefresh()
       setIsEditingLoanRate(false)
     } catch (error) {
       console.error('Failed to update loan rate:', error)
@@ -231,6 +242,8 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     setIsSaving(true)
     try {
       await onUpdate({ loanTerm: tempLoanTerm })
+      // Refetch to get updated calculations
+      await onRefresh()
       setIsEditingLoanTerm(false)
     } catch (error) {
       console.error('Failed to update loan term:', error)
@@ -251,6 +264,12 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         return
       }
 
+      console.log('💾 Saving down payment change:')
+      console.log('  Deal ID:', deal.id)
+      console.log('  Analysis ID:', deal.analysis.id)
+      console.log('  Old down payment:', downPayment)
+      console.log('  New down payment:', tempDownPayment)
+
       const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -263,9 +282,15 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         const errorData = await response.json()
         throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
       }
+
+      const result = await response.json()
+      console.log('✅ API response:', result)
       
-      // Trigger parent refresh
-      await onUpdate({})
+      console.log('🔄 Calling onRefresh to get fresh data...')
+      // Trigger parent refresh to get updated analysis data
+      await onRefresh()
+      
+      console.log('✅ Refresh complete, closing editor')
       setIsEditingDownPayment(false)
     } catch (error) {
       console.error('Failed to update down payment:', error)
@@ -385,7 +410,11 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     const noiCurrent = totalIncomeCurrent - totalExpensesCurrent
     const noiMarket = totalIncomeMarket - totalExpensesMarket
 
-    const mortgagePayment = monthlyBreakdown.mortgagePayment || 0
+    // ✅ FIX: Use the recalculated monthlyPayment variable (lines 106-129)
+    // instead of stale monthlyBreakdown.mortgagePayment
+    const mortgagePayment = monthlyPayment || 0
+    
+    console.log('📊 P&L using monthly payment:', mortgagePayment, '(from recalculated value)')
 
     const cashFlowCurrent = noiCurrent - mortgagePayment
     const cashFlowMarket = noiMarket - mortgagePayment
@@ -1110,14 +1139,15 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                   </div>
                   
                   {/* Cash-on-Cash Return */}
-                  {metrics.totalInvestment && metrics.totalInvestment > 0 && (
+                  {/* ✅ Use recalculated total investment based on current down payment */}
+                  {downPayment > 0 && (
                     <>
                       <div className="text-neutral-600">• Cash-on-Cash:</div>
                       <div className="text-neutral-900 text-right font-medium">
-                        {formatPercentage((plData.current.cashFlow * 12 / metrics.totalInvestment) * 100, 2)}
+                        {formatPercentage((plData.current.cashFlow * 12 / downPayment) * 100, 2)}
                       </div>
                       <div className="text-neutral-900 text-right font-medium">
-                        {formatPercentage((plData.market.cashFlow * 12 / metrics.totalInvestment) * 100, 2)}
+                        {formatPercentage((plData.market.cashFlow * 12 / downPayment) * 100, 2)}
                       </div>
                     </>
                   )}
@@ -1152,7 +1182,8 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
                 {/* Metrics that don't vary */}
                 <div className="mt-3 pt-3 border-t border-neutral-100 text-xs text-neutral-600">
                   <div className="grid grid-cols-2 gap-2">
-                    <div>• Total Investment: <span className="font-medium text-neutral-900">{formatCurrency(metrics.totalInvestment)}</span></div>
+                    {/* ✅ Use recalculated down payment instead of stale metrics.totalInvestment */}
+                    <div>• Total Investment: <span className="font-medium text-neutral-900">{formatCurrency(downPayment)}</span></div>
                     {deal.units && <div>• Price/Unit: <span className="font-medium text-neutral-900">{formatCurrency(deal.price / deal.units)}</span></div>}
                   </div>
                 </div>
