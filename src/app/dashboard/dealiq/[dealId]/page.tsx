@@ -16,7 +16,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
-import { getStageLabel, getStageColors } from '@/lib/dealiq-constants'
+import { getStageLabel, getStageColors, DEAL_STAGES } from '@/lib/dealiq-constants'
 import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 import { ContactsTab } from '@/components/dealiq/ContactsTab'
 import { NotesTab } from '@/components/dealiq/NotesTab'
@@ -218,8 +218,137 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
           </div>
         </div>
 
+        {/* Stage Progress Bar */}
+        <div className="mb-6">
+          {/* Mobile Version - Simple Progress Bar */}
+          <div className="md:hidden">
+            {deal.stage === 'on_hold' ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 border-2 border-neutral-400 rounded-full">
+                  <span className="text-xl">⏸️</span>
+                  <span className="text-sm font-semibold text-neutral-700">7 - On Hold</span>
+                </div>
+              </div>
+            ) : (() => {
+              const currentStage = DEAL_STAGES.find(s => s.id === deal.stage)
+              const currentOrder = currentStage?.order || 0
+              const maxOrder = 6
+              const progressPercent = Math.min((currentOrder / maxOrder) * 100, 100)
+              
+              return (
+                <div className="space-y-3">
+                  {/* Stage Info */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-neutral-900">
+                        {currentStage?.label || 'Unknown Stage'}
+                      </div>
+                      <div className="text-xs text-neutral-500 mt-0.5">
+                        Stage {currentOrder} of {maxOrder}
+                      </div>
+                    </div>
+                    <div className={`
+                      w-10 h-10 rounded-full border-3 flex items-center justify-center font-bold text-sm
+                      bg-primary-600 border-primary-600 text-white shadow-md
+                    `}>
+                      {currentOrder}
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="relative h-2 bg-neutral-200 rounded-full overflow-hidden">
+                    <div 
+                      className="absolute top-0 left-0 h-full bg-primary-600 rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  
+                  {/* Progress Text */}
+                  <div className="text-xs text-neutral-500 text-center">
+                    {progressPercent.toFixed(0)}% Complete
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Desktop Version - Circle Timeline */}
+          <div className="hidden md:block">
+            <div className="relative px-8">
+              {/* Background Line */}
+              <div className="absolute top-6 left-8 right-8 h-1 bg-neutral-200 rounded-full" />
+              
+              {/* Active Progress Line */}
+              {deal.stage !== 'on_hold' && (() => {
+                const currentStage = DEAL_STAGES.find(s => s.id === deal.stage)
+                const currentOrder = currentStage?.order || 0
+                const maxOrder = 6
+                const progressPercent = Math.min((currentOrder / maxOrder) * 100, 100)
+                
+                return (
+                  <div 
+                    className="absolute top-6 left-8 h-1 bg-primary-600 rounded-full transition-all duration-500" 
+                    style={{ width: `calc(${progressPercent}% + ${currentOrder * 0.5}rem)` }}
+                  />
+                )
+              })()}
+
+              {/* Stage Circles */}
+              <div className="relative flex justify-between items-start">
+                {DEAL_STAGES.filter(stage => stage.order <= 6).map((stage) => {
+                  const currentStageOrder = DEAL_STAGES.find(s => s.id === deal.stage)?.order || 0
+                  const isActive = stage.id === deal.stage || (
+                    stage.order === 6 && (deal.stage === 'closed_won' || deal.stage === 'closed_lost')
+                  )
+                  const isCompleted = currentStageOrder > stage.order && deal.stage !== 'on_hold'
+
+                  return (
+                    <div key={stage.id} className="flex flex-col items-center" style={{ flex: 1 }}>
+                      {/* Circle */}
+                      <div className={`
+                        relative w-12 h-12 rounded-full border-4 flex items-center justify-center font-bold text-sm z-10 transition-all duration-300
+                        ${isActive 
+                          ? 'bg-primary-600 border-primary-600 text-white shadow-lg scale-110' 
+                          : isCompleted
+                          ? 'bg-success-500 border-success-500 text-white'
+                          : 'bg-white border-neutral-300 text-neutral-400'
+                        }
+                      `}>
+                        {stage.order}
+                      </div>
+                      
+                      {/* Label */}
+                      <div className={`
+                        mt-2 text-center text-xs font-medium leading-tight transition-colors
+                        ${isActive 
+                          ? 'text-primary-700 font-semibold' 
+                          : isCompleted 
+                          ? 'text-success-700' 
+                          : 'text-neutral-500'
+                        }
+                      `} style={{ maxWidth: '90px' }}>
+                        {stage.label.replace(/^\d+\s*-\s*/, '')}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* On Hold Indicator */}
+              {deal.stage === 'on_hold' && (
+                <div className="mt-6 flex items-center justify-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 border-2 border-neutral-400 rounded-full">
+                    <span className="text-xl">⏸️</span>
+                    <span className="text-sm font-semibold text-neutral-700">7 - On Hold</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {/* Deal ID */}
           <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
             <div className="text-xs text-neutral-500 mb-1">Deal ID</div>
@@ -239,14 +368,6 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
               <div className="text-lg font-bold text-neutral-900">{deal.units}</div>
             </div>
           )}
-          
-          {/* Stage */}
-          <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
-            <div className="text-xs text-neutral-500 mb-1">Stage</div>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColors.bg} ${stageColors.text}`}>
-              {getStageLabel(deal.stage)}
-            </span>
-          </div>
         </div>
       </div>
 

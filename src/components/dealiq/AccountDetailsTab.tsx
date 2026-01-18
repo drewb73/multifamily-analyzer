@@ -248,6 +248,49 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     })
   }
 
+  // Get color-coded pill colors for stages (progression from early to Closed Won)
+  const getStagePillColors = (stageId: string) => {
+    const colorMap: Record<string, { bg: string; text: string }> = {
+      'prospecting': { 
+        bg: 'bg-neutral-200', 
+        text: 'text-neutral-700' 
+      },
+      'lead_qualification': { 
+        bg: 'bg-blue-100', 
+        text: 'text-blue-700' 
+      },
+      'formal_underwriting': { 
+        bg: 'bg-blue-200', 
+        text: 'text-blue-800' 
+      },
+      'offer_loi': { 
+        bg: 'bg-yellow-200', 
+        text: 'text-yellow-800' 
+      },
+      'negotiation': { 
+        bg: 'bg-orange-200', 
+        text: 'text-orange-800' 
+      },
+      'in_contract': { 
+        bg: 'bg-green-200', 
+        text: 'text-green-800' 
+      },
+      'closed_won': { 
+        bg: 'bg-green-700', 
+        text: 'text-white' 
+      },
+      'closed_lost': { 
+        bg: 'bg-red-600', 
+        text: 'text-white' 
+      },
+      'on_hold': { 
+        bg: 'bg-neutral-300', 
+        text: 'text-neutral-700' 
+      }
+    }
+    return colorMap[stageId] || { bg: 'bg-neutral-100', text: 'text-neutral-600' }
+  }
+
   // Calculate P&L with Current vs Market Rents
   const calculatePL = () => {
     if (!analysisData || !monthlyBreakdown) return null
@@ -429,7 +472,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             <div className="text-sm text-neutral-500 mb-2">Stage</div>
             {!isEditingStage ? (
               <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStageColors(deal.stage).bg} ${getStageColors(deal.stage).text} truncate max-w-full`}>
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold truncate max-w-full ${getStagePillColors(deal.stage).bg} ${getStagePillColors(deal.stage).text}`}>
                   {getStageLabel(deal.stage)}
                 </span>
                 <button
