@@ -71,6 +71,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [isEditingCommission, setIsEditingCommission] = useState(false)
   const [isEditingLoanRate, setIsEditingLoanRate] = useState(false)
   const [isEditingLoanTerm, setIsEditingLoanTerm] = useState(false)
+  const [isEditingDownPayment, setIsEditingDownPayment] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [tempStage, setTempStage] = useState(deal.stage)
@@ -87,6 +88,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [tempCommissionPercent, setTempCommissionPercent] = useState(deal.commissionPercent || 0)
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
+  const [tempDownPayment, setTempDownPayment] = useState(0)
 
   // Format created date as mm/dd/yyyy
   const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
@@ -233,6 +235,41 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     } catch (error) {
       console.error('Failed to update loan term:', error)
       alert('Failed to update loan term')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveDownPayment = async () => {
+    setIsSaving(true)
+    try {
+      // Update the analysis with new down payment
+      if (!deal.analysis?.id) {
+        alert('No property analysis linked to this deal. Please create or link an analysis first.')
+        setIsEditingDownPayment(false)
+        setIsSaving(false)
+        return
+      }
+
+      const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          downPayment: tempDownPayment
+        })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+      }
+      
+      // Trigger parent refresh
+      await onUpdate({})
+      setIsEditingDownPayment(false)
+    } catch (error) {
+      console.error('Failed to update down payment:', error)
+      alert(`Failed to update down payment: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -717,11 +754,55 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
 
             {/* Down Payment */}
             <div>
-              <div className="text-sm text-neutral-500 mb-1">Down Payment</div>
-              <div className="font-medium text-neutral-900">{formatCurrency(downPayment)}</div>
-              <div className="text-xs text-neutral-500 mt-1">
-                {downPayment > 0 ? `${((downPayment / deal.price) * 100).toFixed(1)}% down` : ''}
-              </div>
+              <div className="text-sm text-neutral-500 mb-2">Down Payment</div>
+              {!isEditingDownPayment ? (
+                <div className="flex items-center gap-2">
+                  <div>
+                    <div className="font-medium text-neutral-900">{formatCurrency(downPayment)}</div>
+                    {downPayment > 0 && (
+                      <div className="text-xs text-neutral-500 mt-1">
+                        {((downPayment / deal.price) * 100).toFixed(1)}% down
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTempDownPayment(downPayment)
+                      setIsEditingDownPayment(true)
+                    }}
+                    className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="1000"
+                    min="0"
+                    max={deal.price}
+                    value={tempDownPayment}
+                    onChange={(e) => setTempDownPayment(parseFloat(e.target.value) || 0)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                  />
+                  <button
+                    onClick={handleSaveDownPayment}
+                    disabled={isSaving}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingDownPayment(false)}
+                    disabled={isSaving}
+                    className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Loan Amount */}
