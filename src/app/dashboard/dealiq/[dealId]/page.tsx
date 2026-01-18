@@ -207,12 +207,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <Briefcase className="w-6 h-6 text-primary-600" />
-              <h1 className="text-2xl font-bold text-neutral-900">Deal #{deal.dealId}</h1>
+              <Building2 className="w-6 h-6 text-primary-600" />
+              <h1 className="text-3xl font-bold text-neutral-900">{deal.address}</h1>
             </div>
-            <p className="text-lg text-neutral-700">{deal.address}</p>
             {(deal.city || deal.state) && (
-              <p className="text-sm text-neutral-600">
+              <p className="text-base text-neutral-600 ml-9">
                 {deal.city}{deal.city && deal.state ? ', ' : ''}{deal.state} {deal.zipCode}
               </p>
             )}
@@ -221,16 +220,27 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Deal ID */}
+          <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
+            <div className="text-xs text-neutral-500 mb-1">Deal ID</div>
+            <div className="text-lg font-bold text-neutral-900">{deal.dealId}</div>
+          </div>
+          
+          {/* Price */}
           <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
             <div className="text-xs text-neutral-500 mb-1">Price</div>
             <div className="text-lg font-bold text-neutral-900">{formatCurrency(deal.price)}</div>
           </div>
+          
+          {/* Units */}
           {deal.units && (
             <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
               <div className="text-xs text-neutral-500 mb-1">Units</div>
               <div className="text-lg font-bold text-neutral-900">{deal.units}</div>
             </div>
           )}
+          
+          {/* Stage */}
           <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
             <div className="text-xs text-neutral-500 mb-1">Stage</div>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColors.bg} ${stageColors.text}`}>
