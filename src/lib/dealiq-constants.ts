@@ -8,7 +8,7 @@
 export const DEAL_STAGES = [
   {
     id: 'prospecting',
-    label: 'Prospecting',
+    label: '0 - Prospecting',
     description: 'Initial property research and lead generation',
     color: 'neutral',
     probability: 10,
@@ -17,7 +17,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'lead_qualification',
-    label: 'Lead Qualification',
+    label: '1 - Lead Qualification',
     description: 'Qualifying the opportunity and initial screening',
     color: 'blue',
     probability: 25,
@@ -26,7 +26,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'formal_underwriting',
-    label: 'Formal Underwriting/Analysis',
+    label: '2 - Formal Underwriting/Analysis',
     description: 'Detailed financial analysis and due diligence prep',
     color: 'purple',
     probability: 40,
@@ -35,7 +35,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'offer_loi',
-    label: 'Offer/LOI',
+    label: '3 - Offer/LOI',
     description: 'Letter of Intent or formal offer submitted',
     color: 'yellow',
     probability: 60,
@@ -44,7 +44,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'negotiation',
-    label: 'Negotiation & Terms',
+    label: '4 - Negotiation & Terms',
     description: 'Negotiating price, terms, and contract details',
     color: 'orange',
     probability: 75,
@@ -53,7 +53,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'in_contract',
-    label: 'In Contract',
+    label: '5 - In Contract',
     description: 'Under contract, performing due diligence',
     color: 'indigo',
     probability: 90,
@@ -62,7 +62,7 @@ export const DEAL_STAGES = [
   },
   {
     id: 'closed_won',
-    label: 'Closed Won',
+    label: '6 - Closed Won',
     description: 'Deal successfully closed!',
     color: 'success',
     probability: 100,
@@ -72,21 +72,21 @@ export const DEAL_STAGES = [
   },
   {
     id: 'closed_lost',
-    label: 'Closed Cancelled/Lost',
+    label: '6 - Closed Cancelled/Lost',
     description: 'Deal cancelled or fell through',
     color: 'error',
     probability: 0,
-    order: 7,
+    order: 6,
     icon: '❌',
     isFinal: true
   },
   {
     id: 'on_hold',
-    label: 'On Hold',
+    label: '7 - On Hold',
     description: 'Paused, revisit later',
     color: 'gray',
     probability: null,
-    order: 8,
+    order: 7,
     icon: '⏸️',
     isParked: true
   },

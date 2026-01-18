@@ -19,8 +19,7 @@ import {
   Hash,
   Receipt,
   Percent,
-  Calculator,
-  BadgeDollarSign
+  Calculator
 } from 'lucide-react'
 import { 
   DEAL_STAGES, 
@@ -72,7 +71,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [isEditingCommission, setIsEditingCommission] = useState(false)
   const [isEditingLoanRate, setIsEditingLoanRate] = useState(false)
   const [isEditingLoanTerm, setIsEditingLoanTerm] = useState(false)
-  const [isEditingNetValue, setIsEditingNetValue] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [tempStage, setTempStage] = useState(deal.stage)
@@ -83,9 +81,13 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [tempCommissionPercent, setTempCommissionPercent] = useState(deal.commissionPercent || 0)
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
-  const [tempNetValue, setTempNetValue] = useState(deal.netValue || 0)
 
-  const daysInPipeline = calculateDaysInPipeline(new Date(deal.createdAt))
+  // Format created date as mm/dd/yyyy
+  const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  })
 
   // Calculate commission amount
   const commissionAmount = deal.commissionPercent 
@@ -229,18 +231,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     }
   }
 
-  const handleSaveNetValue = async () => {
-    setIsSaving(true)
-    try {
-      await onUpdate({ netValue: tempNetValue })
-      setIsEditingNetValue(false)
-    } catch (error) {
-      console.error('Failed to update net value:', error)
-      alert('Failed to update net value')
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'Not set'
@@ -479,7 +469,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
 
           {/* Forecast */}
           <div>
-            <div className="text-sm text-neutral-500 mb-2">Forecast</div>
+            <div className="text-sm text-neutral-500 mb-2">Forecast Status</div>
             {!isEditingForecast ? (
               <div className="flex items-center gap-2">
                 <span className="font-medium text-neutral-900">
@@ -579,10 +569,10 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             )}
           </div>
 
-          {/* Days in Pipeline */}
+          {/* Created */}
           <div>
-            <div className="text-sm text-neutral-500 mb-2">Days in Pipeline</div>
-            <div className="font-medium text-neutral-900">{daysInPipeline} days</div>
+            <div className="text-sm text-neutral-500 mb-2">Created</div>
+            <div className="font-medium text-neutral-900">{createdDate}</div>
           </div>
         </div>
       </div>
@@ -599,7 +589,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Commission Percent */}
           <div>
-            <div className="text-sm text-neutral-500 mb-2">Commission %</div>
+            <div className="text-sm text-neutral-500 mb-2">Expected Commission %</div>
             {!isEditingCommission ? (
               <div className="flex items-center gap-2">
                 <span className="font-medium text-neutral-900">
@@ -647,7 +637,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
 
           {/* Commission Amount */}
           <div>
-            <div className="text-sm text-neutral-500 mb-2">Commission Amount</div>
+            <div className="text-sm text-neutral-500 mb-2">Expected Commission Amount</div>
             <div className="font-medium text-neutral-900">
               {formatCurrency(commissionAmount)}
             </div>
@@ -797,94 +787,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
           </div>
         </div>
       )}
-
-      {/* ========================================
-          ✨ NEW: Deal Value Tracking Card
-          ======================================== */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <BadgeDollarSign className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-bold text-neutral-900">Deal Value</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Original List Price */}
-          <div>
-            <div className="text-sm text-neutral-500 mb-1">Original List Price</div>
-            <div className="font-medium text-neutral-900">
-              {deal.originalPurchasePrice ? formatCurrency(deal.originalPurchasePrice) : 'Not tracked'}
-            </div>
-          </div>
-
-          {/* Negotiated Price */}
-          <div>
-            <div className="text-sm text-neutral-500 mb-1">Negotiated Price</div>
-            <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
-          </div>
-
-          {/* Savings */}
-          {deal.originalPurchasePrice && deal.originalPurchasePrice > deal.price && (
-            <div>
-              <div className="text-sm text-neutral-500 mb-1">Negotiated Savings</div>
-              <div className="font-medium text-success-600">
-                {formatCurrency(deal.originalPurchasePrice - deal.price)}
-              </div>
-              <div className="text-xs text-neutral-500 mt-1">
-                {((deal.originalPurchasePrice - deal.price) / deal.originalPurchasePrice * 100).toFixed(1)}% discount
-              </div>
-            </div>
-          )}
-
-          {/* Net Value */}
-          <div>
-            <div className="text-sm text-neutral-500 mb-2">Estimated Net Value</div>
-            {!isEditingNetValue ? (
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-neutral-900">
-                  {deal.netValue ? formatCurrency(deal.netValue) : 'Not set'}
-                </span>
-                <button
-                  onClick={() => {
-                    setTempNetValue(deal.netValue || 0)
-                    setIsEditingNetValue(true)
-                  }}
-                  className="text-neutral-400 hover:text-primary-600 transition-colors"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  step="1000"
-                  value={tempNetValue}
-                  onChange={(e) => setTempNetValue(parseFloat(e.target.value) || 0)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  disabled={isSaving}
-                />
-                <button
-                  onClick={handleSaveNetValue}
-                  disabled={isSaving}
-                  className="text-success-600 hover:text-success-700 disabled:opacity-50"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsEditingNetValue(false)}
-                  disabled={isSaving}
-                  className="text-error-600 hover:text-error-700 disabled:opacity-50"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-            <div className="text-xs text-neutral-500 mt-1">
-              Equity + projected appreciation
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Key Metrics Card */}
       {metrics && (
