@@ -20,6 +20,7 @@ import { getStageLabel, getStageColors } from '@/lib/dealiq-constants'
 import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 import { ContactsTab } from '@/components/dealiq/ContactsTab'
 import { NotesTab } from '@/components/dealiq/NotesTab'
+import { ActivityLogTab } from '@/components/dealiq/ActivityLogTab'
 
 interface Deal {
   id: string
@@ -299,10 +300,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
         )}
 
         {activeTab === 'activity' && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6">
-            <h2 className="text-xl font-bold text-neutral-900 mb-4">Activity Log</h2>
-            <p className="text-neutral-600">Activity log coming next...</p>
-          </div>
+          <ActivityLogTab 
+            notes={deal.notes}
+            changes={deal.changes}
+            currentUserEmail={currentUserEmail}
+          />
         )}
       </div>
     </div>
