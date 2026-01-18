@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { getStageLabel, getStageColors } from '@/lib/dealiq-constants'
 import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 import { ContactsTab } from '@/components/dealiq/ContactsTab'
+import { NotesTab } from '@/components/dealiq/NotesTab'
 
 interface Deal {
   id: string
@@ -60,11 +61,28 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
   const [activeTab, setActiveTab] = useState<TabType>('account')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
 
   // Unwrap params
   useEffect(() => {
     params.then(p => setDealId(p.dealId))
   }, [params])
+
+  // Get current user email
+  useEffect(() => {
+    const getUserInfo = async () => {
+      try {
+        const response = await fetch('/api/user/me')
+        const data = await response.json()
+        if (data.email) {
+          setCurrentUserEmail(data.email)
+        }
+      } catch (error) {
+        console.error('Failed to get user info:', error)
+      }
+    }
+    getUserInfo()
+  }, [])
 
   // Load deal data
   const loadDeal = async () => {
@@ -246,6 +264,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                     {deal.contacts.length}
                   </span>
                 )}
+                {tab.id === 'notes' && deal.notes.length > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full">
+                    {deal.notes.length}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -267,10 +290,12 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
         )}
 
         {activeTab === 'notes' && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6">
-            <h2 className="text-xl font-bold text-neutral-900 mb-4">Notes</h2>
-            <p className="text-neutral-600">Notes section coming next...</p>
-          </div>
+          <NotesTab 
+            dealId={deal.dealId}
+            notes={deal.notes}
+            onUpdate={refetchDeal}
+            currentUserEmail={currentUserEmail}
+          />
         )}
 
         {activeTab === 'activity' && (
