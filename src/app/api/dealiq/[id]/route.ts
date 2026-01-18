@@ -254,6 +254,42 @@ export async function PATCH(
       }
     }
 
+    // Check for commission percent change
+    if (body.commissionPercent !== undefined && body.commissionPercent !== deal.commissionPercent) {
+      changes.push({
+        field: 'commissionPercent',
+        old: deal.commissionPercent,
+        new: body.commissionPercent
+      })
+    }
+
+    // Check for net value change
+    if (body.netValue !== undefined && body.netValue !== deal.netValue) {
+      changes.push({
+        field: 'netValue',
+        old: deal.netValue,
+        new: body.netValue
+      })
+    }
+
+    // Check for loan rate change
+    if (body.loanRate !== undefined && body.loanRate !== deal.loanRate) {
+      changes.push({
+        field: 'loanRate',
+        old: deal.loanRate,
+        new: body.loanRate
+      })
+    }
+
+    // Check for loan term change
+    if (body.loanTerm !== undefined && body.loanTerm !== deal.loanTerm) {
+      changes.push({
+        field: 'loanTerm',
+        old: deal.loanTerm,
+        new: body.loanTerm
+      })
+    }
+
     // Update the deal
     const updatedDeal = await prisma.deal.update({
       where: { id: deal.id },
@@ -263,6 +299,12 @@ export async function PATCH(
         expectedCloseDate: body.expectedCloseDate !== undefined 
           ? (body.expectedCloseDate ? new Date(body.expectedCloseDate) : null)
           : deal.expectedCloseDate,
+        // New fields
+        commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : deal.commissionPercent,
+        commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : deal.commissionAmount,
+        netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
+        loanRate: body.loanRate !== undefined ? body.loanRate : deal.loanRate,
+        loanTerm: body.loanTerm !== undefined ? body.loanTerm : deal.loanTerm,
       },
       include: {
         analysis: true,

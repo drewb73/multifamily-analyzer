@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/components/dealiq/AccountDetailsTab.tsx
-// PURPOSE: Account Details tab content for deal detail page
-// ADDED: P&L Statement with Current vs Market Rent comparison
+// PURPOSE: Complete Account Details tab with all financial tracking fields
+// ADDED: Commission, Enhanced Financing, Deal Value cards
 
 'use client'
 
@@ -17,7 +17,10 @@ import {
   Home,
   Ruler,
   Hash,
-  Receipt
+  Receipt,
+  Percent,
+  Calculator,
+  BadgeDollarSign
 } from 'lucide-react'
 import { 
   DEAL_STAGES, 
@@ -48,6 +51,13 @@ interface Deal {
   financingType: string | null
   createdAt: Date
   analysis: any
+  // New fields
+  commissionPercent: number | null
+  commissionAmount: number | null
+  originalPurchasePrice: number | null
+  netValue: number | null
+  loanRate: number | null
+  loanTerm: number | null
 }
 
 interface AccountDetailsTabProps {
@@ -59,6 +69,10 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [isEditingStage, setIsEditingStage] = useState(false)
   const [isEditingForecast, setIsEditingForecast] = useState(false)
   const [isEditingCloseDate, setIsEditingCloseDate] = useState(false)
+  const [isEditingCommission, setIsEditingCommission] = useState(false)
+  const [isEditingLoanRate, setIsEditingLoanRate] = useState(false)
+  const [isEditingLoanTerm, setIsEditingLoanTerm] = useState(false)
+  const [isEditingNetValue, setIsEditingNetValue] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [tempStage, setTempStage] = useState(deal.stage)
@@ -66,50 +80,63 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
   const [tempCloseDate, setTempCloseDate] = useState(
     deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toISOString().split('T')[0] : ''
   )
+  const [tempCommissionPercent, setTempCommissionPercent] = useState(deal.commissionPercent || 0)
+  const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
+  const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
+  const [tempNetValue, setTempNetValue] = useState(deal.netValue || 0)
 
   const daysInPipeline = calculateDaysInPipeline(new Date(deal.createdAt))
 
-  // Get metrics and breakdown from linked analysis
-  useEffect(() => {
-    console.log('📊 Deal analysis data:', {
-      hasAnalysis: !!deal.analysis,
-      analysisId: deal.analysis?.id,
-      analysisName: deal.analysis?.name,
-      hasResults: !!deal.analysis?.results,
-      resultsType: typeof deal.analysis?.results,
-      results: deal.analysis?.results,
-      keyMetrics: deal.analysis?.results?.keyMetrics,
-      monthlyBreakdown: deal.analysis?.results?.monthlyBreakdown
-    })
-  }, [deal.analysis])
+  // Calculate commission amount
+  const commissionAmount = deal.commissionPercent 
+    ? (deal.price * (deal.commissionPercent / 100))
+    : (deal.commissionAmount || 0)
 
-  // Get metrics from linked analysis
+  // Calculate loan details from analysis if available
+  let downPayment = 0
+  let loanAmount = 0
+  let monthlyPayment = 0
+
+  if (deal.analysis?.data) {
+    const analysisData = typeof deal.analysis.data === 'string' 
+      ? JSON.parse(deal.analysis.data)
+      : deal.analysis.data
+
+    if (analysisData?.property) {
+      if (!analysisData.property.isCashPurchase) {
+        downPayment = analysisData.property.downPayment || 0
+        loanAmount = deal.price - downPayment
+        
+        const rate = (deal.loanRate || analysisData.property.interestRate || 6.5) / 100 / 12
+        const term = (deal.loanTerm || analysisData.property.loanTerm || 30) * 12
+        
+        if (loanAmount > 0 && rate > 0 && term > 0) {
+          monthlyPayment = loanAmount * rate * Math.pow(1 + rate, term) / (Math.pow(1 + rate, term) - 1)
+        }
+      }
+    }
+  }
+
+  // Get metrics and breakdown from linked analysis
   let metrics = null
   let monthlyBreakdown = null
-  let annualBreakdown = null
   let analysisData = null
   
   if (deal.analysis) {
-    // Try direct access first
     metrics = deal.analysis.results?.keyMetrics
     monthlyBreakdown = deal.analysis.results?.monthlyBreakdown
-    annualBreakdown = deal.analysis.results?.annualBreakdown
     analysisData = deal.analysis.data
     
-    // If results is a string, parse it
     if (!metrics && typeof deal.analysis.results === 'string') {
       try {
         const parsedResults = JSON.parse(deal.analysis.results)
         metrics = parsedResults.keyMetrics
         monthlyBreakdown = parsedResults.monthlyBreakdown
-        annualBreakdown = parsedResults.annualBreakdown
-        console.log('✅ Parsed results from string')
       } catch (e) {
         console.error('Failed to parse results:', e)
       }
     }
     
-    // Parse data if it's a string
     if (analysisData && typeof deal.analysis.data === 'string') {
       try {
         analysisData = JSON.parse(deal.analysis.data)
@@ -159,6 +186,62 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     }
   }
 
+  const handleSaveCommission = async () => {
+    setIsSaving(true)
+    try {
+      const calculatedAmount = deal.price * (tempCommissionPercent / 100)
+      await onUpdate({ 
+        commissionPercent: tempCommissionPercent,
+        commissionAmount: calculatedAmount
+      })
+      setIsEditingCommission(false)
+    } catch (error) {
+      console.error('Failed to update commission:', error)
+      alert('Failed to update commission')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveLoanRate = async () => {
+    setIsSaving(true)
+    try {
+      await onUpdate({ loanRate: tempLoanRate })
+      setIsEditingLoanRate(false)
+    } catch (error) {
+      console.error('Failed to update loan rate:', error)
+      alert('Failed to update loan rate')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveLoanTerm = async () => {
+    setIsSaving(true)
+    try {
+      await onUpdate({ loanTerm: tempLoanTerm })
+      setIsEditingLoanTerm(false)
+    } catch (error) {
+      console.error('Failed to update loan term:', error)
+      alert('Failed to update loan term')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveNetValue = async () => {
+    setIsSaving(true)
+    try {
+      await onUpdate({ netValue: tempNetValue })
+      setIsEditingNetValue(false)
+    } catch (error) {
+      console.error('Failed to update net value:', error)
+      alert('Failed to update net value')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const formatDate = (date: Date | null) => {
     if (!date) return 'Not set'
     return new Date(date).toLocaleDateString('en-US', {
@@ -168,9 +251,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     })
   }
 
-  // ========================================
-  // ✨ NEW: Calculate P&L with Current vs Market Rents
-  // ========================================
+  // Calculate P&L with Current vs Market Rents
   const calculatePL = () => {
     if (!analysisData || !monthlyBreakdown) return null
 
@@ -178,7 +259,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     const income = analysisData.income || []
     const expenses = analysisData.expenses || []
 
-    // Calculate rental income - Current vs Market
     const currentRentalIncome = unitMix.reduce((sum: number, unit: any) => 
       sum + ((unit.currentRent || 0) * (unit.count || 0)), 0
     )
@@ -187,7 +267,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
       sum + ((unit.marketRent || 0) * (unit.count || 0)), 0
     )
 
-    // Other income (same for both)
     const otherIncome = income
       .filter((inc: any) => !inc.isCalculated)
       .reduce((sum: number, inc: any) => sum + (inc.amount || 0), 0)
@@ -195,7 +274,6 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
     const totalIncomeCurrent = currentRentalIncome + otherIncome
     const totalIncomeMarket = marketRentalIncome + otherIncome
 
-    // Calculate expenses
     const expenseBreakdown = expenses.map((expense: any) => {
       let currentAmount = 0
       let marketAmount = 0
@@ -509,6 +587,305 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         </div>
       </div>
 
+      {/* ========================================
+          ✨ NEW: Commission Details Card
+          ======================================== */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Percent className="w-5 h-5 text-primary-600" />
+          <h3 className="text-lg font-bold text-neutral-900">Commission Details</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Commission Percent */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Commission %</div>
+            {!isEditingCommission ? (
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-neutral-900">
+                  {deal.commissionPercent ? `${deal.commissionPercent.toFixed(2)}%` : 'Not set'}
+                </span>
+                <button
+                  onClick={() => {
+                    setTempCommissionPercent(deal.commissionPercent || 0)
+                    setIsEditingCommission(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={tempCommissionPercent}
+                  onChange={(e) => setTempCommissionPercent(parseFloat(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                />
+                <button
+                  onClick={handleSaveCommission}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingCommission(false)}
+                  disabled={isSaving}
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Commission Amount */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Commission Amount</div>
+            <div className="font-medium text-neutral-900">
+              {formatCurrency(commissionAmount)}
+            </div>
+            <div className="text-xs text-neutral-500 mt-1">
+              Auto-calculated from price
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================
+          ✨ NEW: Enhanced Financing Details Card
+          ======================================== */}
+      {deal.financingType === 'financed' && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calculator className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-bold text-neutral-900">Financing Details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Purchase Price */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-1">Purchase Price</div>
+              <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
+            </div>
+
+            {/* Down Payment */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-1">Down Payment</div>
+              <div className="font-medium text-neutral-900">{formatCurrency(downPayment)}</div>
+              <div className="text-xs text-neutral-500 mt-1">
+                {downPayment > 0 ? `${((downPayment / deal.price) * 100).toFixed(1)}% down` : ''}
+              </div>
+            </div>
+
+            {/* Loan Amount */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-1">Loan Amount</div>
+              <div className="font-medium text-neutral-900">{formatCurrency(loanAmount)}</div>
+            </div>
+
+            {/* Interest Rate */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-2">Interest Rate</div>
+              {!isEditingLoanRate ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-neutral-900">
+                    {deal.loanRate ? `${deal.loanRate.toFixed(3)}%` : 'From analysis'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setTempLoanRate(deal.loanRate || 6.5)
+                      setIsEditingLoanRate(true)
+                    }}
+                    className="text-neutral-400 hover:text-primary-600 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    max="20"
+                    value={tempLoanRate}
+                    onChange={(e) => setTempLoanRate(parseFloat(e.target.value) || 0)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                  />
+                  <button
+                    onClick={handleSaveLoanRate}
+                    disabled={isSaving}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingLoanRate(false)}
+                    disabled={isSaving}
+                    className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Loan Term */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-2">Loan Term</div>
+              {!isEditingLoanTerm ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-neutral-900">
+                    {deal.loanTerm ? `${deal.loanTerm} years` : 'From analysis'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setTempLoanTerm(deal.loanTerm || 30)
+                      setIsEditingLoanTerm(true)
+                    }}
+                    className="text-neutral-400 hover:text-primary-600 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    max="40"
+                    value={tempLoanTerm}
+                    onChange={(e) => setTempLoanTerm(parseInt(e.target.value) || 30)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isSaving}
+                  />
+                  <button
+                    onClick={handleSaveLoanTerm}
+                    disabled={isSaving}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingLoanTerm(false)}
+                    disabled={isSaving}
+                    className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Monthly Payment */}
+            <div>
+              <div className="text-sm text-neutral-500 mb-1">Monthly Payment</div>
+              <div className="font-medium text-neutral-900">{formatCurrency(monthlyPayment)}</div>
+              <div className="text-xs text-neutral-500 mt-1">
+                Principal + Interest
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================
+          ✨ NEW: Deal Value Tracking Card
+          ======================================== */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BadgeDollarSign className="w-5 h-5 text-primary-600" />
+          <h3 className="text-lg font-bold text-neutral-900">Deal Value</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Original List Price */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-1">Original List Price</div>
+            <div className="font-medium text-neutral-900">
+              {deal.originalPurchasePrice ? formatCurrency(deal.originalPurchasePrice) : 'Not tracked'}
+            </div>
+          </div>
+
+          {/* Negotiated Price */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-1">Negotiated Price</div>
+            <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
+          </div>
+
+          {/* Savings */}
+          {deal.originalPurchasePrice && deal.originalPurchasePrice > deal.price && (
+            <div>
+              <div className="text-sm text-neutral-500 mb-1">Negotiated Savings</div>
+              <div className="font-medium text-success-600">
+                {formatCurrency(deal.originalPurchasePrice - deal.price)}
+              </div>
+              <div className="text-xs text-neutral-500 mt-1">
+                {((deal.originalPurchasePrice - deal.price) / deal.originalPurchasePrice * 100).toFixed(1)}% discount
+              </div>
+            </div>
+          )}
+
+          {/* Net Value */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Estimated Net Value</div>
+            {!isEditingNetValue ? (
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-neutral-900">
+                  {deal.netValue ? formatCurrency(deal.netValue) : 'Not set'}
+                </span>
+                <button
+                  onClick={() => {
+                    setTempNetValue(deal.netValue || 0)
+                    setIsEditingNetValue(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="1000"
+                  value={tempNetValue}
+                  onChange={(e) => setTempNetValue(parseFloat(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                />
+                <button
+                  onClick={handleSaveNetValue}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingNetValue(false)}
+                  disabled={isSaving}
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <div className="text-xs text-neutral-500 mt-1">
+              Equity + projected appreciation
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Key Metrics Card */}
       {metrics && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
@@ -586,9 +963,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         </div>
       )}
 
-      {/* ========================================
-          ✨ NEW: P&L Statement Card with Current vs Market
-          ======================================== */}
+      {/* P&L Statement with Current vs Market */}
       {plData && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -756,22 +1131,8 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
       {/* No Metrics Message */}
       {!metrics && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800 mb-2">
-            <strong>Debug Info:</strong>
-          </p>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>• Analysis linked: {deal.analysis ? 'Yes' : 'No'}</li>
-            {deal.analysis && (
-              <>
-                <li>• Analysis ID: {deal.analysis.id}</li>
-                <li>• Analysis name: {deal.analysis.name || 'Unnamed'}</li>
-                <li>• Has results: {deal.analysis.results ? 'Yes' : 'No'}</li>
-                <li>• Results type: {typeof deal.analysis.results}</li>
-              </>
-            )}
-          </ul>
-          <p className="text-sm text-blue-800 mt-3">
-            Check browser console for detailed analysis data structure.
+          <p className="text-sm text-blue-800">
+            <strong>No analysis linked.</strong> Key metrics and P&L will appear here when you link a property analysis to this deal.
           </p>
         </div>
       )}
