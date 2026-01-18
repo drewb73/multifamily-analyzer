@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/app/api/dealiq/[id]/route.ts
 // PURPOSE: Individual deal operations - Get, Update, Delete
-// FIXED: Proper null checks and type guards
+// FIXED: Using propertyAnalysis model with proper TypeScript casting
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -127,15 +127,16 @@ export async function GET(
     }
 
     // ========================================
-    // ✨ FIX: If analysis relation is null but analysisId exists, fetch it manually
+    // ✨ CRITICAL FIX: Use propertyAnalysis model with proper type casting
     // ========================================
-    let finalDeal = deal
+    let responseData: any = deal
     
     if (!deal.analysis && deal.analysisId) {
       console.log('⚠️ Analysis relation is null, fetching manually for ID:', deal.analysisId)
       
       try {
-        const analysis = await prisma.analysis.findFirst({
+        // ✨ FIXED: Changed from prisma.analysis to prisma.propertyAnalysis
+        const analysis = await prisma.propertyAnalysis.findFirst({
           where: {
             id: deal.analysisId,
             userId: user.id
@@ -144,10 +145,10 @@ export async function GET(
         
         if (analysis) {
           console.log('✅ Manually fetched analysis:', analysis.name)
-          // Merge analysis into deal response
-          finalDeal = {
+          // Merge analysis into deal response with type casting
+          responseData = {
             ...deal,
-            analysis: analysis
+            analysis: analysis as any
           }
         } else {
           console.log('❌ Analysis not found or user does not own it')
@@ -157,15 +158,15 @@ export async function GET(
       }
     }
 
-    console.log('✅ Deal found:', finalDeal.dealId)
+    console.log('✅ Deal found:', responseData.dealId)
     console.log('📊 Analysis status:', {
-      hasAnalysisId: !!finalDeal.analysisId,
-      analysisId: finalDeal.analysisId,
-      hasAnalysis: !!finalDeal.analysis,
-      analysisName: finalDeal.analysis?.name
+      hasAnalysisId: !!responseData.analysisId,
+      analysisId: responseData.analysisId,
+      hasAnalysis: !!responseData.analysis,
+      analysisName: responseData.analysis?.name
     })
 
-    return NextResponse.json({ success: true, deal: finalDeal })
+    return NextResponse.json({ success: true, deal: responseData })
   } catch (error) {
     console.error('Get deal error:', error)
     return NextResponse.json({ error: 'Failed to fetch deal' }, { status: 500 })
@@ -297,20 +298,20 @@ export async function PATCH(
       }
     })
 
-    // ✨ Manually fetch analysis if relation is null
-    let finalDeal = updatedDeal
+    // ✨ FIXED: Manually fetch analysis if relation is null with proper type casting
+    let responseData: any = updatedDeal
     
     if (!updatedDeal.analysis && updatedDeal.analysisId) {
-      const analysis = await prisma.analysis.findFirst({
+      const analysis = await prisma.propertyAnalysis.findFirst({
         where: {
           id: updatedDeal.analysisId,
           userId: user.id
         }
       })
       if (analysis) {
-        finalDeal = {
+        responseData = {
           ...updatedDeal,
-          analysis: analysis
+          analysis: analysis as any
         }
       }
     }
@@ -330,7 +331,7 @@ export async function PATCH(
 
     console.log('✅ Deal updated successfully')
 
-    return NextResponse.json({ success: true, deal: finalDeal })
+    return NextResponse.json({ success: true, deal: responseData })
   } catch (error) {
     console.error('Update deal error:', error)
     return NextResponse.json({ 

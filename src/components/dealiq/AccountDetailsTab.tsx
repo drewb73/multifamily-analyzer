@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/components/dealiq/AccountDetailsTab.tsx
 // PURPOSE: Account Details tab content for deal detail page
-// FIXED: Better analysis data handling and debugging
+// ADDED: P&L Statement with Current vs Market Rent comparison
 
 'use client'
 
@@ -16,7 +16,8 @@ import {
   X,
   Home,
   Ruler,
-  Hash
+  Hash,
+  Receipt
 } from 'lucide-react'
 import { 
   DEAL_STAGES, 
@@ -68,9 +69,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
 
   const daysInPipeline = calculateDaysInPipeline(new Date(deal.createdAt))
 
-  // ========================================
-  // ✨ IMPROVED: Better analysis data extraction with debugging
-  // ========================================
+  // Get metrics and breakdown from linked analysis
   useEffect(() => {
     console.log('📊 Deal analysis data:', {
       hasAnalysis: !!deal.analysis,
@@ -79,31 +78,45 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
       hasResults: !!deal.analysis?.results,
       resultsType: typeof deal.analysis?.results,
       results: deal.analysis?.results,
-      keyMetrics: deal.analysis?.results?.keyMetrics
+      keyMetrics: deal.analysis?.results?.keyMetrics,
+      monthlyBreakdown: deal.analysis?.results?.monthlyBreakdown
     })
   }, [deal.analysis])
 
   // Get metrics from linked analysis
-  // Try multiple possible structures
   let metrics = null
+  let monthlyBreakdown = null
+  let annualBreakdown = null
+  let analysisData = null
   
   if (deal.analysis) {
     // Try direct access first
     metrics = deal.analysis.results?.keyMetrics
+    monthlyBreakdown = deal.analysis.results?.monthlyBreakdown
+    annualBreakdown = deal.analysis.results?.annualBreakdown
+    analysisData = deal.analysis.data
     
     // If results is a string, parse it
     if (!metrics && typeof deal.analysis.results === 'string') {
       try {
         const parsedResults = JSON.parse(deal.analysis.results)
         metrics = parsedResults.keyMetrics
-        console.log('✅ Parsed metrics from string:', metrics)
+        monthlyBreakdown = parsedResults.monthlyBreakdown
+        annualBreakdown = parsedResults.annualBreakdown
+        console.log('✅ Parsed results from string')
       } catch (e) {
         console.error('Failed to parse results:', e)
       }
     }
     
-    // Log final metrics state
-    console.log('📈 Final metrics:', metrics)
+    // Parse data if it's a string
+    if (analysisData && typeof deal.analysis.data === 'string') {
+      try {
+        analysisData = JSON.parse(deal.analysis.data)
+      } catch (e) {
+        console.error('Failed to parse data:', e)
+      }
+    }
   }
 
   const handleSaveStage = async () => {
@@ -154,6 +167,99 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
       year: 'numeric'
     })
   }
+
+  // ========================================
+  // ✨ NEW: Calculate P&L with Current vs Market Rents
+  // ========================================
+  const calculatePL = () => {
+    if (!analysisData || !monthlyBreakdown) return null
+
+    const unitMix = analysisData.unitMix || []
+    const income = analysisData.income || []
+    const expenses = analysisData.expenses || []
+
+    // Calculate rental income - Current vs Market
+    const currentRentalIncome = unitMix.reduce((sum: number, unit: any) => 
+      sum + ((unit.currentRent || 0) * (unit.count || 0)), 0
+    )
+    
+    const marketRentalIncome = unitMix.reduce((sum: number, unit: any) => 
+      sum + ((unit.marketRent || 0) * (unit.count || 0)), 0
+    )
+
+    // Other income (same for both)
+    const otherIncome = income
+      .filter((inc: any) => !inc.isCalculated)
+      .reduce((sum: number, inc: any) => sum + (inc.amount || 0), 0)
+
+    const totalIncomeCurrent = currentRentalIncome + otherIncome
+    const totalIncomeMarket = marketRentalIncome + otherIncome
+
+    // Calculate expenses
+    const expenseBreakdown = expenses.map((expense: any) => {
+      let currentAmount = 0
+      let marketAmount = 0
+
+      if (expense.isPercentage) {
+        if (expense.percentageOf === 'rent') {
+          currentAmount = currentRentalIncome * (expense.amount / 100)
+          marketAmount = marketRentalIncome * (expense.amount / 100)
+        } else if (expense.percentageOf === 'income') {
+          currentAmount = totalIncomeCurrent * (expense.amount / 100)
+          marketAmount = totalIncomeMarket * (expense.amount / 100)
+        } else if (expense.percentageOf === 'propertyValue') {
+          const monthlyAmount = (deal.price * (expense.amount / 100)) / 12
+          currentAmount = monthlyAmount
+          marketAmount = monthlyAmount
+        }
+      } else {
+        currentAmount = expense.amount
+        marketAmount = expense.amount
+      }
+
+      return {
+        name: expense.name,
+        currentAmount,
+        marketAmount
+      }
+    })
+
+    const totalExpensesCurrent = expenseBreakdown.reduce((sum: number, exp: any) => sum + exp.currentAmount, 0)
+    const totalExpensesMarket = expenseBreakdown.reduce((sum: number, exp: any) => sum + exp.marketAmount, 0)
+
+    const noiCurrent = totalIncomeCurrent - totalExpensesCurrent
+    const noiMarket = totalIncomeMarket - totalExpensesMarket
+
+    const mortgagePayment = monthlyBreakdown.mortgagePayment || 0
+
+    const cashFlowCurrent = noiCurrent - mortgagePayment
+    const cashFlowMarket = noiMarket - mortgagePayment
+
+    return {
+      current: {
+        rentalIncome: currentRentalIncome,
+        otherIncome,
+        totalIncome: totalIncomeCurrent,
+        expenses: expenseBreakdown.map((e: any) => ({ name: e.name, amount: e.currentAmount })),
+        totalExpenses: totalExpensesCurrent,
+        noi: noiCurrent,
+        debtService: mortgagePayment,
+        cashFlow: cashFlowCurrent
+      },
+      market: {
+        rentalIncome: marketRentalIncome,
+        otherIncome,
+        totalIncome: totalIncomeMarket,
+        expenses: expenseBreakdown.map((e: any) => ({ name: e.name, amount: e.marketAmount })),
+        totalExpenses: totalExpensesMarket,
+        noi: noiMarket,
+        debtService: mortgagePayment,
+        cashFlow: cashFlowMarket
+      }
+    }
+  }
+
+  const plData = calculatePL()
 
   return (
     <div className="space-y-6">
@@ -480,7 +586,174 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
         </div>
       )}
 
-      {/* ✨ IMPROVED: Better debug message */}
+      {/* ========================================
+          ✨ NEW: P&L Statement Card with Current vs Market
+          ======================================== */}
+      {plData && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary-600" />
+              <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>
+            </div>
+            <span className="text-sm text-neutral-500">Monthly</span>
+          </div>
+
+          <div className="space-y-6">
+            {/* Column Headers */}
+            <div className="grid grid-cols-3 gap-4 pb-2 border-b border-neutral-200">
+              <div></div>
+              <div className="text-sm font-semibold text-neutral-600 text-right">Current</div>
+              <div className="text-sm font-semibold text-neutral-600 text-right">Market</div>
+            </div>
+
+            {/* INCOME */}
+            <div>
+              <div className="text-sm font-semibold text-neutral-900 mb-3">INCOME</div>
+              <div className="space-y-2 ml-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-sm text-neutral-700">Rental Income:</div>
+                  <div className="text-sm text-neutral-900 text-right font-medium">
+                    {formatCurrency(plData.current.rentalIncome)}
+                  </div>
+                  <div className="text-sm text-neutral-900 text-right font-medium">
+                    {formatCurrency(plData.market.rentalIncome)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-sm text-neutral-700">Other Income:</div>
+                  <div className="text-sm text-neutral-900 text-right font-medium">
+                    {formatCurrency(plData.current.otherIncome)}
+                  </div>
+                  <div className="text-sm text-neutral-900 text-right font-medium">
+                    {formatCurrency(plData.market.otherIncome)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4 pt-2 border-t border-neutral-100">
+                  <div className="text-sm font-semibold text-neutral-900">Total Income:</div>
+                  <div className="text-sm font-bold text-neutral-900 text-right">
+                    {formatCurrency(plData.current.totalIncome)}
+                  </div>
+                  <div className="text-sm font-bold text-neutral-900 text-right">
+                    {formatCurrency(plData.market.totalIncome)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* OPERATING EXPENSES */}
+            <div>
+              <div className="text-sm font-semibold text-neutral-900 mb-3">OPERATING EXPENSES</div>
+              <div className="space-y-2 ml-4">
+                {plData.current.expenses.map((expense: any, index: number) => (
+                  <div key={index} className="grid grid-cols-3 gap-4">
+                    <div className="text-sm text-neutral-700">{expense.name}:</div>
+                    <div className="text-sm text-neutral-900 text-right font-medium">
+                      {formatCurrency(expense.amount)}
+                    </div>
+                    <div className="text-sm text-neutral-900 text-right font-medium">
+                      {formatCurrency(plData.market.expenses[index].amount)}
+                    </div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-4 pt-2 border-t border-neutral-100">
+                  <div className="text-sm font-semibold text-neutral-900">Total Expenses:</div>
+                  <div className="text-sm font-bold text-neutral-900 text-right">
+                    {formatCurrency(plData.current.totalExpenses)}
+                  </div>
+                  <div className="text-sm font-bold text-neutral-900 text-right">
+                    {formatCurrency(plData.market.totalExpenses)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* NET OPERATING INCOME */}
+            <div className="grid grid-cols-3 gap-4 py-3 border-y-2 border-primary-200 bg-primary-50/30">
+              <div className="text-sm font-bold text-neutral-900">NET OPERATING INCOME</div>
+              <div className="text-sm font-bold text-primary-700 text-right">
+                {formatCurrency(plData.current.noi)}
+              </div>
+              <div className="text-sm font-bold text-primary-700 text-right">
+                {formatCurrency(plData.market.noi)}
+              </div>
+            </div>
+
+            {/* DEBT SERVICE */}
+            <div>
+              <div className="text-sm font-semibold text-neutral-900 mb-3">DEBT SERVICE</div>
+              <div className="grid grid-cols-3 gap-4 ml-4">
+                <div className="text-sm text-neutral-700">Mortgage Payment:</div>
+                <div className="text-sm text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.current.debtService)}
+                </div>
+                <div className="text-sm text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.market.debtService)}
+                </div>
+              </div>
+            </div>
+
+            {/* CASH FLOW */}
+            <div className="grid grid-cols-3 gap-4 py-3 border-y-2 border-neutral-300 bg-neutral-50">
+              <div className="text-base font-bold text-neutral-900">CASH FLOW</div>
+              <div className={`text-base font-bold text-right ${plData.current.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                {formatCurrency(plData.current.cashFlow)}
+              </div>
+              <div className={`text-base font-bold text-right ${plData.market.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                {formatCurrency(plData.market.cashFlow)}
+              </div>
+            </div>
+
+            {/* ANNUAL SUMMARY */}
+            <div className="pt-4 border-t border-neutral-200">
+              <div className="text-sm font-semibold text-neutral-900 mb-3">ANNUAL SUMMARY</div>
+              <div className="grid grid-cols-3 gap-4 text-xs">
+                <div className="text-neutral-600">• Annual Income:</div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.current.totalIncome * 12)}
+                </div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.market.totalIncome * 12)}
+                </div>
+                
+                <div className="text-neutral-600">• Annual Expenses:</div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.current.totalExpenses * 12)}
+                </div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.market.totalExpenses * 12)}
+                </div>
+                
+                <div className="text-neutral-600">• Annual NOI:</div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.current.noi * 12)}
+                </div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.market.noi * 12)}
+                </div>
+                
+                <div className="text-neutral-600">• Annual Debt Service:</div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.current.debtService * 12)}
+                </div>
+                <div className="text-neutral-900 text-right font-medium">
+                  {formatCurrency(plData.market.debtService * 12)}
+                </div>
+                
+                <div className="text-neutral-600 font-semibold">• Annual Cash Flow:</div>
+                <div className={`text-right font-bold ${plData.current.cashFlow * 12 >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                  {formatCurrency(plData.current.cashFlow * 12)}
+                </div>
+                <div className={`text-right font-bold ${plData.market.cashFlow * 12 >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                  {formatCurrency(plData.market.cashFlow * 12)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No Metrics Message */}
       {!metrics && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800 mb-2">
