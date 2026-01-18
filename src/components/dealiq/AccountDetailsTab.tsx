@@ -808,7 +808,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             <div className="bg-neutral-50 rounded-lg p-4">
               <div className="text-xs text-neutral-500 mb-1">Cap Rate</div>
               <div className="text-2xl font-bold text-neutral-900">
-                {formatPercentage(metrics.capRate * 100, 2)}
+                {metrics.capRate != null ? formatPercentage(metrics.capRate * 100, 2) : 'N/A'}
               </div>
             </div>
 
@@ -816,7 +816,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             <div className="bg-neutral-50 rounded-lg p-4">
               <div className="text-xs text-neutral-500 mb-1">Cash-on-Cash</div>
               <div className="text-2xl font-bold text-neutral-900">
-                {formatPercentage(metrics.cashOnCashReturn * 100, 2)}
+                {metrics.cashOnCashReturn != null ? formatPercentage(metrics.cashOnCashReturn * 100, 2) : 'N/A'}
               </div>
             </div>
 
@@ -840,7 +840,7 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             <div className="bg-neutral-50 rounded-lg p-4">
               <div className="text-xs text-neutral-500 mb-1">GRM</div>
               <div className="text-2xl font-bold text-neutral-900">
-                {metrics.grossRentMultiplier.toFixed(2)}
+                {metrics.grossRentMultiplier?.toFixed(2) || 'N/A'}
               </div>
             </div>
 
@@ -848,7 +848,9 @@ export function AccountDetailsTab({ deal, onUpdate }: AccountDetailsTabProps) {
             <div className="bg-neutral-50 rounded-lg p-4">
               <div className="text-xs text-neutral-500 mb-1">DSCR</div>
               <div className="text-2xl font-bold text-neutral-900">
-                {metrics.debtServiceCoverageRatio === Infinity 
+                {metrics.debtServiceCoverageRatio === null || metrics.debtServiceCoverageRatio === undefined
+                  ? 'N/A'
+                  : metrics.debtServiceCoverageRatio === Infinity 
                   ? '∞' 
                   : metrics.debtServiceCoverageRatio.toFixed(2)}
               </div>
