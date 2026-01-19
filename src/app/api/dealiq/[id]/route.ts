@@ -8,23 +8,35 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
+    const { userId: clerkUserId } = await auth()
+    if (!clerkUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // ✅ FIRST: Get the MongoDB User ID from Clerk ID
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: { id: true }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const mongoUserId = user.id  // ✅ This is the MongoDB ObjectID
 
     // ✅ AWAIT params in Next.js 15
     const { id: paramId } = await params
     
-    console.log('🔍 Looking for deal with ID:', paramId, 'for user:', userId)
+    console.log('🔍 Looking for deal with ID:', paramId, 'for user:', mongoUserId)
 
     // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // Use separate queries to avoid Prisma ObjectID validation issues
+    // Query by the appropriate ID type
     let deal
     if (isObjectId) {
-      // Query by MongoDB id, then verify userId
+      // Query by MongoDB id
       deal = await prisma.deal.findUnique({
         where: { id: paramId },
         include: {
@@ -38,15 +50,15 @@ export async function GET(
           }
         }
       })
-      // Check if deal exists and belongs to user
-      if (!deal || deal.userId !== userId) {
+      // Verify ownership
+      if (deal && deal.userId !== mongoUserId) {
         deal = null
       }
     } else {
-      // Query by dealId and userId together
+      // Query by dealId + userId
       deal = await prisma.deal.findFirst({
         where: {
-          userId: userId,
+          userId: mongoUserId,
           dealId: paramId
         },
         include: {
@@ -74,7 +86,7 @@ export async function GET(
       analysis = await prisma.propertyAnalysis.findFirst({
         where: {
           id: deal.analysisId,
-          userId: userId
+          userId: mongoUserId
         }
       })
       
@@ -84,14 +96,9 @@ export async function GET(
     }
 
     console.log('✅ Deal found:', deal.dealId)
-    console.log('📊 Analysis status:', {
-      hasAnalysisId: !!deal.analysisId,
-      analysisId: deal.analysisId,
-      hasAnalysis: !!analysis,
-      analysisName: analysis?.name
-    })
 
     return NextResponse.json({
+      success: true,
       deal: {
         ...deal,
         analysis: analysis
@@ -113,10 +120,22 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
+    const { userId: clerkUserId } = await auth()
+    if (!clerkUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // ✅ Get MongoDB User ID from Clerk ID
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: { id: true }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const mongoUserId = user.id
 
     // ✅ AWAIT params in Next.js 15
     const { id: paramId } = await params
@@ -124,25 +143,22 @@ export async function PATCH(
 
     console.log('🔄 Updating deal:', paramId, 'with:', body)
 
-    // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
+    // Check ID type
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // Use separate queries to avoid Prisma ObjectID validation issues
+    // Find the deal
     let deal
     if (isObjectId) {
-      // Query by MongoDB id, then verify userId
       deal = await prisma.deal.findUnique({
         where: { id: paramId }
       })
-      // Check if deal exists and belongs to user
-      if (!deal || deal.userId !== userId) {
+      if (deal && deal.userId !== mongoUserId) {
         deal = null
       }
     } else {
-      // Query by dealId and userId together
       deal = await prisma.deal.findFirst({
         where: {
-          userId: userId,
+          userId: mongoUserId,
           dealId: paramId
         }
       })
@@ -188,7 +204,7 @@ export async function PATCH(
       changes.push({ field: 'netValue', old: deal.netValue, new: body.netValue })
     }
 
-    // ✅ Property fields
+    // Property fields
     if (body.address !== undefined && body.address !== deal.address) {
       changes.push({ field: 'address', old: deal.address, new: body.address })
     }
@@ -232,7 +248,7 @@ export async function PATCH(
         loanTerm: body.loanTerm !== undefined ? body.loanTerm : deal.loanTerm,
         netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
         
-        // ✅ Property fields
+        // Property fields
         address: body.address !== undefined ? body.address : deal.address,
         city: body.city !== undefined ? body.city : deal.city,
         state: body.state !== undefined ? body.state : deal.state,
@@ -255,9 +271,9 @@ export async function PATCH(
       await prisma.dealChange.createMany({
         data: changes.map(change => ({
           dealId: deal.id,
-          userId: userId,
+          userId: mongoUserId,
           fieldName: change.field,
-          oldValue: change.old?.toString() || null,
+          previousValue: change.old?.toString() || null,
           newValue: change.new?.toString() || null
         }))
       })
@@ -265,7 +281,10 @@ export async function PATCH(
 
     console.log('✅ Deal updated successfully')
 
-    return NextResponse.json({ deal: updatedDeal })
+    return NextResponse.json({ 
+      success: true,
+      deal: updatedDeal 
+    })
 
   } catch (error) {
     console.error('❌ Error updating deal:', error)
@@ -282,35 +301,44 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
+    const { userId: clerkUserId } = await auth()
+    if (!clerkUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // ✅ Get MongoDB User ID from Clerk ID
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: { id: true }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const mongoUserId = user.id
 
     // ✅ AWAIT params in Next.js 15
     const { id: paramId } = await params
 
     console.log('🗑️ Deleting deal:', paramId)
 
-    // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
+    // Check ID type
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // Use separate queries to avoid Prisma ObjectID validation issues
+    // Find the deal
     let deal
     if (isObjectId) {
-      // Query by MongoDB id, then verify userId
       deal = await prisma.deal.findUnique({
         where: { id: paramId }
       })
-      // Check if deal exists and belongs to user
-      if (!deal || deal.userId !== userId) {
+      if (deal && deal.userId !== mongoUserId) {
         deal = null
       }
     } else {
-      // Query by dealId and userId together
       deal = await prisma.deal.findFirst({
         where: {
-          userId: userId,
+          userId: mongoUserId,
           dealId: paramId
         }
       })

@@ -28,10 +28,22 @@ export async function PATCH(
   try {
     console.log('🔧 UPDATE ANALYSIS ENDPOINT CALLED')
     
-    const { userId } = await auth()
-    if (!userId) {
+    const { userId: clerkUserId } = await auth()
+    if (!clerkUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // ✅ FIRST: Get the MongoDB User ID from Clerk ID
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: { id: true }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const userId = user.id  // ✅ MongoDB ObjectID
 
     // ✅ AWAIT params in Next.js 15
     const { id: dealId } = await params
