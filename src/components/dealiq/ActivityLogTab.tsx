@@ -95,7 +95,8 @@ export function ActivityLogTab({ notes, changes, currentUserEmail }: ActivityLog
   }
 
   // Get user display name
-  const getUserName = (user: { email: string; firstName: string | null; lastName: string | null }) => {
+  const getUserName = (user: { email: string; firstName: string | null; lastName: string | null } | undefined) => {
+    if (!user) return 'Unknown User'
     if (user.firstName && user.lastName) {
       return `${user.firstName} ${user.lastName}`
     }
@@ -232,7 +233,7 @@ export function ActivityLogTab({ notes, changes, currentUserEmail }: ActivityLog
               const isNote = activity.type === 'note'
               const user = activity.data.user
               const userName = getUserName(user)
-              const isOwnActivity = user.email === currentUserEmail
+              const isOwnActivity = user?.email === currentUserEmail
 
               return (
                 <div key={`${activity.type}-${activity.data.id}`} className="relative pl-12">

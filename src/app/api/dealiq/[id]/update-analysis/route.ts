@@ -238,6 +238,20 @@ export async function PATCH(
       })
       
       console.log('✅ Deal.price updated successfully!')
+      
+      // ✅ Track the price change in activity log
+      console.log('📝 Creating activity log entry for price change...')
+      await prisma.dealChange.create({
+        data: {
+          dealId: deal.id,
+          userId: userId,
+          fieldName: 'price',
+          previousValue: deal.price.toString(),
+          newValue: body.price.toString()
+        }
+      })
+      
+      console.log('✅ Activity log entry created!')
     }
 
     // Return success with updated values

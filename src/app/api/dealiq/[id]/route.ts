@@ -42,9 +42,27 @@ export async function GET(
         include: {
           contacts: true,
           notes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
             orderBy: { createdAt: 'desc' }
           },
           changes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
             orderBy: { createdAt: 'desc' },
             take: 50
           }
@@ -64,9 +82,27 @@ export async function GET(
         include: {
           contacts: true,
           notes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
             orderBy: { createdAt: 'desc' }
           },
           changes: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
             orderBy: { createdAt: 'desc' },
             take: 50
           }
@@ -267,9 +303,27 @@ export async function PATCH(
       include: {
         contacts: true,
         notes: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' }
         },
         changes: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' },
           take: 50
         }
