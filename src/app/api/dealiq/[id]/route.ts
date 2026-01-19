@@ -263,6 +263,16 @@ export async function PATCH(
           stageChangedAt: new Date(),
           previousStage: deal.stage
         })
+      },
+      include: {
+        contacts: true,
+        notes: {
+          orderBy: { createdAt: 'desc' }
+        },
+        changes: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
       }
     })
 
@@ -279,11 +289,25 @@ export async function PATCH(
       })
     }
 
+    // Fetch analysis if linked
+    let analysis = null
+    if (updatedDeal.analysisId) {
+      analysis = await prisma.propertyAnalysis.findFirst({
+        where: {
+          id: updatedDeal.analysisId,
+          userId: mongoUserId
+        }
+      })
+    }
+
     console.log('✅ Deal updated successfully')
 
     return NextResponse.json({ 
       success: true,
-      deal: updatedDeal 
+      deal: {
+        ...updatedDeal,
+        analysis: analysis
+      }
     })
 
   } catch (error) {
