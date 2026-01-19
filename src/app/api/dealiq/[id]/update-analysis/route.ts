@@ -180,6 +180,14 @@ export async function PATCH(
       topLevelUpdates.propertySize = body.propertySize
     }
 
+    // Handle price (purchase price) update
+    if (body.price !== undefined) {
+      console.log('✅ Expected purchase price updated:', body.price)
+      updatedProperty.purchasePrice = body.price
+      // Note: PropertyAnalysis schema may not have a top-level price field
+      // but we update the Deal.price separately in the frontend
+    }
+
     // Update the property object in analysis data
     updatedAnalysisData.property = updatedProperty
 
@@ -208,6 +216,29 @@ export async function PATCH(
     })
 
     console.log('✅ Analysis updated successfully!')
+
+    // ✅ If price was updated, also update the Deal table
+    if (body.price !== undefined) {
+      console.log('📝 Updating Deal.price...')
+      
+      // Recalculate pricePerUnit and pricePerSqft
+      const newPricePerUnit = deal.units ? body.price / deal.units : null
+      const newPricePerSqft = deal.squareFeet ? body.price / deal.squareFeet : null
+      const newCommissionAmount = deal.commissionPercent ? body.price * (deal.commissionPercent / 100) : null
+      
+      await prisma.deal.update({
+        where: { id: deal.id },
+        data: {
+          price: body.price,
+          pricePerUnit: newPricePerUnit,
+          pricePerSqft: newPricePerSqft,
+          commissionAmount: newCommissionAmount,
+          updatedAt: new Date()
+        }
+      })
+      
+      console.log('✅ Deal.price updated successfully!')
+    }
 
     // Return success with updated values
     return NextResponse.json({

@@ -73,6 +73,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [isEditingLoanRate, setIsEditingLoanRate] = useState(false)
   const [isEditingLoanTerm, setIsEditingLoanTerm] = useState(false)
   const [isEditingDownPayment, setIsEditingDownPayment] = useState(false)
+  const [isEditingPrice, setIsEditingPrice] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [tempStage, setTempStage] = useState(deal.stage)
@@ -90,6 +91,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
   const [tempDownPayment, setTempDownPayment] = useState(0)
+  const [tempPrice, setTempPrice] = useState(deal.price)
   
   // ✨ NEW: Property information edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false)
@@ -97,9 +99,6 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [tempCity, setTempCity] = useState(deal.city || '')
   const [tempState, setTempState] = useState(deal.state || '')
   const [tempZipCode, setTempZipCode] = useState(deal.zipCode || '')
-  
-  const [isEditingUnits, setIsEditingUnits] = useState(false)
-  const [tempUnits, setTempUnits] = useState(deal.units || 0)
   
   const [isEditingSqft, setIsEditingSqft] = useState(false)
   const [tempSqft, setTempSqft] = useState(deal.squareFeet || 0)
@@ -313,6 +312,54 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     }
   }
 
+  // ✨ NEW: Save Expected Purchase Price
+  const handleSavePrice = async () => {
+    setIsSaving(true)
+    try {
+      // Update the analysis with new price
+      if (!deal.analysis?.id) {
+        alert('No property analysis linked to this deal. Please create or link an analysis first.')
+        setIsEditingPrice(false)
+        setIsSaving(false)
+        return
+      }
+
+      console.log('💾 Saving expected purchase price change:')
+      console.log('  Deal ID:', deal.id)
+      console.log('  Analysis ID:', deal.analysis.id)
+      console.log('  Old price:', deal.price)
+      console.log('  New price:', tempPrice)
+
+      const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price: tempPrice
+        })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+      }
+
+      const result = await response.json()
+      console.log('✅ API response:', result)
+      
+      console.log('🔄 Calling onRefresh to get fresh data...')
+      // Trigger parent refresh to get updated analysis data
+      await onRefresh()
+      
+      console.log('✅ Refresh complete, closing editor')
+      setIsEditingPrice(false)
+    } catch (error) {
+      console.error('Failed to update expected purchase price:', error)
+      alert(`Failed to update expected purchase price: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // ✨ NEW: Save address information
   const handleSaveAddress = async () => {
     setIsSaving(true)
@@ -369,64 +416,6 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     } catch (error) {
       console.error('Failed to update address:', error)
       alert('Failed to update address')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // ✨ NEW: Save units
-  const handleSaveUnits = async () => {
-    setIsSaving(true)
-    try {
-      console.log('💾 Saving units:', tempUnits)
-      
-      const newPricePerUnit = tempUnits > 0 ? deal.price / tempUnits : null
-      
-      // Update Deal first
-      const dealUpdateResponse = await fetch(`/api/dealiq/${deal.dealId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          units: tempUnits,
-          pricePerUnit: newPricePerUnit
-        })
-      })
-
-      if (!dealUpdateResponse.ok) {
-        throw new Error('Failed to update deal')
-      }
-
-      console.log('✅ Deal updated with units:', tempUnits)
-      
-      // Update analysis if linked
-      if (deal.analysis?.id) {
-        console.log('📊 Updating analysis...')
-        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            totalUnits: tempUnits
-          })
-        })
-        
-        if (!response.ok) {
-          throw new Error('Failed to update analysis')
-        }
-        console.log('✅ Analysis updated')
-      }
-      
-      // Add tiny delay to ensure database commits before refetch
-      console.log('⏱️ Waiting for database commit...')
-      await new Promise(resolve => setTimeout(resolve, 150))
-      
-      console.log('🔄 Calling onRefresh to get fresh data...')
-      await onRefresh()
-      console.log('✅ Refresh complete')
-      
-      setIsEditingUnits(false)
-    } catch (error) {
-      console.error('Failed to update units:', error)
-      alert('Failed to update units')
     } finally {
       setIsSaving(false)
     }
@@ -734,62 +723,22 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             )}
           </div>
 
-          {/* Units - Now Editable */}
+          {/* Units - Display Only */}
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
               <Home className="w-4 h-4" />
               Units
             </div>
-            {!isEditingUnits ? (
-              <div className="flex items-center gap-2">
-                <div>
-                  <div className="font-medium text-neutral-900">
-                    {deal.units ? `${deal.units} units` : 'Not set'}
-                  </div>
-                  {deal.pricePerUnit && (
-                    <div className="text-sm text-neutral-600">
-                      {formatCurrency(deal.pricePerUnit)}/unit
-                    </div>
-                  )}
+            <div>
+              <div className="font-medium text-neutral-900">
+                {deal.units ? `${deal.units} units` : 'Not set'}
+              </div>
+              {deal.pricePerUnit && (
+                <div className="text-sm text-neutral-600">
+                  {formatCurrency(deal.pricePerUnit)}/unit
                 </div>
-                <button
-                  onClick={() => {
-                    setTempUnits(deal.units || 0)
-                    setIsEditingUnits(true)
-                  }}
-                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={tempUnits}
-                  onChange={(e) => setTempUnits(parseInt(e.target.value) || 0)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  disabled={isSaving}
-                  placeholder="Number of units"
-                />
-                <button
-                  onClick={handleSaveUnits}
-                  disabled={isSaving}
-                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsEditingUnits(false)}
-                  disabled={isSaving}
-                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Square Feet - Now Editable */}
@@ -850,13 +799,53 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             )}
           </div>
 
-          {/* Purchase Price - Not Editable (will be in #3) */}
+          {/* Expected Purchase Price - Editable (syncs to analysis) */}
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
               <DollarSign className="w-4 h-4" />
-              Purchase Price
+              Expected Purchase Price
             </div>
-            <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
+            {!isEditingPrice ? (
+              <div className="flex items-center gap-2">
+                <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
+                <button
+                  onClick={() => {
+                    setTempPrice(deal.price)
+                    setIsEditingPrice(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="1000"
+                  min="0"
+                  value={tempPrice}
+                  onChange={(e) => setTempPrice(parseFloat(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                  placeholder="Expected purchase price"
+                />
+                <button
+                  onClick={handleSavePrice}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingPrice(false)}
+                  disabled={isSaving}
+                  className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Financing Type - Not Editable */}
@@ -1122,9 +1111,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Purchase Price */}
+            {/* Expected Purchase Price */}
             <div>
-              <div className="text-sm text-neutral-500 mb-1">Purchase Price</div>
+              <div className="text-sm text-neutral-500 mb-1">Expected Purchase Price</div>
               <div className="font-medium text-neutral-900">{formatCurrency(deal.price)}</div>
             </div>
 
