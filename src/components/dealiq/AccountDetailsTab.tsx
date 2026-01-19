@@ -19,7 +19,9 @@ import {
   Hash,
   Receipt,
   Percent,
-  Calculator
+  Calculator,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { 
   DEAL_STAGES, 
@@ -102,6 +104,12 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   
   const [isEditingSqft, setIsEditingSqft] = useState(false)
   const [tempSqft, setTempSqft] = useState(deal.squareFeet || 0)
+
+  // ✨ NEW: Collapsible sections state
+  const [isDealTrackingCollapsed, setIsDealTrackingCollapsed] = useState(false)
+  const [isCommissionCollapsed, setIsCommissionCollapsed] = useState(false)
+  const [isFinancingCollapsed, setIsFinancingCollapsed] = useState(false)
+  const [isPLCollapsed, setIsPLCollapsed] = useState(false)
 
   // Format created date as mm/dd/yyyy
   const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
@@ -863,12 +871,26 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
       {/* Deal Tracking Card */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-bold text-neutral-900">Deal Tracking</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-bold text-neutral-900">Deal Tracking</h3>
+          </div>
+          <button
+            onClick={() => setIsDealTrackingCollapsed(!isDealTrackingCollapsed)}
+            className="text-neutral-400 hover:text-neutral-600 transition-colors"
+            aria-label={isDealTrackingCollapsed ? "Expand section" : "Collapse section"}
+          >
+            {isDealTrackingCollapsed ? (
+              <ChevronDown className="w-5 h-5" />
+            ) : (
+              <ChevronUp className="w-5 h-5" />
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+        {!isDealTrackingCollapsed && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Stage */}
           <div className="min-w-0">
             <div className="text-sm text-neutral-500 mb-2">Stage</div>
@@ -1027,18 +1049,33 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             <div className="font-medium text-neutral-900">{createdDate}</div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ========================================
           ✨ NEW: Commission Details Card
           ======================================== */}
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Percent className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-bold text-neutral-900">Commission Details</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Percent className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-bold text-neutral-900">Commission Details</h3>
+          </div>
+          <button
+            onClick={() => setIsCommissionCollapsed(!isCommissionCollapsed)}
+            className="text-neutral-400 hover:text-neutral-600 transition-colors"
+            aria-label={isCommissionCollapsed ? "Expand section" : "Collapse section"}
+          >
+            {isCommissionCollapsed ? (
+              <ChevronDown className="w-5 h-5" />
+            ) : (
+              <ChevronUp className="w-5 h-5" />
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {!isCommissionCollapsed && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Commission Percent */}
           <div>
             <div className="text-sm text-neutral-500 mb-2">Expected Commission %</div>
@@ -1098,6 +1135,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ========================================
@@ -1105,12 +1143,26 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
           ======================================== */}
       {deal.financingType === 'financed' && (
         <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calculator className="w-5 h-5 text-primary-600" />
-            <h3 className="text-lg font-bold text-neutral-900">Financing Details</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-primary-600" />
+              <h3 className="text-lg font-bold text-neutral-900">Financing Details</h3>
+            </div>
+            <button
+              onClick={() => setIsFinancingCollapsed(!isFinancingCollapsed)}
+              className="text-neutral-400 hover:text-neutral-600 transition-colors"
+              aria-label={isFinancingCollapsed ? "Expand section" : "Collapse section"}
+            >
+              {isFinancingCollapsed ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {!isFinancingCollapsed && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Expected Purchase Price */}
             <div>
               <div className="text-sm text-neutral-500 mb-1">Expected Purchase Price</div>
@@ -1281,6 +1333,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
               </div>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -1302,10 +1355,22 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                   📊 View Analysis
                 </a>
               )}
+              <button
+                onClick={() => setIsPLCollapsed(!isPLCollapsed)}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors ml-2"
+                aria-label={isPLCollapsed ? "Expand section" : "Collapse section"}
+              >
+                {isPLCollapsed ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronUp className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="space-y-6">
+          {!isPLCollapsed && (
+            <div className="space-y-6">
             {/* Column Headers */}
             <div className="grid grid-cols-3 gap-4 pb-2 border-b border-neutral-200">
               <div></div>
@@ -1526,6 +1591,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
