@@ -254,36 +254,45 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
               const progressPercent = Math.min((currentOrder / maxOrder) * 100, 100)
               
               return (
-                <div className="space-y-3">
+                <div className="bg-gradient-to-br from-white to-neutral-50 rounded-xl p-4 border border-neutral-200 shadow-sm">
                   {/* Stage Info */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="text-sm font-semibold text-neutral-900">
                         {currentStage?.label || 'Unknown Stage'}
                       </div>
-                      <div className="text-xs text-neutral-500 mt-0.5">
-                        Stage {currentOrder} of {maxOrder}
+                      <div className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                        <span>Stage {currentOrder} of {maxOrder}</span>
+                        <span className="text-neutral-300">•</span>
+                        <span className="font-medium text-primary-600">{progressPercent.toFixed(0)}% Complete</span>
                       </div>
                     </div>
-                    <div className={`
-                      w-10 h-10 rounded-full border-3 flex items-center justify-center font-bold text-sm
-                      bg-primary-600 border-primary-600 text-white shadow-md
-                    `}>
-                      {currentOrder}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-primary-400 rounded-full blur-md opacity-40 animate-pulse" />
+                      <div className={`
+                        relative w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm
+                        bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-lg
+                        border-2 border-white
+                      `}>
+                        {currentOrder}
+                      </div>
                     </div>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="relative h-2 bg-neutral-200 rounded-full overflow-hidden">
+                  <div className="relative h-2.5 bg-neutral-200 rounded-full overflow-hidden shadow-inner">
                     <div 
-                      className="absolute top-0 left-0 h-full bg-primary-600 rounded-full transition-all duration-500"
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary-500 via-primary-600 to-primary-500 rounded-full transition-all duration-700 ease-out shadow-md"
                       style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  
-                  {/* Progress Text */}
-                  <div className="text-xs text-neutral-500 text-center">
-                    {progressPercent.toFixed(0)}% Complete
+                    >
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer" 
+                        style={{ 
+                          backgroundSize: '200% 100%',
+                          animation: 'shimmer 2s infinite'
+                        }} 
+                      />
+                    </div>
                   </div>
                 </div>
               )
@@ -292,11 +301,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
 
           {/* Desktop Version - Circle Timeline */}
           <div className="hidden md:block">
-            <div className="relative px-8">
-              {/* Background Line */}
-              <div className="absolute top-6 left-8 right-8 h-1 bg-neutral-200 rounded-full" />
+            <div className="relative px-8 py-6">
+              {/* Background Line - Centered with circles */}
+              <div className="absolute top-[calc(1.5rem+1.75rem)] left-8 right-8 h-1.5 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 rounded-full shadow-inner" />
               
-              {/* Active Progress Line */}
+              {/* Active Progress Line - Centered with circles */}
               {deal.stage !== 'on_hold' && (() => {
                 const currentStage = DEAL_STAGES.find(s => s.id === deal.stage)
                 const currentOrder = currentStage?.order || 0
@@ -305,9 +314,17 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                 
                 return (
                   <div 
-                    className="absolute top-6 left-8 h-1 bg-primary-600 rounded-full transition-all duration-500" 
+                    className="absolute top-[calc(1.5rem+1.75rem)] left-8 h-1.5 bg-gradient-to-r from-primary-500 via-primary-600 to-primary-500 rounded-full transition-all duration-700 ease-out shadow-md" 
                     style={{ width: `calc(${progressPercent}% + ${currentOrder * 0.5}rem)` }}
-                  />
+                  >
+                    {/* Animated glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 rounded-full animate-shimmer"
+                      style={{ 
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmer 2s infinite'
+                      }}
+                    />
+                  </div>
                 )
               })()}
 
@@ -322,26 +339,38 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
 
                   return (
                     <div key={stage.id} className="flex flex-col items-center" style={{ flex: 1 }}>
-                      {/* Circle */}
-                      <div className={`
-                        relative w-12 h-12 rounded-full border-4 flex items-center justify-center font-bold text-sm z-10 transition-all duration-300
-                        ${isActive 
-                          ? 'bg-primary-600 border-primary-600 text-white shadow-lg scale-110' 
-                          : isCompleted
-                          ? 'bg-success-500 border-success-500 text-white'
-                          : 'bg-white border-neutral-300 text-neutral-400'
-                        }
-                      `}>
-                        {stage.order}
+                      {/* Circle with glow effect for active */}
+                      <div className="relative">
+                        {isActive && (
+                          <div className="absolute inset-0 bg-primary-400 rounded-full blur-lg opacity-40 animate-pulse" />
+                        )}
+                        <div className={`
+                          relative w-14 h-14 rounded-full flex items-center justify-center font-bold text-sm z-10 
+                          transition-all duration-300 border-4
+                          ${isActive 
+                            ? 'bg-gradient-to-br from-primary-500 to-primary-700 border-white text-white shadow-xl scale-110 ring-4 ring-primary-100' 
+                            : isCompleted
+                            ? 'bg-gradient-to-br from-success-400 to-success-600 border-white text-white shadow-lg'
+                            : 'bg-white border-neutral-300 text-neutral-400 shadow-md'
+                          }
+                        `}>
+                          {isCompleted ? (
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            stage.order
+                          )}
+                        </div>
                       </div>
                       
                       {/* Label */}
                       <div className={`
-                        mt-2 text-center text-xs font-medium leading-tight transition-colors
+                        mt-3 text-center text-xs font-medium leading-tight transition-colors
                         ${isActive 
-                          ? 'text-primary-700 font-semibold' 
+                          ? 'text-primary-700 font-bold' 
                           : isCompleted 
-                          ? 'text-success-700' 
+                          ? 'text-success-700 font-semibold' 
                           : 'text-neutral-500'
                         }
                       `} style={{ maxWidth: '90px' }}>
@@ -355,7 +384,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
               {/* On Hold Indicator */}
               {deal.stage === 'on_hold' && (
                 <div className="mt-6 flex items-center justify-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 border-2 border-neutral-400 rounded-full">
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-neutral-100 to-neutral-50 border-2 border-neutral-300 rounded-full shadow-md">
                     <span className="text-xl">⏸️</span>
                     <span className="text-sm font-semibold text-neutral-700">7 - On Hold</span>
                   </div>
@@ -390,8 +419,8 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-neutral-200 mb-6">
-        <nav className="flex gap-1 overflow-x-auto" aria-label="Tabs">
+      <div className="mb-6">
+        <nav className="flex gap-2 overflow-x-auto px-1" aria-label="Tabs">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -400,22 +429,22 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
+                  flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap
                   ${isActive
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                   }
                 `}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-neutral-400'}`} />
                 {tab.label}
                 {tab.id === 'contacts' && deal.contacts.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-white text-neutral-600 rounded-full border border-neutral-200">
                     {deal.contacts.length}
                   </span>
                 )}
                 {tab.id === 'notes' && deal.notes.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-white text-neutral-600 rounded-full border border-neutral-200">
                     {deal.notes.length}
                   </span>
                 )}
