@@ -103,7 +103,22 @@ export async function PATCH(
     console.log('📝 Processing updates...')
     
     const updatedAnalysisData = { ...analysisData }
-    const updatedProperty = { ...(analysisData.property || {}) }
+    
+    // ✅ FIX: Handle both data structures
+    // Old structure: data.property
+    // New structure: data.inputs.property
+    const hasInputsStructure = analysisData.inputs && analysisData.inputs.property
+    const propertyPath = hasInputsStructure ? analysisData.inputs.property : analysisData.property
+    
+    if (!propertyPath) {
+      console.error('❌ Could not find property data in analysis')
+      return NextResponse.json(
+        { error: 'Property data not found in analysis' },
+        { status: 400 }
+      )
+    }
+    
+    const updatedProperty = { ...propertyPath }
     
     // Track what top-level fields need updating
     const topLevelUpdates: any = {}
@@ -184,12 +199,194 @@ export async function PATCH(
     if (body.price !== undefined) {
       console.log('✅ Expected purchase price updated:', body.price)
       updatedProperty.purchasePrice = body.price
-      // Note: PropertyAnalysis schema may not have a top-level price field
-      // but we update the Deal.price separately in the frontend
     }
 
-    // Update the property object in analysis data
-    updatedAnalysisData.property = updatedProperty
+    // ✅ Save updatedProperty back to the correct location
+    if (hasInputsStructure) {
+      // New structure: data.inputs.property
+      if (!updatedAnalysisData.inputs) {
+        updatedAnalysisData.inputs = {}
+      }
+      updatedAnalysisData.inputs.property = updatedProperty
+      console.log('✅ Updated data.inputs.property')
+    } else {
+      // Old structure: data.property
+      updatedAnalysisData.property = updatedProperty
+      console.log('✅ Updated data.property')
+    }
+
+    // ✅ RECALCULATE METRICS when financial inputs change
+    console.log('🧮 Checking if metrics need recalculation...')
+    const needsMetricRecalc = body.price !== undefined || 
+                              body.downPayment !== undefined || 
+                              body.loanRate !== undefined || 
+                              body.loanTerm !== undefined
+    
+    console.log('🧮 needsMetricRecalc:', needsMetricRecalc)
+    console.log('🧮 analysis.results exists:', !!analysis.results)
+    
+    let updatedKeyMetrics: any = null
+    let updatedResults: any = null
+    
+    if (needsMetricRecalc && analysis.results) {
+      console.log('🧮 Recalculating metrics...')
+      
+      const currentResults = analysis.results as any
+      console.log('📊 Current results structure:', JSON.stringify(currentResults, null, 2))
+      
+      // Get current values (use updated values if they changed, otherwise use existing)
+      const purchasePrice = body.price !== undefined ? body.price : (updatedProperty.purchasePrice || deal.price || 0)
+      const downPayment = body.downPayment !== undefined ? body.downPayment : (updatedProperty.downPayment || 0)
+      const loanRate = body.loanRate !== undefined ? body.loanRate : (deal.loanRate || 0)
+      const loanTerm = body.loanTerm !== undefined ? body.loanTerm : (deal.loanTerm || 30)
+      const isCashPurchase = deal.financingType === 'cash'
+      
+      console.log('💰 Recalculation inputs:', {
+        purchasePrice,
+        downPayment,
+        loanRate,
+        loanTerm,
+        isCashPurchase
+      })
+      
+      // Loan amount
+      const loanAmount = isCashPurchase ? 0 : purchasePrice - downPayment
+      
+      // Monthly payment calculation (if financed)
+      let monthlyPayment = 0
+      let annualDebtService = 0
+      if (!isCashPurchase && loanAmount > 0 && loanRate > 0) {
+        const monthlyRate = loanRate / 100 / 12
+        const numPayments = loanTerm * 12
+        monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / 
+                        (Math.pow(1 + monthlyRate, numPayments) - 1)
+        annualDebtService = monthlyPayment * 12
+      }
+      
+      // ✅ RECALCULATE NOI when purchase price changes (affects percentage-based expenses)
+      let monthlyNOI = currentResults.monthlyBreakdown?.netOperatingIncome || 0
+      let annualNOI = monthlyNOI * 12
+      let monthlyExpenses = currentResults.monthlyBreakdown?.totalExpenses || 0
+      let annualExpenses = monthlyExpenses * 12
+      const monthlyRent = currentResults.monthlyBreakdown?.grossIncome || 0
+      const annualRent = monthlyRent * 12
+      
+      // If price changed, recalculate expenses that depend on property value
+      if (body.price !== undefined && updatedAnalysisData.expenses) {
+        console.log('🧮 Recalculating NOI due to price change...')
+        
+        // Calculate monthly expenses with new price
+        monthlyExpenses = updatedAnalysisData.expenses.reduce((total: number, expense: any) => {
+          if (expense.isPercentage) {
+            if (expense.percentageOf === 'propertyValue') {
+              // Property value expenses (like property tax) depend on purchase price
+              return total + ((purchasePrice * (expense.amount / 100)) / 12)
+            } else if (expense.percentageOf === 'rent') {
+              // Rent-based expenses use rental income
+              return total + (monthlyRent * (expense.amount / 100))
+            } else if (expense.percentageOf === 'income') {
+              // Income-based expenses use gross income
+              return total + (monthlyRent * (expense.amount / 100))
+            }
+          }
+          // Fixed expenses
+          return total + expense.amount
+        }, 0)
+        
+        // Recalculate NOI
+        annualExpenses = monthlyExpenses * 12
+        monthlyNOI = monthlyRent - monthlyExpenses
+        annualNOI = monthlyNOI * 12
+        
+        console.log('📊 Recalculated expenses and NOI:', {
+          monthlyExpenses: monthlyExpenses.toFixed(2),
+          annualExpenses: annualExpenses.toFixed(2),
+          monthlyNOI: monthlyNOI.toFixed(2),
+          annualNOI: annualNOI.toFixed(2)
+        })
+      }
+      
+      console.log('📈 Final NOI and Rent values:', {
+        monthlyNOI,
+        annualNOI,
+        monthlyRent,
+        annualRent
+      })
+      
+      // Calculate cash flow
+      const monthlyCashFlow = monthlyNOI - monthlyPayment
+      const annualCashFlow = monthlyCashFlow * 12
+      
+      // Total investment (down payment + closing costs if any)
+      const closingCosts = currentResults.keyMetrics?.closingCosts || 0
+      const totalInvestment = downPayment + closingCosts
+      
+      // Cap Rate = (Annual NOI / Purchase Price) * 100
+      const capRate = purchasePrice > 0 ? (annualNOI / purchasePrice) * 100 : 0
+      
+      // GRM = Purchase Price / Annual Gross Rent
+      const grm = annualRent > 0 ? purchasePrice / annualRent : 0
+      
+      // Cash-on-Cash Return = (Annual Cash Flow / Total Investment) * 100
+      const cashOnCashReturn = totalInvestment > 0 ? (annualCashFlow / totalInvestment) * 100 : 0
+      
+      // DSCR = NOI / Debt Service
+      const dscr = annualDebtService > 0 ? annualNOI / annualDebtService : 0
+      
+      console.log('📊 Calculated metrics (as percentages for display):', {
+        capRate: capRate.toFixed(4) + '%',
+        grm: grm.toFixed(2),
+        cashOnCashReturn: cashOnCashReturn.toFixed(2) + '%',
+        dscr: dscr.toFixed(2)
+      })
+      
+      console.log('🔢 Formula verification:')
+      console.log(`  Cap Rate = (${annualNOI} / ${purchasePrice}) * 100 = ${capRate.toFixed(4)}%`)
+      console.log(`  GRM = ${purchasePrice} / ${annualRent} = ${grm.toFixed(2)}`)
+      
+      // Update keyMetrics (store as decimal for DB)
+      updatedKeyMetrics = {
+        ...currentResults.keyMetrics,
+        capRate: capRate / 100, // Store as decimal (0.065 for 6.5%)
+        grossRentMultiplier: grm,
+        cashOnCashReturn: cashOnCashReturn / 100, // Store as decimal
+        netOperatingIncome: annualNOI,  // ✅ Add recalculated NOI
+        totalInvestment,
+        annualCashFlow,
+        monthlyPayment,
+        annualDebtService,
+        debtServiceCoverage: dscr
+      }
+      
+      console.log('✅ Metrics recalculated and stored as decimals:', {
+        capRate: updatedKeyMetrics.capRate,
+        grm: updatedKeyMetrics.grossRentMultiplier,
+        cashOnCashReturn: updatedKeyMetrics.cashOnCashReturn,
+        netOperatingIncome: updatedKeyMetrics.netOperatingIncome
+      })
+      
+      // ✅ Update results JSON structure
+      updatedResults = {
+        ...currentResults,
+        keyMetrics: updatedKeyMetrics,
+        monthlyBreakdown: {
+          ...currentResults.monthlyBreakdown,
+          totalExpenses: monthlyExpenses,  // ✅ Update with recalculated expenses
+          netOperatingIncome: monthlyNOI,  // ✅ Update with recalculated NOI
+          mortgagePayment: monthlyPayment,
+          cashFlow: monthlyCashFlow
+        },
+        annualBreakdown: {
+          ...currentResults.annualBreakdown,
+          totalExpenses: annualExpenses,  // ✅ Update with recalculated expenses
+          netOperatingIncome: annualNOI,  // ✅ Update with recalculated NOI
+          debtService: annualDebtService,
+          cashFlow: annualCashFlow
+        }
+      }
+      
+      console.log('✅ Updated results.keyMetrics and breakdowns in JSON structure')
+    }
 
     // Update analysis in database - UPDATE BOTH PLACES!
     console.log('📝 Updating analysis in database...')
@@ -198,10 +395,26 @@ export async function PATCH(
     await prisma.propertyAnalysis.update({
       where: { id: analysis.id },
       data: {
-        // ✅ UPDATE JSON DATA FIELD
+        // ✅ UPDATE JSON DATA FIELD (inputs)
         data: updatedAnalysisData as any,
         
-        // ✅ UPDATE TOP-LEVEL FIELDS (conditionally)
+        // ✅ UPDATE RESULTS JSON if they were recalculated
+        ...(needsMetricRecalc && updatedResults && { 
+          results: updatedResults as any 
+        }),
+        
+        // ✅ UPDATE TOP-LEVEL METRIC FIELDS if they were recalculated
+        ...(needsMetricRecalc && updatedKeyMetrics && {
+          capRate: updatedKeyMetrics.capRate,
+          cashOnCashReturn: updatedKeyMetrics.cashOnCashReturn,
+          cashFlow: updatedKeyMetrics.annualCashFlow,
+          grossRentMultiplier: updatedKeyMetrics.grossRentMultiplier,
+          totalInvestment: updatedKeyMetrics.totalInvestment,
+          debtServiceCoverage: updatedKeyMetrics.debtServiceCoverage,
+          netOperatingIncome: updatedKeyMetrics.netOperatingIncome || (updatedResults?.annualBreakdown?.netOperatingIncome)
+        }),
+        
+        // ✅ UPDATE TOP-LEVEL PROPERTY FIELDS (conditionally)
         ...(topLevelUpdates.address !== undefined && { address: topLevelUpdates.address }),
         ...(topLevelUpdates.city !== undefined && { city: topLevelUpdates.city }),
         ...(topLevelUpdates.state !== undefined && { state: topLevelUpdates.state }),
@@ -209,6 +422,9 @@ export async function PATCH(
         ...(topLevelUpdates.totalUnits !== undefined && { totalUnits: topLevelUpdates.totalUnits }),
         ...(topLevelUpdates.propertySize !== undefined && { propertySize: topLevelUpdates.propertySize }),
         ...(topLevelUpdates.downPayment !== undefined && { downPayment: topLevelUpdates.downPayment }),
+        
+        // ✅ UPDATE PURCHASE PRICE if it changed
+        ...(body.price !== undefined && { purchasePrice: body.price }),
         
         // Always update timestamp
         updatedAt: new Date()
