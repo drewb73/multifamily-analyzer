@@ -40,6 +40,17 @@ export function PropertyAnalysisForm({
   userSubscriptionStatus = null,
   initialDealData = null  // ✅ NEW
 }: PropertyAnalysisFormProps) {
+  // ✅ DEBUG: Log component mount
+  console.log('🎯 PropertyAnalysisForm MOUNTED:', {
+    hasInitialDealData: !!initialDealData,
+    hasDraftId: !!draftId,
+    initialDealData: initialDealData ? {
+      dealId: initialDealData.dealId,
+      address: initialDealData.address,
+      purchasePrice: initialDealData.purchasePrice
+    } : null
+  })
+  
   // Use draft hook - this is our single source of truth
   const {
     draft,
@@ -95,7 +106,17 @@ export function PropertyAnalysisForm({
     const loadAnalysisData = async () => {
       // ✅ NEW: Pre-populate from deal data if provided
       if (initialDealData && !hasLoadedInitialDraft) {
-        console.log('📊 Pre-populating form from deal:', initialDealData.dealId)
+        console.log('📊 PRE-POPULATING form from deal:', {
+          dealId: initialDealData.dealId,
+          address: initialDealData.address,
+          city: initialDealData.city,
+          state: initialDealData.state,
+          purchasePrice: initialDealData.purchasePrice,
+          downPayment: initialDealData.downPayment,
+          loanTerm: initialDealData.loanTerm,
+          loanRate: initialDealData.loanRate
+        })
+        
         setFormData({
           property: {
             address: initialDealData.address,
@@ -114,8 +135,11 @@ export function PropertyAnalysisForm({
           expenses: [],
           income: [],
         })
+        
+        console.log('✅ Form data SET, marking as loaded')
         setCurrentStep(1) // Start at step 1
         setHasLoadedInitialDraft(true)
+        console.log('✅ PRE-POPULATION COMPLETE - exiting early')
         return // Exit early - don't load from draft or database
       }
       
@@ -155,7 +179,8 @@ export function PropertyAnalysisForm({
       }
       
       // Fallback to localStorage draft (for non-premium or if database fetch failed)
-      if (draft && !hasLoadedInitialDraft) {
+      // ✅ FIXED: Don't load draft if we have initialDealData (prevents overwriting)
+      if (draft && !hasLoadedInitialDraft && !initialDealData) {
         console.log('📥 Loading draft from storage:', { 
           step: draft.step, 
           hasResults: !!draft.results,
