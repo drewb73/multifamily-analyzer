@@ -500,7 +500,8 @@ export function PropertyAnalysisForm({
   }
 
   // Show loading state while fetching analysis from database or initial draft loads
-  if (isLoadingAnalysis || (!hasLoadedInitialDraft && !draftId)) {
+  // ✅ FIXED: Don't show loading if we have initialDealData
+  if (isLoadingAnalysis || (!hasLoadedInitialDraft && !draftId && !initialDealData)) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
