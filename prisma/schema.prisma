@@ -418,6 +418,7 @@ model Deal {
   
   // Loan Details
   financingType String? // "financed", "cash"
+  downPayment   Float?  // Down payment amount
   loanTerm      Int?    // Years (e.g., 30)
   loanRate      Float?  // Interest rate percentage (e.g., 6.5)
   

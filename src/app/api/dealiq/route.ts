@@ -95,6 +95,10 @@ export async function POST(request: NextRequest) {
         stage: 'prospecting', // Default stage
         forecastStatus: 'non_forecastable', // Default forecast
         financingType: body.financingType || null,
+        // ✅ NEW: Add financing fields
+        downPayment: body.downPayment || null,
+        loanTerm: body.loanTerm || null,
+        loanRate: body.loanRate || null,
         daysInPipeline: 0
       }
     })
