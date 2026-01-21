@@ -19,9 +19,27 @@ import { saveAnalysisToDatabase, updateAnalysis, getAnalysis } from '@/lib/api/a
 interface PropertyAnalysisFormProps {
   draftId?: string
   userSubscriptionStatus?: string | null
+  initialDealData?: {  // ✅ NEW: For creating analysis from deal
+    dealId: string
+    address: string
+    city: string | null
+    state: string | null
+    zipCode: string | null
+    purchasePrice: number
+    downPayment: number | null
+    loanTerm: number | null
+    loanRate: number | null
+    propertySize: number | null
+    totalUnits: number | null
+    isCashPurchase: boolean
+  } | null
 }
 
-export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }: PropertyAnalysisFormProps) {
+export function PropertyAnalysisForm({ 
+  draftId, 
+  userSubscriptionStatus = null,
+  initialDealData = null  // ✅ NEW
+}: PropertyAnalysisFormProps) {
   // Use draft hook - this is our single source of truth
   const {
     draft,
@@ -75,6 +93,32 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
   // Load draft data ONCE when component mounts or when draft changes
   useEffect(() => {
     const loadAnalysisData = async () => {
+      // ✅ NEW: Pre-populate from deal data if provided
+      if (initialDealData && !hasLoadedInitialDraft) {
+        console.log('📊 Pre-populating form from deal:', initialDealData.dealId)
+        setFormData({
+          property: {
+            address: initialDealData.address,
+            city: initialDealData.city || '',
+            state: initialDealData.state || '',
+            zipCode: initialDealData.zipCode || '',
+            purchasePrice: initialDealData.purchasePrice,
+            downPayment: initialDealData.downPayment || 0,
+            loanTerm: initialDealData.loanTerm || 30,
+            interestRate: initialDealData.loanRate || 6.5,
+            propertySize: initialDealData.propertySize || 0,
+            totalUnits: initialDealData.totalUnits || 0,
+            isCashPurchase: initialDealData.isCashPurchase,
+          },
+          unitMix: [],
+          expenses: [],
+          income: [],
+        })
+        setCurrentStep(1) // Start at step 1
+        setHasLoadedInitialDraft(true)
+        return // Exit early - don't load from draft or database
+      }
+      
       // If we have a draftId and user is Premium, fetch from database first
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
       
@@ -136,7 +180,7 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
     }
     
     loadAnalysisData()
-  }, [draft, hasLoadedInitialDraft, currentStep, draftId, userSubscriptionStatus])
+  }, [draft, hasLoadedInitialDraft, currentStep, draftId, userSubscriptionStatus, initialDealData])
 
   // Auto-save when form data changes (with debouncing built into the hook)
   useEffect(() => {
@@ -397,6 +441,38 @@ export function PropertyAnalysisForm({ draftId, userSubscriptionStatus = null }:
         await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
         console.log('✅ Saved analysis to localStorage')
         alert('✅ Analysis saved locally!')
+      }
+      
+      // ========================================
+      // ✨ NEW: LINK ANALYSIS BACK TO DEAL
+      // ========================================
+      if (initialDealData?.dealId && savedAnalysisId) {
+        try {
+          console.log('🔗 Linking analysis to deal:', {
+            dealId: initialDealData.dealId,
+            analysisId: savedAnalysisId
+          })
+          
+          const linkResponse = await fetch(`/api/dealiq/${initialDealData.dealId}/link-analysis`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ analysisId: savedAnalysisId })
+          })
+          
+          if (linkResponse.ok) {
+            console.log('✅ Analysis linked to deal!')
+            // Redirect back to deal page
+            window.location.href = `/dashboard/dealiq/${initialDealData.dealId}`
+            return // Exit - redirect will happen
+          } else {
+            const errorData = await linkResponse.json()
+            console.error('Failed to link analysis:', errorData)
+            alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+          }
+        } catch (error) {
+          console.error('Error linking analysis to deal:', error)
+          alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+        }
       }
 
       // Update local state and navigate to results

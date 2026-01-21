@@ -49,6 +49,7 @@ interface Deal {
   commissionAmount: number | null
   originalPurchasePrice: number | null
   netValue: number | null
+  downPayment: number | null  // ✅ ADDED
   loanRate: number | null
   loanTerm: number | null
 }

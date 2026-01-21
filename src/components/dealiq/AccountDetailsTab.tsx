@@ -57,6 +57,7 @@ interface Deal {
   commissionAmount: number | null
   originalPurchasePrice: number | null
   netValue: number | null
+  downPayment: number | null  // ✅ ADDED
   loanRate: number | null
   loanTerm: number | null
 }
@@ -92,7 +93,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [tempCommissionPercent, setTempCommissionPercent] = useState(deal.commissionPercent || 0)
   const [tempLoanRate, setTempLoanRate] = useState(deal.loanRate || 0)
   const [tempLoanTerm, setTempLoanTerm] = useState(deal.loanTerm || 30)
-  const [tempDownPayment, setTempDownPayment] = useState(0)
+  const [tempDownPayment, setTempDownPayment] = useState(deal.downPayment || 0)
   const [tempPrice, setTempPrice] = useState(deal.price)
   
   // ✨ NEW: Property information edit states
@@ -123,8 +124,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     ? (deal.price * (deal.commissionPercent / 100))
     : (deal.commissionAmount || 0)
 
-  // Calculate loan details from analysis if available
-  let downPayment = 0
+  // Calculate loan details from deal or analysis
+  // ✅ PRIORITY: Use deal.downPayment if available, otherwise get from analysis
+  let downPayment = deal.downPayment || 0
   let loanAmount = 0
   let monthlyPayment = 0
 
@@ -135,7 +137,10 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
     if (analysisData?.property) {
       if (!analysisData.property.isCashPurchase) {
-        downPayment = analysisData.property.downPayment || 0
+        // Only use analysis downPayment if deal.downPayment is not set
+        if (!deal.downPayment) {
+          downPayment = analysisData.property.downPayment || 0
+        }
         loanAmount = deal.price - downPayment
         
         const rate = (deal.loanRate || analysisData.property.interestRate || 6.5) / 100 / 12
@@ -145,14 +150,34 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
           monthlyPayment = loanAmount * rate * Math.pow(1 + rate, term) / (Math.pow(1 + rate, term) - 1)
         }
         
-        console.log('💰 Component calculations (from deal.analysis.data):')
+        console.log('💰 Component calculations:')
         console.log('  Deal price:', deal.price)
-        console.log('  Down payment from analysis:', downPayment)
+        console.log('  Down payment (from deal or analysis):', downPayment)
         console.log('  Calculated loan amount:', loanAmount)
         console.log('  Interest rate:', rate * 12 * 100, '%')
         console.log('  Loan term:', term / 12, 'years')
         console.log('  Monthly payment:', monthlyPayment)
       }
+    }
+  } else if (deal.financingType === 'financed' && deal.downPayment) {
+    // ✅ NEW: Calculate for deals without analysis
+    loanAmount = deal.price - downPayment
+    
+    if (deal.loanRate && deal.loanTerm) {
+      const rate = deal.loanRate / 100 / 12
+      const term = deal.loanTerm * 12
+      
+      if (loanAmount > 0 && rate > 0 && term > 0) {
+        monthlyPayment = loanAmount * rate * Math.pow(1 + rate, term) / (Math.pow(1 + rate, term) - 1)
+      }
+      
+      console.log('💰 Component calculations (no analysis):')
+      console.log('  Deal price:', deal.price)
+      console.log('  Down payment:', downPayment)
+      console.log('  Calculated loan amount:', loanAmount)
+      console.log('  Interest rate:', deal.loanRate, '%')
+      console.log('  Loan term:', deal.loanTerm, 'years')
+      console.log('  Monthly payment:', monthlyPayment)
     }
   }
 
@@ -276,38 +301,37 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const handleSaveDownPayment = async () => {
     setIsSaving(true)
     try {
-      // Update the analysis with new down payment
-      if (!deal.analysis?.id) {
-        alert('No property analysis linked to this deal. Please create or link an analysis first.')
-        setIsEditingDownPayment(false)
-        setIsSaving(false)
-        return
-      }
-
       console.log('💾 Saving down payment change:')
       console.log('  Deal ID:', deal.id)
-      console.log('  Analysis ID:', deal.analysis.id)
+      console.log('  Analysis ID:', deal.analysis?.id)
       console.log('  Old down payment:', downPayment)
       console.log('  New down payment:', tempDownPayment)
 
-      const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          downPayment: tempDownPayment
+      // ✅ If deal has an analysis, update the analysis
+      if (deal.analysis?.id) {
+        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            downPayment: tempDownPayment
+          })
         })
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+        }
+        
+        const result = await response.json()
+        console.log('✅ API response:', result)
+      } else {
+        // ✅ NEW: If no analysis, update the deal directly
+        await onUpdate({ downPayment: tempDownPayment })
+        console.log('✅ Deal updated directly (no analysis)')
       }
-
-      const result = await response.json()
-      console.log('✅ API response:', result)
       
       console.log('🔄 Calling onRefresh to get fresh data...')
-      // Trigger parent refresh to get updated analysis data
+      // Trigger parent refresh to get updated data
       await onRefresh()
       
       console.log('✅ Refresh complete, closing editor')
@@ -1595,12 +1619,46 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
         </div>
       )}
 
-      {/* No Metrics Message */}
-      {!metrics && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>No analysis linked.</strong> Key metrics and P&L will appear here when you link a property analysis to this deal.
-          </p>
+      {/* No Analysis State - Show when deal has no linked analysis */}
+      {!deal.analysis && (
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Receipt className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>
+          </div>
+          
+          <div className="bg-blue-50 border-2 border-dashed border-blue-200 rounded-lg p-8 text-center">
+            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Receipt className="w-8 h-8 text-primary-600" />
+            </div>
+            
+            <h4 className="text-lg font-semibold text-neutral-900 mb-2">
+              No Financial Analysis
+            </h4>
+            
+            <p className="text-neutral-600 mb-4 max-w-md mx-auto">
+              This deal doesn't have a profit & loss analysis yet. Create one to see Cap Rate, NOI, Cash Flow, and complete financial metrics.
+            </p>
+            
+            <div className="bg-white rounded-lg p-4 mb-4 max-w-sm mx-auto">
+              <p className="text-sm font-medium text-neutral-700 mb-2">Creating an analysis will show:</p>
+              <ul className="text-sm text-neutral-600 space-y-1 text-left">
+                <li>• Cap Rate & Cash-on-Cash Return</li>
+                <li>• Net Operating Income (NOI)</li>
+                <li>• Monthly & Annual Cash Flow</li>
+                <li>• Gross Rent Multiplier (GRM)</li>
+                <li>• Complete income & expense breakdown</li>
+              </ul>
+            </div>
+            
+            <a
+              href={`/dashboard?fromDeal=${deal.id}`}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+            >
+              <Receipt className="w-5 h-5" />
+              Create Analysis
+            </a>
+          </div>
         </div>
       )}
     </div>
