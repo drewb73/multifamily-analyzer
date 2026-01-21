@@ -1,6 +1,7 @@
 // FILE LOCATION: /src/app/dashboard/dealiq/page.tsx
 // PURPOSE: Main DealIQ table view - Shows all deals
 // FIXED: Added horizontal scroll + fixed delete functionality
+// ADDED: Create New Deal button and modal
 
 'use client'
 
@@ -8,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { Briefcase, Plus, Trash2, AlertTriangle, Calendar, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { getStageLabel, getStageColors, getForecastLabel } from '@/lib/dealiq-constants'
+import { CreateDealModal } from '@/components/dealiq/CreateDealModal'
 
 interface Deal {
   id: string
@@ -29,6 +31,7 @@ export default function DealIQPage() {
   const [error, setError] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadDeals()
@@ -129,9 +132,18 @@ export default function DealIQPage() {
       <div>
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Briefcase className="w-8 h-8 text-primary-600" />
-            <h1 className="text-3xl font-bold text-neutral-900">DealIQ</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Briefcase className="w-8 h-8 text-primary-600" />
+              <h1 className="text-3xl font-bold text-neutral-900">DealIQ</h1>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Create New Deal
+            </button>
           </div>
           <p className="text-neutral-600">
             Track your multifamily deals through the entire pipeline
@@ -147,7 +159,7 @@ export default function DealIQPage() {
             No Deals Yet
           </h2>
           <p className="text-neutral-600 mb-6 max-w-md mx-auto">
-            Start by saving a property analysis and checking "Add to DealIQ" to create your first deal.
+            Create your first deal using the button above, or save a property analysis and check "Add to DealIQ".
           </p>
           <Link
             href="/dashboard"
@@ -162,12 +174,22 @@ export default function DealIQPage() {
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-semibold text-blue-900 mb-2">How to Add Deals</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-            <li>Go to "Analyze Property" and complete an analysis</li>
-            <li>Click "Save Analysis"</li>
-            <li>Check the "Add to DealIQ" box</li>
+            <li>Click "Create New Deal" above to add a deal directly</li>
+            <li>Or go to "Analyze Property" and complete an analysis</li>
+            <li>Click "Save Analysis" and check "Add to DealIQ"</li>
             <li>Your deal will appear here!</li>
           </ol>
         </div>
+
+        {/* Create Deal Modal */}
+        <CreateDealModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={(dealId) => {
+            // Deal created successfully! Reload the list
+            loadDeals()
+          }}
+        />
       </div>
     )
   }
@@ -181,8 +203,17 @@ export default function DealIQPage() {
             <Briefcase className="w-8 h-8 text-primary-600" />
             <h1 className="text-3xl font-bold text-neutral-900">DealIQ</h1>
           </div>
-          <div className="text-sm text-neutral-600">
-            {deals.length} {deals.length === 1 ? 'deal' : 'deals'}
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-neutral-600">
+              {deals.length} {deals.length === 1 ? 'deal' : 'deals'}
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Create New Deal
+            </button>
           </div>
         </div>
         <p className="text-neutral-600">
@@ -384,6 +415,16 @@ export default function DealIQPage() {
           </div>
         </div>
       )}
+
+      {/* Create Deal Modal */}
+      <CreateDealModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={(dealId) => {
+          // Deal created successfully! Reload the list
+          loadDeals()
+        }}
+      />
     </div>
   )
 }
