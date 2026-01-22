@@ -1,11 +1,11 @@
 // FILE LOCATION: /src/components/analysis/SaveAnalysisModal.tsx
-// UPDATED: Added "Add to DealIQ" checkbox
+// FIXED: Shows "Link to Deal" when coming from a deal, "Create Deal" otherwise
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import { Button, Card } from '@/components'
-import { X, AlertCircle, Briefcase } from 'lucide-react'
+import { X, AlertCircle, Briefcase, Link as LinkIcon } from 'lucide-react'
 import { fetchAnalyses } from '@/lib/api/analyses'
 import { Group, fetchGroups } from '@/lib/api/groups'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
@@ -16,6 +16,7 @@ interface SaveAnalysisModalProps {
   onConfirm: (options: SaveOptions) => void
   propertyAddress: string
   isPremium: boolean
+  linkedDealId?: string | null  // ✅ Just the MongoDB ID
 }
 
 export interface SaveOptions {
@@ -23,7 +24,8 @@ export interface SaveOptions {
   groupId: string | null
   overrideExisting: boolean
   existingAnalysisId?: string
-  createDeal: boolean // ← ADDED
+  createDeal: boolean
+  linkedDealId?: string | null  // ✅ Just the MongoDB ID
 }
 
 export function SaveAnalysisModal({ 
@@ -31,18 +33,21 @@ export function SaveAnalysisModal({
   onClose, 
   onConfirm, 
   propertyAddress,
-  isPremium 
+  isPremium,
+  linkedDealId = null  // ✅ Just the MongoDB ID
 }: SaveAnalysisModalProps) {
   const [propertyName, setPropertyName] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
   const [existingAnalysis, setExistingAnalysis] = useState<any | null>(null)
   const [overrideExisting, setOverrideExisting] = useState(false)
-  const [createDeal, setCreateDeal] = useState(false) // ← ADDED
+  
+  // ✅ Default to TRUE if we have a linkedDealId
+  const [createDeal, setCreateDeal] = useState(!!linkedDealId)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  const { settings: systemSettings } = useSystemSettings() // ← ADDED
+  const { settings: systemSettings } = useSystemSettings()
 
   // Load groups and check for existing analysis when modal opens
   useEffect(() => {
@@ -50,6 +55,11 @@ export function SaveAnalysisModal({
       loadData()
     }
   }, [isOpen, isPremium, propertyAddress])
+  
+  // ✅ Reset createDeal when linkedDealId changes
+  useEffect(() => {
+    setCreateDeal(!!linkedDealId)
+  }, [linkedDealId])
 
   const loadData = async () => {
     setIsLoading(true)
@@ -58,7 +68,7 @@ export function SaveAnalysisModal({
     try {
       // Load groups
       const groupsData = await fetchGroups()
-      setGroups(groupsData.groups) // Extract the groups array
+      setGroups(groupsData.groups)
 
       // Check if analysis with this address already exists
       const analysesResponse = await fetchAnalyses({
@@ -97,7 +107,8 @@ export function SaveAnalysisModal({
       groupId: selectedGroupId,
       overrideExisting: existingAnalysis ? overrideExisting : false,
       existingAnalysisId: existingAnalysis?.id,
-      createDeal // ← ADDED
+      createDeal,
+      linkedDealId
     })
   }
 
@@ -177,7 +188,7 @@ export function SaveAnalysisModal({
             )}
 
             {/* ========================================= */}
-            {/* ADD TO DEALIQ CHECKBOX (NEW!) */}
+            {/* DEALIQ CHECKBOX - DYNAMIC TEXT */}
             {/* ========================================= */}
             {isDealIQEnabled && (
               <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-lg">
@@ -190,13 +201,27 @@ export function SaveAnalysisModal({
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Briefcase className="w-4 h-4 text-primary-600" />
-                      <span className="font-medium text-primary-900">
-                        Add to DealIQ
-                      </span>
+                      {linkedDealId ? (
+                        <>
+                          <LinkIcon className="w-4 h-4 text-primary-600" />
+                          <span className="font-medium text-primary-900">
+                            Link to Deal #{linkedDealId}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Briefcase className="w-4 h-4 text-primary-600" />
+                          <span className="font-medium text-primary-900">
+                            Create Deal in DealIQ
+                          </span>
+                        </>
+                      )}
                     </div>
                     <p className="text-sm text-primary-700">
-                      Create a deal in your CRM pipeline to track this property through acquisition
+                      {linkedDealId 
+                        ? `Link this analysis back to Deal #${linkedDealId} for easy tracking`
+                        : 'Create a new deal in your CRM pipeline to track this property through acquisition'
+                      }
                     </p>
                   </div>
                 </label>

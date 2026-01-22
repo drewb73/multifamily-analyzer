@@ -46,13 +46,17 @@ export async function PATCH(
     const userId = user.id  // ✅ MongoDB ObjectID
 
     // ✅ AWAIT params in Next.js 15
-    const { id: dealId } = await params
+    const { id: dealIdParam } = await params
     const body = await request.json()
     console.log('📥 Request body:', body)
+    console.log('📥 Deal ID param:', dealIdParam)
 
-    // Fetch the deal to get analysis ID
-    const deal = await prisma.deal.findUnique({
-      where: { id: dealId, userId }
+    // ✅ Query by dealId (string like "4752510")
+    const deal = await prisma.deal.findFirst({
+      where: { 
+        dealId: dealIdParam,  // dealId is a String in schema
+        userId: userId
+      }
     })
 
     if (!deal) {

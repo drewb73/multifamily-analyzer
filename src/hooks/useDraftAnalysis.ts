@@ -1,4 +1,5 @@
-// src/hooks/useDraftAnalysis.ts
+// FILE LOCATION: /src/hooks/useDraftAnalysis.ts
+// FIXED: Prevents loading drafts when pre-populating from deal data
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -22,6 +23,7 @@ const MAX_DRAFTS = 10
 interface UseDraftAnalysisProps {
   analysisId?: string
   initialStep?: number
+  skipDraftLoad?: boolean  // ✅ NEW: Skip loading draft from storage
 }
 
 interface UseDraftAnalysisReturn {
@@ -50,7 +52,8 @@ interface UseDraftAnalysisReturn {
 
 export function useDraftAnalysis({ 
   analysisId, 
-  initialStep = 1 
+  initialStep = 1,
+  skipDraftLoad = false  // ✅ NEW: Default to false for backward compatibility
 }: UseDraftAnalysisProps = {}): UseDraftAnalysisReturn {
   // Get userId from Clerk for user-scoped storage
   const { user, isLoaded } = useUser()
@@ -121,6 +124,12 @@ export function useDraftAnalysis({
 
   // Load a specific draft or the current one
   const loadDraft = useCallback((specificDraftId?: string) => {
+    // ✅ NEW: Skip loading if we're told to skip
+    if (skipDraftLoad) {
+      console.log('⏭️ Skipping draft load - pre-populating from deal data')
+      return
+    }
+
     try {
       const drafts = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.DRAFTS, [], userId)
       let draftToLoad: DraftAnalysis | null = null
@@ -150,7 +159,7 @@ export function useDraftAnalysis({
       console.error('Error loading draft:', error)
       setSaveStatus('error')
     }
-  }, [createDefaultDraft, userId])
+  }, [createDefaultDraft, userId, skipDraftLoad])  // ✅ ADDED skipDraftLoad to dependencies
 
   // Load draft on mount or when analysisId/userId changes
   // IMPORTANT: Wait for Clerk to load before accessing storage
@@ -164,6 +173,12 @@ export function useDraftAnalysis({
       return
     }
 
+    // ✅ NEW: Skip loading if skipDraftLoad is true
+    if (skipDraftLoad) {
+      console.log('⏭️ useDraftAnalysis: skipDraftLoad=true, not loading from storage')
+      return
+    }
+
     if (isMountedRef.current) {
       // Clear any existing draft first when userId changes
       setDraft(null)
@@ -171,7 +186,7 @@ export function useDraftAnalysis({
       // Then load the correct draft for current user
       loadDraft()
     }
-  }, [analysisId, userId, isLoaded, loadDraft])
+  }, [analysisId, userId, isLoaded, loadDraft, skipDraftLoad])  // ✅ ADDED skipDraftLoad to dependencies
 
   // Save draft with debouncing
   const saveDraft = useCallback(async (
@@ -260,7 +275,7 @@ export function useDraftAnalysis({
     } finally {
       setIsSaving(false)
     }
-  }, [analysisId, draft, isSaving])
+  }, [analysisId, draft, isSaving, userId])  // ✅ ADDED userId to dependencies
 
   // Auto-save with debouncing
   const autoSaveDraft = useCallback((

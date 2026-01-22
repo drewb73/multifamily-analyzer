@@ -1,4 +1,6 @@
-// src/app/dashboard/page.tsx
+// FILE LOCATION: /src/app/dashboard/page.tsx
+// FIXED: Pass both MongoDB ID and dealId (7-digit number)
+
 import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
 import { MaintenanceLock } from '@/components/dashboard/MaintenanceLock';
@@ -13,7 +15,7 @@ import { prisma } from '@/lib/prisma';
 interface DashboardPageProps {
   searchParams: Promise<{ 
     analysisId?: string
-    fromDeal?: string  // ✅ NEW: For creating analysis from deal
+    fromDeal?: string  // ✅ For creating analysis from deal
   }>
 }
 
@@ -47,9 +49,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Get params (await for Next.js 15)
   const params = await searchParams;
   const analysisId = params.analysisId;
-  const fromDeal = params.fromDeal;  // ✅ NEW
+  const fromDeal = params.fromDeal;
   
-  // ✅ NEW: Fetch deal data if fromDeal is present
+  // ✅ FIXED: Use the 7-digit dealId
   let dealData = null;
   if (fromDeal) {
     try {
@@ -62,7 +64,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       
       if (deal) {
         dealData = {
-          dealId: deal.id,
+          dealId: String(deal.dealId),   // ✅ Use the 7-digit dealId
           address: deal.address,
           city: deal.city,
           state: deal.state,
@@ -77,7 +79,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         };
         
         console.log('📊 Pre-populating analysis from deal:', deal.dealId);
-        console.log('🔍 dealData object:', dealData);
+        console.log('🔍 Address:', deal.address);
       }
     } catch (error) {
       console.error('Error fetching deal:', error);
@@ -109,7 +111,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <PropertyAnalysisForm 
           draftId={analysisId} 
           userSubscriptionStatus={effectiveStatus}
-          initialDealData={dealData}  // ✅ NEW: Pass deal data for pre-population
+          initialDealData={dealData}
         />
       ) : (
         // User cannot analyze - show locked feature

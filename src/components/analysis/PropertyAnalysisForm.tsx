@@ -1,10 +1,11 @@
 // FILE LOCATION: /src/components/analysis/PropertyAnalysisForm.tsx
-// IMPROVED: Better deal creation with duplicate prevention and logging
+// FIXED: Added skipDraftLoad feature while keeping all original working code
 
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Card } from '@/components'
+import { RotateCcw } from 'lucide-react'  // ✅ NEW: For reset button
 import { PropertyDetailsForm } from './PropertyDetailsForm'
 import { UnitMixForm } from './UnitMixForm'
 import { IncomeExpenseForm } from './IncomeExpenseForm'
@@ -19,8 +20,8 @@ import { saveAnalysisToDatabase, updateAnalysis, getAnalysis } from '@/lib/api/a
 interface PropertyAnalysisFormProps {
   draftId?: string
   userSubscriptionStatus?: string | null
-  initialDealData?: {  // ✅ NEW: For creating analysis from deal
-    dealId: string
+  initialDealData?: {  // ✅ For creating analysis from deal
+    dealId: string       // MongoDB ObjectId (we'll use this for everything)
     address: string
     city: string | null
     state: string | null
@@ -38,7 +39,7 @@ interface PropertyAnalysisFormProps {
 export function PropertyAnalysisForm({ 
   draftId, 
   userSubscriptionStatus = null,
-  initialDealData = null  // ✅ NEW
+  initialDealData = null
 }: PropertyAnalysisFormProps) {
   // ✅ DEBUG: Log what we receive IMMEDIATELY
   console.log('🎯 PropertyAnalysisForm MOUNTED with initialDealData:', initialDealData)
@@ -46,7 +47,7 @@ export function PropertyAnalysisForm({
   console.log('  Is it undefined?', initialDealData === undefined)
   console.log('  Type:', typeof initialDealData)
   
-  // Use draft hook - this is our single source of truth
+  // ✅ ONLY CHANGE: Pass skipDraftLoad when we have initialDealData
   const {
     draft,
     saveStatus,
@@ -55,89 +56,98 @@ export function PropertyAnalysisForm({
     autoSaveDraft,
     createNewDraft,
     isSaving,
-  } = useDraftAnalysis({ analysisId: draftId })
+  } = useDraftAnalysis({ 
+    analysisId: draftId,
+    skipDraftLoad: !!initialDealData  // ✅ This is the ONLY new thing here
+  })
 
   // Local state that syncs with draft
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState<Partial<AnalysisInputs>>({
-    property: {
-      address: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      purchasePrice: 0,
-      downPayment: 0,
-      loanTerm: 30,
-      interestRate: 6.5,
-      propertySize: 0,
-      totalUnits: 0,
-      isCashPurchase: false,
-    },
-    unitMix: [],
-    expenses: [],
-    income: [],
+  
+  // ✅ CRITICAL FIX: Initialize formData with deal data if available
+  const [formData, setFormData] = useState<Partial<AnalysisInputs>>(() => {
+    // If we have initialDealData, use it immediately!
+    if (initialDealData) {
+      console.log('💥 INITIALIZING formData with initialDealData RIGHT NOW!')
+      return {
+        property: {
+          address: initialDealData.address,
+          city: initialDealData.city || '',
+          state: initialDealData.state || '',
+          zipCode: initialDealData.zipCode || '',
+          purchasePrice: initialDealData.purchasePrice,
+          downPayment: initialDealData.downPayment || 0,
+          loanTerm: initialDealData.loanTerm || 30,
+          interestRate: initialDealData.loanRate || 6.5,
+          propertySize: initialDealData.propertySize || 0,
+          totalUnits: initialDealData.totalUnits || 0,
+          isCashPurchase: initialDealData.isCashPurchase,
+        },
+        unitMix: [],
+        expenses: [],
+        income: [],
+      }
+    }
+    
+    // Default empty form
+    return {
+      property: {
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        purchasePrice: 0,
+        downPayment: 0,
+        loanTerm: 30,
+        interestRate: 6.5,
+        propertySize: 0,
+        totalUnits: 0,
+        isCashPurchase: false,
+      },
+      unitMix: [],
+      expenses: [],
+      income: [],
+    }
   })
   const [results, setResults] = useState<AnalysisResultsType | null>(null)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false)
   const [pendingCalculation, setPendingCalculation] = useState<AnalysisResultsType | null>(null)
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false)
   
-  // Validation error state - NEW
+  // Validation error state
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [showValidationError, setShowValidationError] = useState(false)
   
   // Track if we've loaded the initial draft
-  const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
+  // ✅ CRITICAL FIX: If we have initialDealData, we've already loaded it!
+  const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(!!initialDealData)
   
-  // ✅ NEW: Separate useEffect JUST for initialDealData that always runs
+  // ✅ SIMPLIFIED: This useEffect is now just a safety check
+  // The state is already initialized with initialDealData above
   useEffect(() => {
-    if (initialDealData) {
-      console.log('🚀 DEDICATED useEffect for initialDealData triggered!')
-      console.log('  hasLoadedInitialDraft:', hasLoadedInitialDraft)
-      console.log('  initialDealData:', initialDealData)
-      
-      if (!hasLoadedInitialDraft) {
-        console.log('📊 PRE-POPULATING form from deal NOW!')
-        
-        const newFormData = {
-          property: {
-            address: initialDealData.address,
-            city: initialDealData.city || '',
-            state: initialDealData.state || '',
-            zipCode: initialDealData.zipCode || '',
-            purchasePrice: initialDealData.purchasePrice,
-            downPayment: initialDealData.downPayment || 0,
-            loanTerm: initialDealData.loanTerm || 30,
-            interestRate: initialDealData.loanRate || 6.5,
-            propertySize: initialDealData.propertySize || 0,
-            totalUnits: initialDealData.totalUnits || 0,
-            isCashPurchase: initialDealData.isCashPurchase,
-          },
-          unitMix: [],
-          expenses: [],
-          income: [],
-        }
-        
-        console.log('🔍 Setting formData to:', {
-          address: newFormData.property.address,
-          city: newFormData.property.city,
-          state: newFormData.property.state,
-          purchasePrice: newFormData.property.purchasePrice,
-          downPayment: newFormData.property.downPayment,
-          totalUnits: newFormData.property.totalUnits
-        })
-        
-        setFormData(newFormData)
-        setCurrentStep(1)
-        setHasLoadedInitialDraft(true)
-        console.log('✅ PRE-POPULATION COMPLETE!')
-      } else {
-        console.log('⚠️ Skipped pre-population - hasLoadedInitialDraft is already true')
-      }
-    } else {
-      console.log('❌ initialDealData is null/undefined')
+    if (initialDealData && !hasLoadedInitialDraft) {
+      console.log('🔄 Safety check: Re-setting formData from initialDealData')
+      setFormData({
+        property: {
+          address: initialDealData.address,
+          city: initialDealData.city || '',
+          state: initialDealData.state || '',
+          zipCode: initialDealData.zipCode || '',
+          purchasePrice: initialDealData.purchasePrice,
+          downPayment: initialDealData.downPayment || 0,
+          loanTerm: initialDealData.loanTerm || 30,
+          interestRate: initialDealData.loanRate || 6.5,
+          propertySize: initialDealData.propertySize || 0,
+          totalUnits: initialDealData.totalUnits || 0,
+          isCashPurchase: initialDealData.isCashPurchase,
+        },
+        unitMix: [],
+        expenses: [],
+        income: [],
+      })
+      setHasLoadedInitialDraft(true)
     }
-  }, [initialDealData]) // Only re-run if initialDealData changes
+  }, [initialDealData, hasLoadedInitialDraft])
 
   const steps = [
     { id: 1, name: 'Property Details' },
@@ -149,8 +159,11 @@ export function PropertyAnalysisForm({
   // Load draft data ONCE when component mounts or when draft changes
   useEffect(() => {
     const loadAnalysisData = async () => {
-      // ✅ REMOVED: Pre-population now handled by dedicated useEffect above
-      // This prevents conflicts and makes the flow clearer
+      // ✅ Skip if already loaded
+      if (hasLoadedInitialDraft) {
+        console.log('⏭️ Skipping loadAnalysisData - already loaded initial data')
+        return
+      }
       
       // If we have a draftId and user is Premium, fetch from database first
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
@@ -161,8 +174,8 @@ export function PropertyAnalysisForm({
         return
       }
       
-      if (draftId && isPremium && !hasLoadedInitialDraft) {
-        setIsLoadingAnalysis(true) // Show loading screen
+      if (draftId && isPremium) {
+        setIsLoadingAnalysis(true)
         try {
           console.log('🔍 Fetching analysis from database:', draftId)
           const { analysis } = await getAnalysis(draftId)
@@ -170,38 +183,35 @@ export function PropertyAnalysisForm({
           if (analysis) {
             console.log('✅ Loaded analysis from database:', analysis.name)
             
-            // Load the database analysis into form
             if (analysis.data) {
               setFormData(analysis.data)
             }
             
             if (analysis.results) {
               setResults(analysis.results)
-              setCurrentStep(4) // Go to results if we have them
+              setCurrentStep(4)
             } else {
-              setCurrentStep(1) // Start at beginning if no results
+              setCurrentStep(1)
             }
             
             setHasLoadedInitialDraft(true)
-            setIsLoadingAnalysis(false) // Hide loading screen
-            return // Exit early, we loaded from database
+            setIsLoadingAnalysis(false)
+            return
           }
         } catch (error) {
           console.error('Failed to load analysis from database:', error)
-          setIsLoadingAnalysis(false) // Hide loading screen on error
-          // Fall through to localStorage loading
+          setIsLoadingAnalysis(false)
         }
       }
       
-      // Fallback to localStorage draft (for non-premium or if database fetch failed)
-      if (draft && !hasLoadedInitialDraft) {
+      // Fallback to localStorage draft
+      if (draft) {
         console.log('📥 Loading draft from storage:', { 
           step: draft.step, 
           hasResults: !!draft.results,
           dataPresent: !!draft.data?.property?.address 
         })
         
-        // Only update local state if draft has data
         if (draft.data && Object.keys(draft.data).length > 0) {
           setFormData(draft.data)
         }
@@ -221,9 +231,8 @@ export function PropertyAnalysisForm({
     loadAnalysisData()
   }, [draft, hasLoadedInitialDraft, currentStep, draftId, userSubscriptionStatus, initialDealData])
 
-  // Auto-save when form data changes (with debouncing built into the hook)
+  // Auto-save when form data changes
   useEffect(() => {
-    // Don't auto-save if we're still loading or if form is empty
     if (!hasLoadedInitialDraft || isSaving || !formData?.property?.address) {
       return
     }
@@ -244,7 +253,6 @@ export function PropertyAnalysisForm({
     if (currentStep === 1 && formData.property) {
       const validation = validatePropertyDetails(formData.property)
       if (!validation.isValid) {
-        // CHANGED: Use custom modal instead of alert
         setValidationErrors(validation.errors)
         setShowValidationError(true)
         return
@@ -254,7 +262,6 @@ export function PropertyAnalysisForm({
     // VALIDATION FOR STEP 2 - Unit Mix
     if (currentStep === 2) {
       if (!formData.unitMix || formData.unitMix.length === 0) {
-        // CHANGED: Use custom modal instead of alert
         setValidationErrors(['Please add at least one unit type before continuing.'])
         setShowValidationError(true)
         return
@@ -262,7 +269,6 @@ export function PropertyAnalysisForm({
       
       const validation = validateUnitMix(formData.unitMix, formData.property?.totalUnits || 0)
       if (!validation.isValid) {
-        // CHANGED: Use custom modal instead of alert
         setValidationErrors(validation.errors)
         setShowValidationError(true)
         return
@@ -372,25 +378,19 @@ export function PropertyAnalysisForm({
 
     console.log('✅ Calculated results, opening save modal')
     
-    // Store pending calculation and open modal
     setPendingCalculation(calculatedResults)
     setIsSaveModalOpen(true)
   }
 
-  // ========================================
-  // ✨ IMPROVED: Updated handleSaveConfirm with duplicate prevention
-  // ========================================
   const handleSaveConfirm = async (saveOptions: SaveOptions) => {
     if (!pendingCalculation) return
     
     try {
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
-      let savedAnalysisId = saveOptions.existingAnalysisId // Track analysis ID for deal creation
+      let savedAnalysisId = saveOptions.existingAnalysisId
       
       if (isPremium) {
-        // Premium user - save to database
         if (saveOptions.overrideExisting && saveOptions.existingAnalysisId) {
-          // Update existing analysis
           await updateAnalysis(saveOptions.existingAnalysisId, {
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
@@ -399,128 +399,107 @@ export function PropertyAnalysisForm({
           })
           console.log('✅ Updated existing analysis in database')
         } else {
-          // Create new analysis and capture the ID
           const savedAnalysis = await saveAnalysisToDatabase({
             name: saveOptions.propertyName,
             data: formData as AnalysisInputs,
             results: pendingCalculation,
             groupId: saveOptions.groupId,
           })
-          savedAnalysisId = savedAnalysis.analysis?.id // ✨ Capture the analysis ID
+          savedAnalysisId = savedAnalysis.analysis?.id
           console.log('✅ Saved new analysis to database, ID:', savedAnalysisId)
         }
         
-        // ========================================
-        // ✨ IMPROVED: CREATE DEAL IN DEALIQ (with duplicate prevention)
-        // ========================================
+        // ✅ Handle deal linking vs creation
         if (saveOptions.createDeal && savedAnalysisId) {
-          try {
-            console.log('🎯 Creating deal in DealIQ for analysis:', savedAnalysisId)
-            
-            // Check if deal already exists for this analysis
-            const checkResponse = await fetch('/api/dealiq')
-            const existingDealsData = await checkResponse.json()
-            
-            if (existingDealsData.success && existingDealsData.deals) {
-              const existingDeal = existingDealsData.deals.find((d: any) => d.analysisId === savedAnalysisId)
+          // If we have a linkedDealId, link to that deal (don't create new)
+          if (saveOptions.linkedDealId) {
+            try {
+              console.log('🔗 Linking analysis to deal #', saveOptions.linkedDealId)
               
-              if (existingDeal) {
-                console.log('ℹ️ Deal already exists for this analysis:', existingDeal.dealId)
-                console.log('📍 Existing deal MongoDB ID:', existingDeal.id)
-                console.log('📍 Existing deal ID (7-digit):', existingDeal.dealId)
-                alert(`✅ Analysis saved! Deal #${existingDeal.dealId} is already linked to this analysis.`)
+              const linkResponse = await fetch(`/api/dealiq/${saveOptions.linkedDealId}/update-analysis`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ analysisId: savedAnalysisId })
+              })
+              
+              if (linkResponse.ok) {
+                console.log('✅ Analysis linked to deal!')
+                alert(`✅ Analysis saved and linked to Deal #${saveOptions.linkedDealId}!`)
+                window.location.href = `/dashboard/dealiq/${saveOptions.linkedDealId}`
+                return
               } else {
-                // No existing deal - create new one
-                console.log('✨ No existing deal found, creating new one...')
+                const errorData = await linkResponse.json()
+                console.error('Failed to link analysis:', errorData)
+                alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+              }
+            } catch (error) {
+              console.error('Error linking analysis to deal:', error)
+              alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+            }
+          } else {
+            // No linkedDealId - create a NEW deal
+            try {
+              console.log('🎯 Creating NEW deal in DealIQ for analysis:', savedAnalysisId)
+              
+              const checkResponse = await fetch('/api/dealiq')
+              const existingDealsData = await checkResponse.json()
+              
+              if (existingDealsData.success && existingDealsData.deals) {
+                const existingDeal = existingDealsData.deals.find((d: any) => d.analysisId === savedAnalysisId)
                 
-                const dealResponse = await fetch('/api/dealiq', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    analysisId: savedAnalysisId,
-                    address: formData.property?.address || 'Unknown Address',
-                    city: formData.property?.city || null,
-                    state: formData.property?.state || null,
-                    zipCode: formData.property?.zipCode || null,
-                    price: formData.property?.purchasePrice || 0,
-                    squareFeet: formData.property?.propertySize || null,
-                    units: formData.property?.totalUnits || null,
-                    financingType: formData.property?.isCashPurchase ? 'cash' : 'financed',
-                  })
-                })
-                
-                const dealData = await dealResponse.json()
-                
-                if (dealData.success) {
-                  console.log('✅ Deal created successfully!')
-                  console.log('📍 New deal MongoDB ID:', dealData.deal.id)
-                  console.log('📍 New deal ID (7-digit):', dealData.deal.dealId)
-                  console.log('📍 Deal ID type:', typeof dealData.deal.dealId)
-                  alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+                if (existingDeal) {
+                  console.log('ℹ️ Deal already exists for this analysis:', existingDeal.dealId)
+                  alert(`✅ Analysis saved! Deal #${existingDeal.dealId} is already linked to this analysis.`)
                 } else {
-                  console.error('❌ Failed to create deal:', dealData.error)
-                  alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+                  console.log('✨ No existing deal found, creating new one...')
+                  
+                  const dealResponse = await fetch('/api/dealiq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      analysisId: savedAnalysisId,
+                      address: formData.property?.address || 'Unknown Address',
+                      city: formData.property?.city || null,
+                      state: formData.property?.state || null,
+                      zipCode: formData.property?.zipCode || null,
+                      price: formData.property?.purchasePrice || 0,
+                      squareFeet: formData.property?.propertySize || null,
+                      units: formData.property?.totalUnits || null,
+                      financingType: formData.property?.isCashPurchase ? 'cash' : 'financed',
+                    })
+                  })
+                  
+                  const dealData = await dealResponse.json()
+                  
+                  if (dealData.success) {
+                    console.log('✅ Deal created successfully!')
+                    alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+                  } else {
+                    console.error('❌ Failed to create deal:', dealData.error)
+                    alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+                  }
                 }
               }
-            } else {
-              console.error('❌ Failed to fetch existing deals:', existingDealsData.error)
-              alert('✅ Analysis saved, but failed to check for existing deals.')
+            } catch (dealError) {
+              console.error('❌ Error in deal creation flow:', dealError)
+              alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
             }
-          } catch (dealError) {
-            console.error('❌ Error in deal creation flow:', dealError)
-            alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
           }
         } else if (!saveOptions.createDeal) {
-          // User didn't check the box - show normal success message
           alert('✅ Analysis saved successfully!')
         }
         
       } else {
-        // Trial/Free user - save to localStorage
         await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
         console.log('✅ Saved analysis to localStorage')
         alert('✅ Analysis saved locally!')
       }
-      
-      // ========================================
-      // ✨ NEW: LINK ANALYSIS BACK TO DEAL
-      // ========================================
-      if (initialDealData?.dealId && savedAnalysisId) {
-        try {
-          console.log('🔗 Linking analysis to deal:', {
-            dealId: initialDealData.dealId,
-            analysisId: savedAnalysisId
-          })
-          
-          const linkResponse = await fetch(`/api/dealiq/${initialDealData.dealId}/link-analysis`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ analysisId: savedAnalysisId })
-          })
-          
-          if (linkResponse.ok) {
-            console.log('✅ Analysis linked to deal!')
-            // Redirect back to deal page
-            window.location.href = `/dashboard/dealiq/${initialDealData.dealId}`
-            return // Exit - redirect will happen
-          } else {
-            const errorData = await linkResponse.json()
-            console.error('Failed to link analysis:', errorData)
-            alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
-          }
-        } catch (error) {
-          console.error('Error linking analysis to deal:', error)
-          alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
-        }
-      }
 
-      // Update local state and navigate to results
       setResults(pendingCalculation)
       setCurrentStep(4)
       setIsSaveModalOpen(false)
       setPendingCalculation(null)
       
-      // Save current state
       await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
       
     } catch (error) {
@@ -535,11 +514,37 @@ export function PropertyAnalysisForm({
     setFormData(newDraft.data)
     setCurrentStep(1)
     setResults(null)
-    setHasLoadedInitialDraft(true) // Mark as loaded since we have a new draft
+    setHasLoadedInitialDraft(true)
+  }
+  
+  // ✅ NEW: Reset form to empty state
+  const handleResetForm = () => {
+    if (window.confirm('Are you sure you want to clear this form? All entered data will be lost.')) {
+      console.log('🧹 Resetting form to empty state')
+      setFormData({
+        property: {
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          purchasePrice: 0,
+          downPayment: 0,
+          loanTerm: 30,
+          interestRate: 6.5,
+          propertySize: 0,
+          totalUnits: 0,
+          isCashPurchase: false,
+        },
+        unitMix: [],
+        expenses: [],
+        income: [],
+      })
+      setCurrentStep(1)
+      setResults(null)
+    }
   }
 
-  // Show loading state while fetching analysis from database or initial draft loads
-  // ✅ FIXED: Don't show loading if we have initialDealData
+  // Show loading state
   if (isLoadingAnalysis || (!hasLoadedInitialDraft && !draftId && !initialDealData)) {
     return (
       <div className="text-center py-12">
@@ -562,7 +567,6 @@ export function PropertyAnalysisForm({
 
   return (
     <div className="space-y-8">
-      {/* Save Analysis Modal */}
       <SaveAnalysisModal
         isOpen={isSaveModalOpen}
         onClose={() => {
@@ -572,9 +576,9 @@ export function PropertyAnalysisForm({
         onConfirm={handleSaveConfirm}
         propertyAddress={formData.property?.address || ''}
         isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'}
+        linkedDealId={initialDealData?.dealId || null}  // ✅ Just the 7-digit dealId
       />
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-neutral-900">
@@ -584,9 +588,20 @@ export function PropertyAnalysisForm({
             <p className="text-neutral-600 mt-1">{draft.name}</p>
           )}
         </div>
+        
+        {/* ✅ NEW: Reset button (only show on step 1 if form has data) */}
+        {currentStep === 1 && formData.property?.address && (
+          <Button
+            variant="secondary"
+            onClick={handleResetForm}
+            className="flex items-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Clear Form
+          </Button>
+        )}
       </div>
 
-      {/* Progress Steps */}
       <div className="relative">
         <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-neutral-200">
           <div 
@@ -623,7 +638,6 @@ export function PropertyAnalysisForm({
         </nav>
       </div>
 
-      {/* Form Content */}
       <Card className="p-6">
         {currentStep === 1 && (
           <PropertyDetailsForm 
@@ -660,7 +674,6 @@ export function PropertyAnalysisForm({
         )}
       </Card>
 
-      {/* Navigation Buttons */}
       <div className="flex justify-between">
         <div>
           {currentStep > 1 && currentStep < 4 && (
@@ -707,7 +720,6 @@ export function PropertyAnalysisForm({
         </div>
       </div>
 
-      {/* Validation Error Modal - NEW */}
       {showValidationError && (
         <ValidationError
           errors={validationErrors}

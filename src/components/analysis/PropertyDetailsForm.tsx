@@ -15,6 +15,13 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
   const [formData, setFormData] = useState<PropertyDetails>(data)
   const [isCashPurchase, setIsCashPurchase] = useState(data.isCashPurchase || false)
 
+  // ✅ FIX: Sync with incoming data prop when it changes
+  useEffect(() => {
+    console.log('📥 PropertyDetailsForm received new data:', data)
+    setFormData(data)
+    setIsCashPurchase(data.isCashPurchase || false)
+  }, [data])
+
   // Update parent only when user stops typing (debounced)
   useEffect(() => {
     const timer = setTimeout(() => {
