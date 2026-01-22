@@ -40,16 +40,11 @@ export function PropertyAnalysisForm({
   userSubscriptionStatus = null,
   initialDealData = null  // ✅ NEW
 }: PropertyAnalysisFormProps) {
-  // ✅ DEBUG: Log component mount
-  console.log('🎯 PropertyAnalysisForm MOUNTED:', {
-    hasInitialDealData: !!initialDealData,
-    hasDraftId: !!draftId,
-    initialDealData: initialDealData ? {
-      dealId: initialDealData.dealId,
-      address: initialDealData.address,
-      purchasePrice: initialDealData.purchasePrice
-    } : null
-  })
+  // ✅ DEBUG: Log what we receive IMMEDIATELY
+  console.log('🎯 PropertyAnalysisForm MOUNTED with initialDealData:', initialDealData)
+  console.log('  Is it null?', initialDealData === null)
+  console.log('  Is it undefined?', initialDealData === undefined)
+  console.log('  Type:', typeof initialDealData)
   
   // Use draft hook - this is our single source of truth
   const {
@@ -93,31 +88,18 @@ export function PropertyAnalysisForm({
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
-
-  const steps = [
-    { id: 1, name: 'Property Details' },
-    { id: 2, name: 'Unit Mix' },
-    { id: 3, name: 'Income & Expenses' },
-    { id: 4, name: 'Results' },
-  ]
-
-  // Load draft data ONCE when component mounts or when draft changes
+  
+  // ✅ NEW: Separate useEffect JUST for initialDealData that always runs
   useEffect(() => {
-    const loadAnalysisData = async () => {
-      // ✅ NEW: Pre-populate from deal data if provided
-      if (initialDealData && !hasLoadedInitialDraft) {
-        console.log('📊 PRE-POPULATING form from deal:', {
-          dealId: initialDealData.dealId,
-          address: initialDealData.address,
-          city: initialDealData.city,
-          state: initialDealData.state,
-          purchasePrice: initialDealData.purchasePrice,
-          downPayment: initialDealData.downPayment,
-          loanTerm: initialDealData.loanTerm,
-          loanRate: initialDealData.loanRate
-        })
+    if (initialDealData) {
+      console.log('🚀 DEDICATED useEffect for initialDealData triggered!')
+      console.log('  hasLoadedInitialDraft:', hasLoadedInitialDraft)
+      console.log('  initialDealData:', initialDealData)
+      
+      if (!hasLoadedInitialDraft) {
+        console.log('📊 PRE-POPULATING form from deal NOW!')
         
-        setFormData({
+        const newFormData = {
           property: {
             address: initialDealData.address,
             city: initialDealData.city || '',
@@ -134,17 +116,50 @@ export function PropertyAnalysisForm({
           unitMix: [],
           expenses: [],
           income: [],
+        }
+        
+        console.log('🔍 Setting formData to:', {
+          address: newFormData.property.address,
+          city: newFormData.property.city,
+          state: newFormData.property.state,
+          purchasePrice: newFormData.property.purchasePrice,
+          downPayment: newFormData.property.downPayment,
+          totalUnits: newFormData.property.totalUnits
         })
         
-        console.log('✅ Form data SET, marking as loaded')
-        setCurrentStep(1) // Start at step 1
+        setFormData(newFormData)
+        setCurrentStep(1)
         setHasLoadedInitialDraft(true)
-        console.log('✅ PRE-POPULATION COMPLETE - exiting early')
-        return // Exit early - don't load from draft or database
+        console.log('✅ PRE-POPULATION COMPLETE!')
+      } else {
+        console.log('⚠️ Skipped pre-population - hasLoadedInitialDraft is already true')
       }
+    } else {
+      console.log('❌ initialDealData is null/undefined')
+    }
+  }, [initialDealData]) // Only re-run if initialDealData changes
+
+  const steps = [
+    { id: 1, name: 'Property Details' },
+    { id: 2, name: 'Unit Mix' },
+    { id: 3, name: 'Income & Expenses' },
+    { id: 4, name: 'Results' },
+  ]
+
+  // Load draft data ONCE when component mounts or when draft changes
+  useEffect(() => {
+    const loadAnalysisData = async () => {
+      // ✅ REMOVED: Pre-population now handled by dedicated useEffect above
+      // This prevents conflicts and makes the flow clearer
       
       // If we have a draftId and user is Premium, fetch from database first
       const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      
+      // ✅ IMPORTANT: Skip draft loading if we have initialDealData
+      if (initialDealData) {
+        console.log('⏭️ Skipping draft/database load - using initialDealData instead')
+        return
+      }
       
       if (draftId && isPremium && !hasLoadedInitialDraft) {
         setIsLoadingAnalysis(true) // Show loading screen
@@ -179,8 +194,7 @@ export function PropertyAnalysisForm({
       }
       
       // Fallback to localStorage draft (for non-premium or if database fetch failed)
-      // ✅ FIXED: Don't load draft if we have initialDealData (prevents overwriting)
-      if (draft && !hasLoadedInitialDraft && !initialDealData) {
+      if (draft && !hasLoadedInitialDraft) {
         console.log('📥 Loading draft from storage:', { 
           step: draft.step, 
           hasResults: !!draft.results,
@@ -536,6 +550,15 @@ export function PropertyAnalysisForm({
       </div>
     )
   }
+
+  // ✅ DEBUG: Log formData.property on every render
+  console.log('🎨 RENDERING PropertyAnalysisForm, formData.property:', {
+    address: formData.property?.address || '(empty)',
+    city: formData.property?.city || '(empty)',
+    purchasePrice: formData.property?.purchasePrice || 0,
+    downPayment: formData.property?.downPayment || 0,
+    totalUnits: formData.property?.totalUnits || 0
+  })
 
   return (
     <div className="space-y-8">

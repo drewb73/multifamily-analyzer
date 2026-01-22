@@ -77,11 +77,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         };
         
         console.log('📊 Pre-populating analysis from deal:', deal.dealId);
+        console.log('🔍 dealData object:', dealData);
       }
     } catch (error) {
       console.error('Error fetching deal:', error);
     }
   }
+
+  console.log('🎯 SERVER: About to render with dealData:', dealData);
+  console.log('🎯 SERVER: dealData is null?', dealData === null);
 
   return (
     <div>
