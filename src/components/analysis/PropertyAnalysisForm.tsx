@@ -412,9 +412,36 @@ export function PropertyAnalysisForm({
         }
         
         // ========================================
-        // ✨ IMPROVED: CREATE DEAL IN DEALIQ (with duplicate prevention)
+        // ✨ IMPROVED: LINK TO EXISTING DEAL OR CREATE NEW ONE
         // ========================================
-        if (saveOptions.createDeal && savedAnalysisId) {
+        // PRIORITY 1: If we have linkedDealId, link to that deal (don't create new)
+        if (saveOptions.linkedDealId && savedAnalysisId) {
+          try {
+            console.log('🔗 Linking analysis to existing deal:', saveOptions.linkedDealId)
+            
+            const linkResponse = await fetch(`/api/dealiq/${saveOptions.linkedDealId}/update-analysis`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ analysisId: savedAnalysisId })
+            })
+            
+            if (linkResponse.ok) {
+              console.log('✅ Analysis linked to deal!')
+              alert(`✅ Analysis saved and linked to Deal #${saveOptions.linkedDealId}!`)
+              window.location.href = `/dashboard/dealiq/${saveOptions.linkedDealId}`
+              return // Exit - redirect will happen
+            } else {
+              const errorData = await linkResponse.json()
+              console.error('Failed to link analysis:', errorData)
+              alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+            }
+          } catch (error) {
+            console.error('Error linking analysis to deal:', error)
+            alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+          }
+        }
+        // PRIORITY 2: If user checked "Create Deal" and no linkedDealId, create new deal
+        else if (saveOptions.createDeal && savedAnalysisId) {
           try {
             console.log('🎯 Creating deal in DealIQ for analysis:', savedAnalysisId)
             
@@ -481,38 +508,6 @@ export function PropertyAnalysisForm({
         await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
         console.log('✅ Saved analysis to localStorage')
         alert('✅ Analysis saved locally!')
-      }
-      
-      // ========================================
-      // ✨ NEW: LINK ANALYSIS BACK TO DEAL
-      // ========================================
-      if (initialDealData?.dealId && savedAnalysisId) {
-        try {
-          console.log('🔗 Linking analysis to deal:', {
-            dealId: initialDealData.dealId,
-            analysisId: savedAnalysisId
-          })
-          
-          const linkResponse = await fetch(`/api/dealiq/${initialDealData.dealId}/link-analysis`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ analysisId: savedAnalysisId })
-          })
-          
-          if (linkResponse.ok) {
-            console.log('✅ Analysis linked to deal!')
-            // Redirect back to deal page
-            window.location.href = `/dashboard/dealiq/${initialDealData.dealId}`
-            return // Exit - redirect will happen
-          } else {
-            const errorData = await linkResponse.json()
-            console.error('Failed to link analysis:', errorData)
-            alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
-          }
-        } catch (error) {
-          console.error('Error linking analysis to deal:', error)
-          alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
-        }
       }
 
       // Update local state and navigate to results
@@ -600,6 +595,7 @@ export function PropertyAnalysisForm({
         onConfirm={handleSaveConfirm}
         propertyAddress={formData.property?.address || ''}
         isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'}
+        linkedDealId={initialDealData?.dealId || null}  // ✅ Pass the deal ID!
       />
 
       {/* Header */}

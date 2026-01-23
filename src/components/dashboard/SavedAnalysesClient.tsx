@@ -340,7 +340,16 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         setStorageItem(STORAGE_KEYS.SAVED_ANALYSES, filtered, userId)
       }
       
-      loadAnalyses(searchQuery)
+      // ✅ FIX: Load analyses first, THEN refresh sidebar after small delay
+      await loadAnalyses(searchQuery)
+      
+      // Small delay to ensure database aggregation has updated
+      setTimeout(() => {
+        if (sidebarRef.current?.refresh) {
+          sidebarRef.current.refresh()
+        }
+      }, 100)
+      
       setDeleteModalOpen(false)
       setAnalysisToDelete(null)
     } catch (err) {

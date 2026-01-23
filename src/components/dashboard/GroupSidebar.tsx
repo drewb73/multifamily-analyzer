@@ -16,7 +16,7 @@ interface GroupSidebarProps {
 }
 
 export interface GroupSidebarRef {
-  refreshGroups: () => void
+  refresh: () => void
 }
 
 export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
@@ -60,9 +60,9 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
       }
     }
 
-    // Expose refreshGroups method to parent via ref
+    // ✅ FIX: Expose 'refresh' method to match MobileGroupSelector
     useImperativeHandle(ref, () => ({
-      refreshGroups: loadGroups,
+      refresh: loadGroups,
     }))
 
     const handleDeleteClick = (groupId: string, groupName: string) => {
