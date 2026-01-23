@@ -10,6 +10,7 @@ interface GroupSidebarProps {
   onGroupSelect: (groupId: string | null) => void
   totalAnalysesCount: number
   ungroupedCount: number
+  groupCounts: Record<string, number>  // ✅ NEW: Pass group counts directly
   onCreateGroup: () => void
   onEditGroup: (group: Group) => void
   searchQuery?: string
@@ -26,6 +27,7 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
       onGroupSelect,
       totalAnalysesCount,
       ungroupedCount,
+      groupCounts,  // ✅ NEW
       onCreateGroup,
       onEditGroup,
       searchQuery,
@@ -253,7 +255,7 @@ export const GroupSidebar = forwardRef<GroupSidebarRef, GroupSidebarProps>(
                           : 'bg-neutral-100 text-neutral-600'
                         }
                       `}>
-                        {group.analysisCount}
+                        {groupCounts[group.id] ?? group.analysisCount ?? 0}
                       </span>
                     </button>
 

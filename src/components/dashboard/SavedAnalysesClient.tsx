@@ -27,12 +27,13 @@ interface MobileGroupSelectorProps {
   onGroupSelect: (groupId: string | null) => void
   totalAnalysesCount: number
   ungroupedCount: number
+  groupCounts: Record<string, number>  // ✅ NEW
   onCreateGroup: () => void
   onEditGroup: (group: Group) => void
 }
 
 const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
-  ({ selectedGroupId, onGroupSelect, totalAnalysesCount, ungroupedCount, onCreateGroup, onEditGroup }, ref) => {
+  ({ selectedGroupId, onGroupSelect, totalAnalysesCount, ungroupedCount, groupCounts, onCreateGroup, onEditGroup }, ref) => {
     const [groups, setGroups] = useState<Group[]>([])
     const [isOpen, setIsOpen] = useState(false)
 
@@ -58,7 +59,7 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
       if (selectedGroupId === 'no-group') return `No Group (${ungroupedCount})`
       
       const group = groups.find(g => g.id === selectedGroupId)
-      return group ? `${group.name} (${group.analysisCount || 0})` : 'Selected Group'
+      return group ? `${group.name} (${groupCounts[group.id] ?? group.analysisCount ?? 0})` : 'Selected Group'
     }
 
     const handleEditClick = (e: React.MouseEvent, group: Group) => {
@@ -136,7 +137,7 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
                     className="flex-1 flex items-center justify-between px-4 py-3 min-w-0"
                   >
                     <span className="font-medium text-neutral-900 truncate">{group.name}</span>
-                    <span className="text-sm text-neutral-500 ml-2 flex-shrink-0">{group.analysisCount || 0}</span>
+                    <span className="text-sm text-neutral-500 ml-2 flex-shrink-0">{groupCounts[group.id] ?? group.analysisCount ?? 0}</span>
                   </button>
                   
                   {/* Edit button */}
@@ -188,6 +189,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   const [analyses, setAnalyses] = useState<any[]>([])
   const [allAnalysesCount, setAllAnalysesCount] = useState(0)
   const [ungroupedCount, setUngroupedCount] = useState(0)
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})  // ✅ NEW
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -242,6 +244,19 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
           isArchived: false,
           search: search || undefined,
         }
+        
+        // ✅ NEW: Fetch ALL analyses to calculate group counts
+        const allAnalysesResponse = await fetchAnalyses(countsParams)
+        const allAnalysesData = allAnalysesResponse.analyses || []
+        
+        // Calculate group counts from the data
+        const counts: Record<string, number> = {}
+        allAnalysesData.forEach((analysis: any) => {
+          if (analysis.groupId) {
+            counts[analysis.groupId] = (counts[analysis.groupId] || 0) + 1
+          }
+        })
+        setGroupCounts(counts)
         
         if (selectedGroupId && selectedGroupId !== 'no-group') {
           // Specific group selected - fetch all counts separately
@@ -340,18 +355,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
         setStorageItem(STORAGE_KEYS.SAVED_ANALYSES, filtered, userId)
       }
       
-      // ✅ FIX: Load analyses first, THEN refresh sidebar after small delay
-      await loadAnalyses(searchQuery)
-      
-      // Small delay to ensure database aggregation has updated
-      setTimeout(() => {
-        if (sidebarRef.current?.refresh) {
-          sidebarRef.current.refresh()
-        }
-      }, 100)
-      
-      setDeleteModalOpen(false)
-      setAnalysisToDelete(null)
+      // ✅ SIMPLE FIX: Just refresh the page
+      window.location.reload()
     } catch (err) {
       console.error('Error deleting analysis:', err)
       alert('Failed to delete analysis. Please try again.')
@@ -410,6 +415,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
               onGroupSelect={setSelectedGroupId}
               totalAnalysesCount={allAnalysesCount}
               ungroupedCount={ungroupedCount}
+              groupCounts={groupCounts}
               searchQuery={searchQuery}
               onCreateGroup={handleCreateGroup}
               onEditGroup={handleEditGroup}
@@ -431,6 +437,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
                     onGroupSelect={setSelectedGroupId}
                     totalAnalysesCount={allAnalysesCount}
                     ungroupedCount={ungroupedCount}
+                    groupCounts={groupCounts}
                     onCreateGroup={handleCreateGroup}
                     onEditGroup={handleEditGroup}
                   />
