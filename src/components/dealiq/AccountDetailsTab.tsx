@@ -574,47 +574,6 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   }
 
   // Get color-coded pill colors for stages (progression from early to Closed Won)
-  const getStagePillColors = (stageId: string) => {
-    const colorMap: Record<string, { bg: string; text: string }> = {
-      'prospecting': { 
-        bg: 'bg-neutral-200', 
-        text: 'text-neutral-700' 
-      },
-      'lead_qualification': { 
-        bg: 'bg-blue-100', 
-        text: 'text-blue-700' 
-      },
-      'formal_underwriting': { 
-        bg: 'bg-blue-200', 
-        text: 'text-blue-800' 
-      },
-      'offer_loi': { 
-        bg: 'bg-yellow-200', 
-        text: 'text-yellow-800' 
-      },
-      'negotiation': { 
-        bg: 'bg-orange-200', 
-        text: 'text-orange-800' 
-      },
-      'in_contract': { 
-        bg: 'bg-green-200', 
-        text: 'text-green-800' 
-      },
-      'closed_won': { 
-        bg: 'bg-green-700', 
-        text: 'text-white' 
-      },
-      'closed_lost': { 
-        bg: 'bg-red-600', 
-        text: 'text-white' 
-      },
-      'on_hold': { 
-        bg: 'bg-neutral-300', 
-        text: 'text-neutral-700' 
-      }
-    }
-    return colorMap[stageId] || { bg: 'bg-neutral-100', text: 'text-neutral-600' }
-  }
 
   // Calculate P&L with Current vs Market Rents
   const calculatePL = () => {
@@ -711,7 +670,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   return (
     <div className="space-y-6">
       {/* Property Information Card */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="w-5 h-5 text-primary-600" />
           <h3 className="text-lg font-bold text-neutral-900">Property Information</h3>
@@ -946,7 +905,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       </div>
 
       {/* Deal Tracking Card */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary-600" />
@@ -972,7 +931,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             <div className="text-sm text-neutral-500 mb-2">Stage</div>
             {!isEditingStage ? (
               <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold truncate max-w-full ${getStagePillColors(deal.stage).bg} ${getStagePillColors(deal.stage).text}`}>
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold truncate max-w-full ${getStageColors(deal.stage).bg} ${getStageColors(deal.stage).text}`}>
                   {getStageLabel(deal.stage)}
                 </span>
                 <button
@@ -1131,7 +1090,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       {/* ========================================
           ✨ NEW: Commission Details Card
           ======================================== */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Percent className="w-5 h-5 text-primary-600" />
@@ -1218,7 +1177,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
           ✨ NEW: Enhanced Financing Details Card
           ======================================== */}
       {deal.financingType === 'financed' && (
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calculator className="w-5 h-5 text-primary-600" />
@@ -1415,7 +1374,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
       {/* P&L Statement with Current vs Market */}
       {plData && (
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-primary-600" />
@@ -1673,7 +1632,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
       {/* No Analysis State - Show when deal has no linked analysis */}
       {!deal.analysis && (
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4">
             <Receipt className="w-5 h-5 text-primary-600" />
             <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>

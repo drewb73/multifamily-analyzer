@@ -136,6 +136,18 @@ export default function FeaturesPage() {
               trial={false}
               premium={true}
             />
+            <FeatureRow
+              feature="DealIQ CRM - Track Deals"
+              free={false}
+              trial={false}
+              premium={true}
+            />
+            <FeatureRow
+              feature="DealIQ - Pipeline Management"
+              free={false}
+              trial={false}
+              premium={true}
+            />
 
             {/* Export & Reports */}
             <div className="border-b border-neutral-200 bg-neutral-50/50">

@@ -222,7 +222,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       </Link>
 
       {/* Header */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
@@ -398,20 +398,20 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {/* Deal ID */}
-          <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
+          <div className="bg-white border border-neutral-200 rounded-lg shadow-sm px-4 py-3">
             <div className="text-xs text-neutral-500 mb-1">Deal ID</div>
             <div className="text-lg font-bold text-neutral-900">{deal.dealId}</div>
           </div>
           
           {/* Price */}
-          <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
+          <div className="bg-white border border-neutral-200 rounded-lg shadow-sm px-4 py-3">
             <div className="text-xs text-neutral-500 mb-1">Price</div>
             <div className="text-lg font-bold text-neutral-900">{formatCurrency(deal.price)}</div>
           </div>
           
           {/* Units */}
           {deal.units && (
-            <div className="bg-white border border-neutral-200 rounded-lg px-4 py-3">
+            <div className="bg-white border border-neutral-200 rounded-lg shadow-sm px-4 py-3">
               <div className="text-xs text-neutral-500 mb-1">Units</div>
               <div className="text-lg font-bold text-neutral-900">{deal.units}</div>
             </div>
@@ -420,8 +420,8 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       </div>
 
       {/* Tabs */}
-      <div className="mb-6">
-        <nav className="flex gap-2 overflow-x-auto px-1" aria-label="Tabs">
+      <div className="mt-6 mb-6">
+        <nav className="flex gap-2 overflow-x-auto px-1 py-2 pb-4 border-b border-neutral-200" aria-label="Tabs">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id

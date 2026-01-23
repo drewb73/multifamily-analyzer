@@ -158,7 +158,7 @@ export default function DashboardSidebar({
           <div className="flex items-center">
             <div className="text-2xl">🏢</div>
             <h1 className="ml-3 text-xl font-display font-bold text-primary-600 truncate">
-              PropertyAnalyzer
+              NumexRE
             </h1>
           </div>
         </div>
@@ -245,7 +245,7 @@ export default function DashboardSidebar({
             <div className="text-2xl">🏢</div>
             {!isCollapsed && (
               <h1 className="ml-3 text-xl font-display font-bold text-primary-600 truncate">
-                PropertyAnalyzer
+                NumexRE
               </h1>
             )}
           </div>
