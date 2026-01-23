@@ -16,6 +16,7 @@ import { AnalysisInputs, AnalysisResults as AnalysisResultsType, UnitType } from
 import { useDraftAnalysis } from '@/hooks/useDraftAnalysis'
 import { validatePropertyDetails, validateUnitMix } from '@/lib/utils/validation'
 import { saveAnalysisToDatabase, updateAnalysis, getAnalysis } from '@/lib/api/analyses'
+import { SuccessToast } from '@/components/ui/SuccessToast'
 
 interface PropertyAnalysisFormProps {
   draftId?: string
@@ -86,6 +87,10 @@ export function PropertyAnalysisForm({
   // Validation error state - NEW
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [showValidationError, setShowValidationError] = useState(false)
+  
+  // Success toast state - NEW
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
@@ -427,17 +432,31 @@ export function PropertyAnalysisForm({
             
             if (linkResponse.ok) {
               console.log('✅ Analysis linked to deal!')
-              alert(`✅ Analysis saved and linked to Deal #${saveOptions.linkedDealId}!`)
-              window.location.href = `/dashboard/dealiq/${saveOptions.linkedDealId}`
+              setSuccessMessage({
+                title: 'Analysis Saved!',
+                message: `Successfully linked to Deal #${saveOptions.linkedDealId}`
+              })
+              setShowSuccessToast(true)
+              setTimeout(() => {
+                window.location.href = `/dashboard/dealiq/${saveOptions.linkedDealId}`
+              }, 1000)
               return // Exit - redirect will happen
             } else {
               const errorData = await linkResponse.json()
               console.error('Failed to link analysis:', errorData)
-              alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+              setSuccessMessage({
+                title: 'Analysis Saved',
+                message: 'Warning: Failed to link to deal. You can link it manually.'
+              })
+              setShowSuccessToast(true)
             }
           } catch (error) {
             console.error('Error linking analysis to deal:', error)
-            alert('⚠️ Analysis saved but failed to link to deal. You can link it manually.')
+            setSuccessMessage({
+              title: 'Analysis Saved',
+              message: 'Warning: Failed to link to deal. You can link it manually.'
+            })
+            setShowSuccessToast(true)
           }
         }
         // PRIORITY 2: If user checked "Create Deal" and no linkedDealId, create new deal
@@ -456,7 +475,11 @@ export function PropertyAnalysisForm({
                 console.log('ℹ️ Deal already exists for this analysis:', existingDeal.dealId)
                 console.log('📍 Existing deal MongoDB ID:', existingDeal.id)
                 console.log('📍 Existing deal ID (7-digit):', existingDeal.dealId)
-                alert(`✅ Analysis saved! Deal #${existingDeal.dealId} is already linked to this analysis.`)
+                setSuccessMessage({
+                  title: 'Analysis Saved!',
+                  message: `Deal #${existingDeal.dealId} is already linked to this analysis.`
+                })
+                setShowSuccessToast(true)
               } else {
                 // No existing deal - create new one
                 console.log('✨ No existing deal found, creating new one...')
@@ -484,30 +507,54 @@ export function PropertyAnalysisForm({
                   console.log('📍 New deal MongoDB ID:', dealData.deal.id)
                   console.log('📍 New deal ID (7-digit):', dealData.deal.dealId)
                   console.log('📍 Deal ID type:', typeof dealData.deal.dealId)
-                  alert(`✅ Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`)
+                  setSuccessMessage({
+                    title: 'Success!',
+                    message: `Analysis saved and Deal #${dealData.deal.dealId} created in DealIQ!`
+                  })
+                  setShowSuccessToast(true)
                 } else {
                   console.error('❌ Failed to create deal:', dealData.error)
-                  alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+                  setSuccessMessage({
+                    title: 'Analysis Saved',
+                    message: 'Warning: Failed to create deal in DealIQ. Please try again.'
+                  })
+                  setShowSuccessToast(true)
                 }
               }
             } else {
               console.error('❌ Failed to fetch existing deals:', existingDealsData.error)
-              alert('✅ Analysis saved, but failed to check for existing deals.')
+              setSuccessMessage({
+                title: 'Analysis Saved',
+                message: 'Warning: Failed to check for existing deals.'
+              })
+              setShowSuccessToast(true)
             }
           } catch (dealError) {
             console.error('❌ Error in deal creation flow:', dealError)
-            alert('✅ Analysis saved, but failed to create deal in DealIQ. Please try again.')
+            setSuccessMessage({
+              title: 'Analysis Saved',
+              message: 'Warning: Failed to create deal in DealIQ. Please try again.'
+            })
+            setShowSuccessToast(true)
           }
         } else if (!saveOptions.createDeal) {
           // User didn't check the box - show normal success message
-          alert('✅ Analysis saved successfully!')
+          setSuccessMessage({
+            title: 'Success!',
+            message: 'Analysis saved successfully!'
+          })
+          setShowSuccessToast(true)
         }
         
       } else {
         // Trial/Free user - save to localStorage
         await saveDraft(formData, 4, pendingCalculation, saveOptions.propertyName)
         console.log('✅ Saved analysis to localStorage')
-        alert('✅ Analysis saved locally!')
+        setSuccessMessage({
+          title: 'Saved Locally!',
+          message: 'Analysis draft saved to your browser.'
+        })
+        setShowSuccessToast(true)
       }
 
       // Update local state and navigate to results
@@ -753,6 +800,15 @@ export function PropertyAnalysisForm({
           }}
         />
       )}
+
+      {/* Success Toast */}
+      <SuccessToast
+        isOpen={showSuccessToast}
+        onClose={() => setShowSuccessToast(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+        duration={4000}
+      />
     </div>
   )
 }

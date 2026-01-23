@@ -15,6 +15,7 @@ import {
   X,
   Star
 } from 'lucide-react'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 interface Contact {
   id: string
@@ -52,6 +53,10 @@ export function ContactsTab({ dealId, contacts, onUpdate }: ContactsTabProps) {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
+  // Modal states for confirmations
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState<string | null>(null)
+
   const handleAddContact = () => {
     setEditingContact(null)
     setIsModalOpen(true)
@@ -62,17 +67,24 @@ export function ContactsTab({ dealId, contacts, onUpdate }: ContactsTabProps) {
     setIsModalOpen(true)
   }
 
-  const handleDeleteContact = async (contactId: string) => {
-    if (!confirm('Are you sure you want to delete this contact?')) return
+  const handleDeleteContact = (contactId: string) => {
+    setContactToDelete(contactId)
+    setDeleteModalOpen(true)
+  }
 
-    setIsDeleting(contactId)
+  const confirmDeleteContact = async () => {
+    if (!contactToDelete) return
+
+    setIsDeleting(contactToDelete)
     try {
-      const response = await fetch(`/api/dealiq/${dealId}/contacts/${contactId}`, {
+      const response = await fetch(`/api/dealiq/${dealId}/contacts/${contactToDelete}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
         onUpdate()
+        setDeleteModalOpen(false)
+        setContactToDelete(null)
       } else {
         alert('Failed to delete contact')
       }
@@ -291,6 +303,22 @@ export function ContactsTab({ dealId, contacts, onUpdate }: ContactsTabProps) {
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false)
+          setContactToDelete(null)
+        }}
+        onConfirm={confirmDeleteContact}
+        title="Delete Contact?"
+        message="Are you sure you want to delete this contact? This action cannot be undone."
+        confirmText="Delete Contact"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting !== null}
+      />
     </div>
   )
 }
@@ -315,6 +343,13 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
     company: contact?.company || '',
     isPrimary: contact?.isPrimary || false
   })
+
+  // Modal state for primary contact confirmation
+  const [primaryModalOpen, setPrimaryModalOpen] = useState(false)
+  const [primaryModalData, setPrimaryModalData] = useState<{
+    existingName: string
+    newName: string
+  } | null>(null)
 
   // Check if role is a custom "Other" role
   const isCustomRole = formData.role && !CONTACT_ROLES.includes(formData.role)
@@ -346,12 +381,19 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
     if (formData.isPrimary && !contact?.isPrimary) {
       const existingPrimary = contacts.find(c => c.isPrimary && c.id !== contact?.id)
       if (existingPrimary) {
-        if (!confirm(`${existingPrimary.name} is currently the primary contact. Set ${formData.name} as primary instead?`)) {
-          return
-        }
+        setPrimaryModalData({
+          existingName: existingPrimary.name,
+          newName: formData.name
+        })
+        setPrimaryModalOpen(true)
+        return
       }
     }
 
+    await saveContact()
+  }
+
+  const saveContact = async () => {
     setIsSaving(true)
     try {
       const url = contact
@@ -387,154 +429,178 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
     }
   }
 
+  const confirmSwitchPrimary = async () => {
+    setPrimaryModalOpen(false)
+    setPrimaryModalData(null)
+    await saveContact()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-neutral-900">
-            {contact ? 'Edit Contact' : 'Add Contact'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Name <span className="text-error-600">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="John Smith"
-              required
-            />
-          </div>
-
-          {/* Role */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Role
-            </label>
-            <select
-              value={selectedRole}
-              onChange={(e) => handleRoleChange(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-neutral-900">
+              {contact ? 'Edit Contact' : 'Add Contact'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-neutral-400 hover:text-neutral-600 transition-colors"
             >
-              <option value="">Select role...</option>
-              {CONTACT_ROLES.map(role => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Custom Role Input (shows when "Other" is selected) */}
-          {(selectedRole === 'Other' || isCustomRole) && (
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name */}
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Custom Role
+                Name <span className="text-error-600">*</span>
               </label>
               <input
                 type="text"
-                value={formData.customRole}
-                onChange={(e) => handleCustomRoleChange(e.target.value)}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Enter custom role..."
-                autoFocus
+                placeholder="John Smith"
+                required
               />
             </div>
-          )}
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="john@example.com"
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="(555) 123-4567"
-            />
-          </div>
-
-          {/* Company */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Company
-            </label>
-            <input
-              type="text"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="ABC Realty"
-            />
-          </div>
-
-          {/* Primary Contact */}
-          <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <input
-              type="checkbox"
-              id="isPrimary"
-              checked={formData.isPrimary}
-              onChange={(e) => setFormData({ ...formData, isPrimary: e.target.checked })}
-              className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500 mt-0.5"
-            />
+            {/* Role */}
             <div>
-              <label htmlFor="isPrimary" className="text-sm font-medium text-neutral-900 cursor-pointer">
-                Set as primary contact
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Role
               </label>
-              <p className="text-xs text-neutral-600 mt-0.5">
-                Only one contact can be marked as primary
-              </p>
+              <select
+                value={selectedRole}
+                onChange={(e) => handleRoleChange(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Select role...</option>
+                {CONTACT_ROLES.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
             </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
-              disabled={isSaving}
-            >
-              {isSaving ? 'Saving...' : (contact ? 'Update' : 'Add')} Contact
-            </button>
-          </div>
-        </form>
+            {/* Custom Role Input (shows when "Other" is selected) */}
+            {(selectedRole === 'Other' || isCustomRole) && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Custom Role
+                </label>
+                <input
+                  type="text"
+                  value={formData.customRole}
+                  onChange={(e) => handleCustomRoleChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter custom role..."
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="john@example.com"
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="(555) 123-4567"
+              />
+            </div>
+
+            {/* Company */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Company
+              </label>
+              <input
+                type="text"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="ABC Realty"
+              />
+            </div>
+
+            {/* Primary Contact */}
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="isPrimary"
+                checked={formData.isPrimary}
+                onChange={(e) => setFormData({ ...formData, isPrimary: e.target.checked })}
+                className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500 mt-0.5"
+              />
+              <div>
+                <label htmlFor="isPrimary" className="text-sm font-medium text-neutral-900 cursor-pointer">
+                  Set as primary contact
+                </label>
+                <p className="text-xs text-neutral-600 mt-0.5">
+                  Only one contact can be marked as primary
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : (contact ? 'Update' : 'Add')} Contact
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* Primary Contact Confirmation Modal */}
+      <ConfirmModal
+        isOpen={primaryModalOpen}
+        onClose={() => {
+          setPrimaryModalOpen(false)
+          setPrimaryModalData(null)
+        }}
+        onConfirm={confirmSwitchPrimary}
+        title="Change Primary Contact?"
+        message={primaryModalData ? `${primaryModalData.existingName} is currently the primary contact. Set ${primaryModalData.newName} as primary instead?` : ''}
+        confirmText="Yes, Switch Primary"
+        cancelText="Cancel"
+        variant="warning"
+        isLoading={isSaving}
+      />
+    </>
   )
 }

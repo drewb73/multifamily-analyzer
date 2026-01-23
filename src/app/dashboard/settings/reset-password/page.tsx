@@ -1,58 +1,50 @@
 // src/app/dashboard/settings/reset-password/page.tsx
-// EMAIL VERIFICATION ONLY - NO CURRENT PASSWORD
+// HANDLES CLERK RE-VERIFICATION REQUIREMENT
 'use client'
 
 import { useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { Lock as LockIcon, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ArrowLeft, Mail } from 'lucide-react'
+import { Lock as LockIcon, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ChangePasswordPage() {
   const { user } = useUser()
+  const { signOut } = useClerk()
   const router = useRouter()
   
-  const [verificationCode, setVerificationCode] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [codeSent, setCodeSent] = useState(false)
+  const [needsReauth, setNeedsReauth] = useState(false)
 
-  const handleSendCode = async () => {
-    if (!user?.primaryEmailAddress) {
-      setError('No email address found')
-      return
-    }
-    
-    setIsLoading(true)
-    setError('')
-    
-    try {
-      await user.primaryEmailAddress.prepareVerification({
-        strategy: 'email_code'
-      })
-      
-      setCodeSent(true)
-    } catch (err: any) {
-      console.error('Send code error:', err)
-      setError(err.errors?.[0]?.message || 'Failed to send verification code.')
-    } finally {
-      setIsLoading(false)
-    }
+  const handleReauth = async () => {
+    await signOut()
+    router.push('/sign-in?redirect_url=/dashboard/settings/reset-password')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user?.primaryEmailAddress) return
+    if (!user) return
     
     setIsLoading(true)
     setError('')
     setSuccess(false)
+    setNeedsReauth(false)
+
+    // Validation
+    if (!currentPassword) {
+      setError('Please enter your current password')
+      setIsLoading(false)
+      return
+    }
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match')
@@ -66,55 +58,40 @@ export default function ChangePasswordPage() {
       return
     }
 
-    if (verificationCode.length !== 6) {
-      setError('Please enter the 6-digit verification code')
+    if (currentPassword === newPassword) {
+      setError('New password must be different from current password')
       setIsLoading(false)
       return
     }
 
     try {
-      let isVerified = false
-      
-      try {
-        const verification = await user.primaryEmailAddress.attemptVerification({
-          code: verificationCode
-        })
-        
-        if (verification.verification?.status === 'verified') {
-          isVerified = true
-        }
-      } catch (verifyError: any) {
-        if (verifyError.errors?.[0]?.code === 'verification_already_verified') {
-          console.log('Email already verified')
-          isVerified = true
-        } else {
-          throw verifyError
-        }
-      }
-      
-      if (!isVerified) {
-        setError('Email verification failed. Please check your code.')
-        setIsLoading(false)
-        return
-      }
-      
       await user.updatePassword({
+        currentPassword: currentPassword,
         newPassword: newPassword,
         signOutOfOtherSessions: true,
       })
       
       setSuccess(true)
       
+      // Redirect after 2 seconds
       setTimeout(() => {
         router.push('/dashboard/settings')
       }, 2000)
     } catch (err: any) {
       console.error('Change password error:', err)
       
-      if (err.errors?.[0]?.code === 'form_code_incorrect') {
-        setError('Incorrect verification code. Please try again.')
+      // Check if re-authentication is needed
+      if (err.message?.includes('additional verification') || 
+          err.message?.includes('reverification') ||
+          err.errors?.[0]?.code === 'reverification_required') {
+        setNeedsReauth(true)
+        setError('For security, you need to sign in again before changing your password. Your session may have been idle for too long.')
+      } else if (err.errors?.[0]?.code === 'form_password_incorrect') {
+        setError('Current password is incorrect')
       } else if (err.errors?.[0]?.code === 'form_password_pwned') {
         setError('This password has been found in a data breach. Please choose a different password.')
+      } else if (err.errors?.[0]?.code === 'form_password_too_common') {
+        setError('This password is too common. Please choose a more secure password.')
       } else if (err.errors?.[0]?.message) {
         setError(err.errors[0].message)
       } else {
@@ -130,7 +107,7 @@ export default function ChangePasswordPage() {
       <div className="max-w-2xl mx-auto py-8">
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6"
+          className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Settings
@@ -141,12 +118,13 @@ export default function ChangePasswordPage() {
             Change Password
           </h1>
           <p className="text-neutral-600">
-            Update your password with email verification
+            Update your account password
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
           {success ? (
+            // Success State
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-success-600" />
@@ -155,179 +133,174 @@ export default function ChangePasswordPage() {
                 Password Changed Successfully!
               </h3>
               <p className="text-neutral-600 mb-4">
-                Your password has been updated. Redirecting to settings...
+                Your password has been updated. You've been signed out of other sessions for security.
               </p>
               <Link href="/dashboard/settings" className="btn-primary inline-flex">
                 Return to Settings
               </Link>
             </div>
-          ) : !codeSent ? (
-            <div className="space-y-6">
+          ) : (
+            // Password Change Form
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Info Banner */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-700">
-                    <p className="font-medium mb-1">Email Verification Required</p>
-                    <p>
-                      For security, we'll send a verification code to your email to confirm you own the account.
-                    </p>
+                    <p className="font-medium mb-1">Password Requirements</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>At least 8 characters long</li>
+                      <li>Different from your current password</li>
+                      <li>Not found in common password databases</li>
+                    </ul>
                   </div>
                 </div>
               </div>
 
+              {/* Current Password */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Email Address
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-neutral-700 mb-2">
+                  Current Password
                 </label>
-                <div className="p-3 bg-primary-50 rounded-lg border border-primary-200">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-5 h-5 text-primary-600" />
-                    <p className="text-sm font-medium text-primary-900">
-                      {user?.primaryEmailAddress?.emailAddress}
-                    </p>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockIcon className="h-5 w-5 text-neutral-400" />
                   </div>
+                  <input
+                    id="currentPassword"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="block w-full pl-10 pr-10 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                    placeholder="Enter current password"
+                    required
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
-                <p className="text-xs text-neutral-500 mt-2">
-                  We'll send a 6-digit verification code to this address
-                </p>
               </div>
 
-              {error && (
-                <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-error-700">{error}</p>
-                </div>
-              )}
-
-              <button
-                onClick={handleSendCode}
-                disabled={isLoading}
-                className="w-full btn-primary flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Sending Code...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-5 h-5" />
-                    Send Verification Code
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="p-3 bg-success-50 border border-success-200 rounded-lg flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success-600 flex-shrink-0" />
-                <p className="text-sm text-success-700">
-                  ✉️ Check your email for the verification code
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-error-700">{error}</p>
-                </div>
-              )}
-
+              {/* New Password */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  required
-                  maxLength={6}
-                  autoFocus
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center text-xl tracking-widest font-mono"
-                />
-                <p className="text-xs text-neutral-500 mt-1">
-                  Enter the 6-digit code sent to {user?.primaryEmailAddress?.emailAddress}
-                </p>
-              </div>
-
-              <div className="border-t border-neutral-200"></div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="newPassword" className="block text-sm font-medium text-neutral-700 mb-2">
                   New Password
                 </label>
                 <div className="relative">
-                  <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockIcon className="h-5 w-5 text-neutral-400" />
+                  </div>
                   <input
+                    id="newPassword"
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    className="block w-full pl-10 pr-10 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     placeholder="Enter new password"
                     required
-                    minLength={8}
-                    className="w-full pl-10 pr-12 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 transition-colors"
+                    tabIndex={-1}
                   >
-                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Must be at least 8 characters long
-                </p>
               </div>
 
+              {/* Confirm New Password */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-2">
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockIcon className="h-5 w-5 text-neutral-400" />
+                  </div>
                   <input
+                    id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="block w-full pl-10 pr-10 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     placeholder="Confirm new password"
                     required
-                    minLength={8}
-                    className="w-full pl-10 pr-12 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 transition-colors"
+                    tabIndex={-1}
                   >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setCodeSent(false)}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-3 border border-neutral-300 rounded-lg text-neutral-700 font-medium hover:bg-neutral-50 transition-colors text-center disabled:opacity-50"
+              {/* Re-auth Required Message */}
+              {needsReauth && (
+                <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                  <div className="flex items-start gap-3 mb-4">
+                    <RefreshCw className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-warning-700">
+                      <p className="font-medium mb-1">Re-authentication Required</p>
+                      <p>
+                        For security, you need to sign in again before changing your password.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleReauth}
+                    className="w-full px-4 py-2 bg-warning-600 text-white rounded-lg hover:bg-warning-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Sign In Again
+                  </button>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && !needsReauth && (
+                <div className="p-3 bg-error-50 border border-error-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-error-700">{error}</p>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex gap-4 pt-4">
+                <Link
+                  href="/dashboard/settings"
+                  className="flex-1 px-6 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-center font-medium"
                 >
-                  Resend Code
-                </button>
+                  Cancel
+                </Link>
                 <button
                   type="submit"
-                  disabled={isLoading || verificationCode.length !== 6 || newPassword.length < 8 || confirmPassword.length < 8}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                  disabled={isLoading || needsReauth}
+                  className="flex-1 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Updating...
+                      Updating Password...
                     </>
                   ) : (
-                    'Change Password'
+                    <>
+                      <LockIcon className="w-5 h-5" />
+                      Change Password
+                    </>
                   )}
                 </button>
               </div>
@@ -335,16 +308,17 @@ export default function ChangePasswordPage() {
           )}
         </div>
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">
-            Password Security Tips
-          </h3>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>• Use a unique password for each account</li>
-            <li>• Include a mix of letters, numbers, and symbols</li>
-            <li>• Avoid using personal information</li>
-            <li>• Consider using a password manager</li>
-          </ul>
+        {/* Security Note */}
+        <div className="mt-6 p-4 bg-neutral-50 border border-neutral-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-neutral-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-neutral-600">
+              <p className="font-medium mb-1">Security Note</p>
+              <p>
+                Changing your password will sign you out of all other devices and sessions for security purposes.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

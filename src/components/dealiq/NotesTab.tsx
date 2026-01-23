@@ -11,6 +11,7 @@ import {
   Plus,
   X
 } from 'lucide-react'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 interface Note {
   id: string
@@ -37,6 +38,10 @@ export function NotesTab({ dealId, notes, onUpdate, currentUserEmail }: NotesTab
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
+  // Modal states for delete confirmation
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+
   const handleAddNote = () => {
     setEditingNote(null)
     setIsModalOpen(true)
@@ -47,17 +52,24 @@ export function NotesTab({ dealId, notes, onUpdate, currentUserEmail }: NotesTab
     setIsModalOpen(true)
   }
 
-  const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Are you sure you want to delete this note?')) return
+  const handleDeleteNote = (noteId: string) => {
+    setNoteToDelete(noteId)
+    setDeleteModalOpen(true)
+  }
 
-    setIsDeleting(noteId)
+  const confirmDeleteNote = async () => {
+    if (!noteToDelete) return
+
+    setIsDeleting(noteToDelete)
     try {
-      const response = await fetch(`/api/dealiq/${dealId}/notes/${noteId}`, {
+      const response = await fetch(`/api/dealiq/${dealId}/notes/${noteToDelete}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
         onUpdate()
+        setDeleteModalOpen(false)
+        setNoteToDelete(null)
       } else {
         alert('Failed to delete note')
       }
@@ -206,6 +218,22 @@ export function NotesTab({ dealId, notes, onUpdate, currentUserEmail }: NotesTab
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false)
+          setNoteToDelete(null)
+        }}
+        onConfirm={confirmDeleteNote}
+        title="Delete Note?"
+        message="Are you sure you want to delete this note? This action cannot be undone."
+        confirmText="Delete Note"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting !== null}
+      />
     </div>
   )
 }
