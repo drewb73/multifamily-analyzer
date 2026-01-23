@@ -238,6 +238,18 @@ export async function PATCH(
       updatedProperty.purchasePrice = body.price
     }
 
+    // ✅ Handle loan rate update
+    if (body.loanRate !== undefined) {
+      console.log('✅ Loan rate updated:', body.loanRate)
+      updatedProperty.interestRate = body.loanRate
+    }
+
+    // ✅ Handle loan term update
+    if (body.loanTerm !== undefined) {
+      console.log('✅ Loan term updated:', body.loanTerm)
+      updatedProperty.loanTerm = body.loanTerm
+    }
+
     // ✅ Save updatedProperty back to the correct location
     if (hasInputsStructure) {
       // New structure: data.inputs.property

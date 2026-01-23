@@ -236,6 +236,10 @@ export async function PATCH(
       changes.push({ field: 'loanTerm', old: deal.loanTerm, new: body.loanTerm })
     }
 
+    if (body.downPayment !== undefined && body.downPayment !== deal.downPayment) {
+      changes.push({ field: 'downPayment', old: deal.downPayment, new: body.downPayment })
+    }
+
     if (body.netValue !== undefined && body.netValue !== deal.netValue) {
       changes.push({ field: 'netValue', old: deal.netValue, new: body.netValue })
     }
@@ -282,6 +286,7 @@ export async function PATCH(
         commissionAmount: commissionAmount,
         loanRate: body.loanRate !== undefined ? body.loanRate : deal.loanRate,
         loanTerm: body.loanTerm !== undefined ? body.loanTerm : deal.loanTerm,
+        downPayment: body.downPayment !== undefined ? body.downPayment : deal.downPayment,
         netValue: body.netValue !== undefined ? body.netValue : deal.netValue,
         
         // Property fields

@@ -271,13 +271,39 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const handleSaveLoanRate = async () => {
     setIsSaving(true)
     try {
+      console.log('💾 Saving loan rate change:')
+      console.log('  Deal ID:', deal.dealId)
+      console.log('  Old rate:', deal.loanRate)
+      console.log('  New rate:', tempLoanRate)
+      
+      // ✅ FIRST: Update the deal table
       await onUpdate({ loanRate: tempLoanRate })
+      console.log('✅ Deal table updated with new loan rate')
+      
+      // ✅ THEN: If deal has an analysis, update the analysis too
+      if (deal.analysis?.id) {
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loanRate: tempLoanRate
+          })
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+        }
+        
+        console.log('✅ Analysis updated with new loan rate')
+      }
+      
       // Refetch to get updated calculations
       await onRefresh()
       setIsEditingLoanRate(false)
     } catch (error) {
       console.error('Failed to update loan rate:', error)
-      alert('Failed to update loan rate')
+      alert(`Failed to update loan rate: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -286,13 +312,39 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const handleSaveLoanTerm = async () => {
     setIsSaving(true)
     try {
+      console.log('💾 Saving loan term change:')
+      console.log('  Deal ID:', deal.dealId)
+      console.log('  Old term:', deal.loanTerm)
+      console.log('  New term:', tempLoanTerm)
+      
+      // ✅ FIRST: Update the deal table
       await onUpdate({ loanTerm: tempLoanTerm })
+      console.log('✅ Deal table updated with new loan term')
+      
+      // ✅ THEN: If deal has an analysis, update the analysis too
+      if (deal.analysis?.id) {
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loanTerm: tempLoanTerm
+          })
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.details || errorData.error || 'Failed to update analysis')
+        }
+        
+        console.log('✅ Analysis updated with new loan term')
+      }
+      
       // Refetch to get updated calculations
       await onRefresh()
       setIsEditingLoanTerm(false)
     } catch (error) {
       console.error('Failed to update loan term:', error)
-      alert('Failed to update loan term')
+      alert(`Failed to update loan term: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -302,14 +354,18 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     setIsSaving(true)
     try {
       console.log('💾 Saving down payment change:')
-      console.log('  Deal ID:', deal.id)
+      console.log('  Deal ID:', deal.dealId)
       console.log('  Analysis ID:', deal.analysis?.id)
       console.log('  Old down payment:', downPayment)
       console.log('  New down payment:', tempDownPayment)
 
-      // ✅ If deal has an analysis, update the analysis
+      // ✅ FIRST: Update the deal table
+      await onUpdate({ downPayment: tempDownPayment })
+      console.log('✅ Deal table updated with new down payment')
+      
+      // ✅ THEN: If deal has an analysis, update the analysis too
       if (deal.analysis?.id) {
-        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -324,10 +380,6 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
         
         const result = await response.json()
         console.log('✅ API response:', result)
-      } else {
-        // ✅ NEW: If no analysis, update the deal directly
-        await onUpdate({ downPayment: tempDownPayment })
-        console.log('✅ Deal updated directly (no analysis)')
       }
       
       console.log('🔄 Calling onRefresh to get fresh data...')
@@ -362,7 +414,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       console.log('  Old price:', deal.price)
       console.log('  New price:', tempPrice)
 
-      const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+      const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -419,7 +471,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       // Also update analysis if linked
       if (deal.analysis?.id) {
         console.log('📊 Updating analysis...')
-        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -480,7 +532,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       // Update analysis if linked
       if (deal.analysis?.id) {
         console.log('📊 Updating analysis...')
-        const response = await fetch(`/api/dealiq/${deal.id}/update-analysis`, {
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
