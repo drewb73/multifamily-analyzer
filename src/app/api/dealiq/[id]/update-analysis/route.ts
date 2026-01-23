@@ -51,10 +51,10 @@ export async function PATCH(
     console.log('📥 Request body:', body)
     console.log('📥 Deal ID param:', dealIdParam)
 
-    // ✅ Query by dealId (string like "4752510")
+    // ✅ Query by dealId (STRING like "4752510")
     const deal = await prisma.deal.findFirst({
       where: { 
-        dealId: dealIdParam,  // dealId is a String in schema
+        dealId: dealIdParam,  // dealId is a String in schema!
         userId: userId
       }
     })
@@ -70,8 +70,41 @@ export async function PATCH(
       hasAnalysisId: !!deal.analysisId
     })
 
+    // ✅ CHECK: Are we linking a new analysis or updating existing one?
+    if (body.analysisId) {
+      // LINKING A NEW ANALYSIS
+      console.log('🔗 Linking new analysis to deal:', body.analysisId)
+      
+      // Verify the analysis exists and belongs to the user
+      const analysisToLink = await prisma.propertyAnalysis.findFirst({
+        where: {
+          id: body.analysisId,
+          userId: userId
+        }
+      })
+      
+      if (!analysisToLink) {
+        return NextResponse.json({ error: 'Analysis not found or does not belong to user' }, { status: 404 })
+      }
+      
+      // Link the analysis to the deal
+      await prisma.deal.update({
+        where: { id: deal.id },
+        data: { analysisId: body.analysisId }
+      })
+      
+      console.log('✅ Successfully linked analysis to deal!')
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Analysis linked to deal successfully',
+        dealId: deal.dealId,
+        analysisId: body.analysisId
+      })
+    }
+
+    // UPDATING EXISTING ANALYSIS
     if (!deal.analysisId) {
-      return NextResponse.json({ error: 'Deal has no linked analysis' }, { status: 400 })
+      return NextResponse.json({ error: 'Deal has no linked analysis and no new analysisId provided' }, { status: 400 })
     }
 
     // Fetch analysis from propertyAnalysis table
