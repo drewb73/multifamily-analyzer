@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Download, Loader2, FileText } from 'lucide-react'
 import { PDFExportState, PDFTabType, ContactInfo, BrandingColors } from '@/types/pdf'
 import { TabNavigation } from './TabNavigation'
@@ -73,6 +74,9 @@ export function PDFExportModal({
   // Refs for the actual PDF document content (not the preview wrapper)
   const desktopPdfRef = useRef<HTMLDivElement>(null)
   const mobilePdfRef = useRef<HTMLDivElement>(null)
+
+  // Track if component is mounted (client-side only)
+  const [mounted, setMounted] = useState(false)
 
   // Initialize state with defaults
   const [pdfState, setPDFState] = useState<PDFExportState>({
@@ -254,16 +258,21 @@ export function PDFExportModal({
     }
   }, [isOpen])
 
-  if (!isOpen) return null
+  // Set mounted to true on client-side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  return (
+  if (!isOpen || !mounted) return null
+
+  const modalContent = (
     <>
       <div 
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
         onClick={handleClose}
       />
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div 
           className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200 relative"
           onClick={(e) => e.stopPropagation()}
@@ -463,4 +472,7 @@ export function PDFExportModal({
       </div>
     </>
   )
+
+  // Use portal to render modal at document body level (above dashboard header)
+  return createPortal(modalContent, document.body)
 }

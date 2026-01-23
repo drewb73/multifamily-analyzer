@@ -64,9 +64,12 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
                   <h3 className="text-sm font-semibold text-warning-900 mb-1">
                     Active Premium Subscription
                   </h3>
-                  <p className="text-sm text-warning-700">
-                    Please cancel your Premium subscription before deleting your account. 
-                    You can cancel from the "Manage Subscription" button below.
+                  <p className="text-sm text-warning-700 leading-relaxed">
+                    You still have an active premium subscription. Please cancel your subscription and wait for it to expire before deleting your account. 
+                    If cancelled before your next billing period, you will retain access for the duration of your current billing period but will not be automatically charged for the next billing period.
+                  </p>
+                  <p className="text-sm text-warning-700 mt-2">
+                    Inactive free tier accounts can be automatically deleted after 60 days of inactivity.
                   </p>
                 </div>
               </div>
