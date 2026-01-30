@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   MapPin, 
   Building2, 
@@ -21,7 +21,8 @@ import {
   Percent,
   Calculator,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download
 } from 'lucide-react'
 import { 
   DEAL_STAGES, 
@@ -33,6 +34,7 @@ import {
   formatPercentage,
   calculateDaysInPipeline
 } from '@/lib/dealiq-constants'
+import jsPDF from 'jspdf'
 
 interface Deal {
   id: string
@@ -111,6 +113,29 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [isCommissionCollapsed, setIsCommissionCollapsed] = useState(false)
   const [isFinancingCollapsed, setIsFinancingCollapsed] = useState(false)
   const [isPLCollapsed, setIsPLCollapsed] = useState(false)
+
+  // ✅ NEW: P&L Export dropdown state
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportButtonRef = useRef<HTMLButtonElement>(null)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+
+  // ✅ NEW: Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showExportMenu &&
+        exportMenuRef.current &&
+        exportButtonRef.current &&
+        !exportMenuRef.current.contains(event.target as Node) &&
+        !exportButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowExportMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showExportMenu])
 
   // Format created date as mm/dd/yyyy
   const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
@@ -574,6 +599,308 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   }
 
   // Get color-coded pill colors for stages (progression from early to Closed Won)
+
+  // ✅ NEW: Export P&L to CSV
+  const exportToCSV = () => {
+    if (!plData) return
+
+    const csvRows = []
+    
+    // Header
+    csvRows.push('Profit & Loss Statement')
+    csvRows.push(`Property: ${deal.address}`)
+    csvRows.push(`Deal ID: ${deal.dealId}`)
+    csvRows.push(`Date: ${new Date().toLocaleDateString()}`)
+    csvRows.push('') // Empty row
+    
+    // Column headers
+    csvRows.push('Category,Current,Market')
+    
+    // INCOME
+    csvRows.push('INCOME,,')
+    csvRows.push(`Rental Income,${plData.current.rentalIncome},${plData.market.rentalIncome}`)
+    csvRows.push(`Other Income,${plData.current.otherIncome},${plData.market.otherIncome}`)
+    csvRows.push(`Total Income,${plData.current.totalIncome},${plData.market.totalIncome}`)
+    csvRows.push('') // Empty row
+    
+    // OPERATING EXPENSES
+    csvRows.push('OPERATING EXPENSES,,')
+    plData.current.expenses.forEach((expense: any, index: number) => {
+      csvRows.push(`${expense.name},${expense.amount},${plData.market.expenses[index].amount}`)
+    })
+    csvRows.push(`Total Expenses,${plData.current.totalExpenses},${plData.market.totalExpenses}`)
+    csvRows.push('') // Empty row
+    
+    // NET OPERATING INCOME
+    csvRows.push(`NET OPERATING INCOME,${plData.current.noi},${plData.market.noi}`)
+    csvRows.push('') // Empty row
+    
+    // DEBT SERVICE
+    csvRows.push('DEBT SERVICE,,')
+    csvRows.push(`Mortgage Payment,${plData.current.debtService},${plData.market.debtService}`)
+    csvRows.push('') // Empty row
+    
+    // CASH FLOW
+    csvRows.push(`CASH FLOW,${plData.current.cashFlow},${plData.market.cashFlow}`)
+    csvRows.push('') // Empty row
+    
+    // ANNUAL SUMMARY
+    csvRows.push('ANNUAL SUMMARY,,')
+    csvRows.push(`Annual Income,${plData.current.totalIncome * 12},${plData.market.totalIncome * 12}`)
+    csvRows.push(`Annual Expenses,${plData.current.totalExpenses * 12},${plData.market.totalExpenses * 12}`)
+    csvRows.push(`Annual NOI,${plData.current.noi * 12},${plData.market.noi * 12}`)
+    csvRows.push(`Annual Debt Service,${plData.current.debtService * 12},${plData.market.debtService * 12}`)
+    csvRows.push(`Annual Cash Flow,${plData.current.cashFlow * 12},${plData.market.cashFlow * 12}`)
+    csvRows.push('') // Empty row
+    
+    // KEY METRICS
+    csvRows.push('KEY METRICS,,')
+    
+    // Cap Rate
+    const currentCapRate = plData.current.noi * 12 > 0 
+      ? ((plData.current.noi * 12 / deal.price) * 100).toFixed(2) + '%'
+      : 'N/A'
+    const marketCapRate = plData.market.noi * 12 > 0 
+      ? ((plData.market.noi * 12 / deal.price) * 100).toFixed(2) + '%'
+      : 'N/A'
+    csvRows.push(`Cap Rate,${currentCapRate},${marketCapRate}`)
+    
+    // Cash-on-Cash Return
+    if (downPayment > 0) {
+      const currentCoC = ((plData.current.cashFlow * 12 / downPayment) * 100).toFixed(2) + '%'
+      const marketCoC = ((plData.market.cashFlow * 12 / downPayment) * 100).toFixed(2) + '%'
+      csvRows.push(`Cash-on-Cash,${currentCoC},${marketCoC}`)
+    }
+    
+    // GRM
+    const currentGRM = plData.current.rentalIncome * 12 > 0 
+      ? (deal.price / (plData.current.rentalIncome * 12)).toFixed(2)
+      : 'N/A'
+    const marketGRM = plData.market.rentalIncome * 12 > 0 
+      ? (deal.price / (plData.market.rentalIncome * 12)).toFixed(2)
+      : 'N/A'
+    csvRows.push(`GRM,${currentGRM},${marketGRM}`)
+    
+    // DSCR
+    const currentDSCR = plData.current.debtService > 0 
+      ? (plData.current.noi / plData.current.debtService).toFixed(2)
+      : 'N/A'
+    const marketDSCR = plData.market.debtService > 0 
+      ? (plData.market.noi / plData.market.debtService).toFixed(2)
+      : 'N/A'
+    csvRows.push(`DSCR,${currentDSCR},${marketDSCR}`)
+    csvRows.push('') // Empty row
+    
+    // Additional Metrics (single values)
+    csvRows.push('ADDITIONAL METRICS,')
+    csvRows.push(`Total Investment,${downPayment}`)
+    if (deal.units) {
+      csvRows.push(`Price per Unit,${deal.price / deal.units}`)
+    }
+    
+    // Create CSV string
+    const csvContent = csvRows.join('\n')
+    
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `PL-Statement-Deal-${deal.dealId}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    
+    setShowExportMenu(false)
+  }
+
+  // ✅ NEW: Export P&L to PDF
+  const exportToPDF = () => {
+    if (!plData) return
+
+    const doc = new jsPDF()
+    let yPosition = 20
+
+    // Title
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Profit & Loss Statement', 105, yPosition, { align: 'center' })
+    
+    yPosition += 10
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Property: ${deal.address}`, 105, yPosition, { align: 'center' })
+    
+    yPosition += 5
+    doc.text(`Deal ID: ${deal.dealId}`, 105, yPosition, { align: 'center' })
+    
+    yPosition += 5
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, yPosition, { align: 'center' })
+    
+    yPosition += 10
+
+    // Column Headers
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Current', 120, yPosition, { align: 'right' })
+    doc.text('Market', 170, yPosition, { align: 'right' })
+    
+    yPosition += 7
+
+    // Helper function to add a line
+    const addLine = (label: string, currentValue: number, marketValue: number, isBold = false) => {
+      if (yPosition > 270) {
+        doc.addPage()
+        yPosition = 20
+      }
+      
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+      doc.text(label, 20, yPosition)
+      doc.text(formatCurrency(currentValue), 120, yPosition, { align: 'right' })
+      doc.text(formatCurrency(marketValue), 170, yPosition, { align: 'right' })
+      yPosition += 6
+    }
+
+    // Helper function to add a percentage line
+    const addPercentLine = (label: string, currentValue: string, marketValue: string) => {
+      if (yPosition > 270) {
+        doc.addPage()
+        yPosition = 20
+      }
+      
+      doc.setFont('helvetica', 'normal')
+      doc.text(label, 20, yPosition)
+      doc.text(currentValue, 120, yPosition, { align: 'right' })
+      doc.text(marketValue, 170, yPosition, { align: 'right' })
+      yPosition += 6
+    }
+
+    // INCOME
+    doc.setFont('helvetica', 'bold')
+    doc.text('INCOME', 20, yPosition)
+    yPosition += 6
+    
+    addLine('Rental Income:', plData.current.rentalIncome, plData.market.rentalIncome)
+    addLine('Other Income:', plData.current.otherIncome, plData.market.otherIncome)
+    addLine('Total Income:', plData.current.totalIncome, plData.market.totalIncome, true)
+    
+    yPosition += 4
+
+    // OPERATING EXPENSES
+    doc.setFont('helvetica', 'bold')
+    doc.text('OPERATING EXPENSES', 20, yPosition)
+    yPosition += 6
+    
+    plData.current.expenses.forEach((expense: any, index: number) => {
+      addLine(`${expense.name}:`, expense.amount, plData.market.expenses[index].amount)
+    })
+    addLine('Total Expenses:', plData.current.totalExpenses, plData.market.totalExpenses, true)
+    
+    yPosition += 4
+
+    // NET OPERATING INCOME (lighter blue highlight)
+    doc.setFont('helvetica', 'bold')
+    doc.setFillColor(219, 234, 254) // Light blue (blue-100)
+    doc.rect(15, yPosition - 4, 180, 8, 'F')
+    addLine('NET OPERATING INCOME', plData.current.noi, plData.market.noi, true)
+    
+    yPosition += 4
+
+    // DEBT SERVICE
+    doc.setFont('helvetica', 'bold')
+    doc.text('DEBT SERVICE', 20, yPosition)
+    yPosition += 6
+    
+    addLine('Mortgage Payment:', plData.current.debtService, plData.market.debtService)
+    
+    yPosition += 4
+
+    // CASH FLOW (lighter gray highlight)
+    doc.setFont('helvetica', 'bold')
+    doc.setFillColor(243, 244, 246) // Light gray (gray-100)
+    doc.rect(15, yPosition - 4, 180, 8, 'F')
+    addLine('CASH FLOW', plData.current.cashFlow, plData.market.cashFlow, true)
+    
+    yPosition += 8
+
+    // ANNUAL SUMMARY
+    doc.setFont('helvetica', 'bold')
+    doc.text('ANNUAL SUMMARY', 20, yPosition)
+    yPosition += 6
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    addLine('• Annual Income:', plData.current.totalIncome * 12, plData.market.totalIncome * 12)
+    addLine('• Annual Expenses:', plData.current.totalExpenses * 12, plData.market.totalExpenses * 12)
+    addLine('• Annual NOI:', plData.current.noi * 12, plData.market.noi * 12)
+    addLine('• Annual Debt Service:', plData.current.debtService * 12, plData.market.debtService * 12)
+    addLine('• Annual Cash Flow:', plData.current.cashFlow * 12, plData.market.cashFlow * 12)
+
+    yPosition += 8
+
+    // KEY METRICS
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text('KEY METRICS', 20, yPosition)
+    yPosition += 6
+    
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    
+    // Cap Rate
+    const currentCapRate = plData.current.noi * 12 > 0 
+      ? formatPercentage((plData.current.noi * 12 / deal.price) * 100, 2)
+      : 'N/A'
+    const marketCapRate = plData.market.noi * 12 > 0 
+      ? formatPercentage((plData.market.noi * 12 / deal.price) * 100, 2)
+      : 'N/A'
+    addPercentLine('• Cap Rate:', currentCapRate, marketCapRate)
+    
+    // Cash-on-Cash Return (only if down payment exists)
+    if (downPayment > 0) {
+      const currentCoC = formatPercentage((plData.current.cashFlow * 12 / downPayment) * 100, 2)
+      const marketCoC = formatPercentage((plData.market.cashFlow * 12 / downPayment) * 100, 2)
+      addPercentLine('• Cash-on-Cash:', currentCoC, marketCoC)
+    }
+    
+    // GRM
+    const currentGRM = plData.current.rentalIncome * 12 > 0 
+      ? (deal.price / (plData.current.rentalIncome * 12)).toFixed(2)
+      : 'N/A'
+    const marketGRM = plData.market.rentalIncome * 12 > 0 
+      ? (deal.price / (plData.market.rentalIncome * 12)).toFixed(2)
+      : 'N/A'
+    addPercentLine('• GRM:', currentGRM, marketGRM)
+    
+    // DSCR
+    const currentDSCR = plData.current.debtService > 0 
+      ? (plData.current.noi / plData.current.debtService).toFixed(2)
+      : 'N/A'
+    const marketDSCR = plData.market.debtService > 0 
+      ? (plData.market.noi / plData.market.debtService).toFixed(2)
+      : 'N/A'
+    addPercentLine('• DSCR:', currentDSCR, marketDSCR)
+
+    yPosition += 4
+
+    // Additional metrics that don't vary between current/market
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text('ADDITIONAL METRICS', 20, yPosition)
+    yPosition += 6
+    
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.text(`• Total Investment: ${formatCurrency(downPayment)}`, 20, yPosition)
+    yPosition += 5
+    
+    if (deal.units) {
+      doc.text(`• Price per Unit: ${formatCurrency(deal.price / deal.units)}`, 20, yPosition)
+    }
+
+    // Save
+    doc.save(`PL-Statement-Deal-${deal.dealId}.pdf`)
+    setShowExportMenu(false)
+  }
 
   // Calculate P&L with Current vs Market Rents
   const calculatePL = () => {
@@ -1390,6 +1717,40 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                   📊 View Analysis
                 </a>
               )}
+              {/* ✅ NEW: Export Button with Dropdown */}
+              <div className="relative">
+                <button
+                  ref={exportButtonRef}
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  title="Export P&L Statement"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                
+                {/* Export Dropdown Menu */}
+                {showExportMenu && (
+                  <div
+                    ref={exportMenuRef}
+                    className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-10"
+                  >
+                    <button
+                      onClick={exportToPDF}
+                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download as PDF
+                    </button>
+                    <button
+                      onClick={exportToCSV}
+                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download as CSV
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setIsPLCollapsed(!isPLCollapsed)}
                 className="text-neutral-400 hover:text-neutral-600 transition-colors ml-2"
