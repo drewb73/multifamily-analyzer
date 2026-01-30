@@ -269,6 +269,11 @@ export async function PATCH(
       changes.push({ field: 'squareFeet', old: deal.squareFeet, new: body.squareFeet })
     }
 
+    // ✅ NEW: Track financing type changes
+    if (body.financingType !== undefined && body.financingType !== deal.financingType) {
+      changes.push({ field: 'financingType', old: deal.financingType, new: body.financingType })
+    }
+
     // Calculate commission if price or percent changed
     let commissionAmount = deal.commissionAmount
     if (body.commissionPercent !== undefined && deal.price) {
@@ -298,6 +303,9 @@ export async function PATCH(
         pricePerUnit: body.pricePerUnit !== undefined ? body.pricePerUnit : deal.pricePerUnit,
         squareFeet: body.squareFeet !== undefined ? body.squareFeet : deal.squareFeet,
         pricePerSqft: body.pricePerSqft !== undefined ? body.pricePerSqft : deal.pricePerSqft,
+        
+        // ✅ NEW: Financing type
+        financingType: body.financingType !== undefined ? body.financingType : deal.financingType,
         
         updatedAt: new Date(),
         ...(body.stage !== undefined && body.stage !== deal.stage && {

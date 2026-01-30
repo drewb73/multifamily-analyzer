@@ -109,9 +109,11 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const [tempSqft, setTempSqft] = useState(deal.squareFeet || 0)
   const [sqftError, setSqftError] = useState<string | null>(null)
 
-  // ✅ NEW: Square feet validation constants
-  const SQFT_MIN = 100
-  const SQFT_MAX = 1000000 // 1 million sqft max (very large properties)
+  // ✅ NEW: Financing type edit state
+  const [isEditingFinancing, setIsEditingFinancing] = useState(false)
+  const [tempFinancingType, setTempFinancingType] = useState<'cash' | 'financed'>(
+    deal.financingType === 'cash' ? 'cash' : 'financed'
+  )
 
   // ✨ NEW: Collapsible sections state
   const [isDealTrackingCollapsed, setIsDealTrackingCollapsed] = useState(false)
@@ -538,42 +540,8 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     }
   }
 
-  // ✅ NEW: Validate square feet input
-  const validateSqft = (value: number): string | null => {
-    if (value <= 0) {
-      return 'Square feet must be greater than 0'
-    }
-    if (value < SQFT_MIN) {
-      return `Square feet must be at least ${SQFT_MIN.toLocaleString()} sq ft`
-    }
-    if (value > SQFT_MAX) {
-      return `Square feet cannot exceed ${SQFT_MAX.toLocaleString()} sq ft`
-    }
-    if (!Number.isInteger(value)) {
-      return 'Square feet must be a whole number'
-    }
-    return null
-  }
-
-  // ✅ NEW: Handle sqft input change with validation
-  const handleSqftChange = (value: string) => {
-    const numValue = parseInt(value) || 0
-    setTempSqft(numValue)
-    
-    // Validate and set error
-    const error = validateSqft(numValue)
-    setSqftError(error)
-  }
-
   // ✨ NEW: Save square feet
   const handleSaveSqft = async () => {
-    // ✅ Validate before saving
-    const error = validateSqft(tempSqft)
-    if (error) {
-      setSqftError(error)
-      return
-    }
-
     setIsSaving(true)
     try {
       console.log('💾 Saving square feet:', tempSqft)
@@ -625,6 +593,85 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     } catch (error) {
       console.error('Failed to update sqft:', error)
       alert('Failed to update square feet')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // ✅ NEW: Save financing type
+  const handleSaveFinancing = async () => {
+    if (tempFinancingType === deal.financingType) {
+      setIsEditingFinancing(false)
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      console.log('💳 Saving financing type:', tempFinancingType)
+      
+      // Step 1: Update Deal
+      await onUpdate({ financingType: tempFinancingType })
+      
+      console.log('✅ Deal updated with financing type:', tempFinancingType)
+      
+      // ✅ NEW: Wait for database to commit
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Step 2: Update analysis if linked
+      if (deal.analysis?.id) {
+        console.log('📊 Updating linked analysis...')
+        
+        const isCashPurchase = tempFinancingType === 'cash'
+        
+        // Prepare analysis update
+        const analysisUpdate: any = {
+          isCashPurchase,
+          financingType: tempFinancingType  // ✅ NEW: Pass financing type directly
+        }
+        
+        // If switching to cash, set financing fields appropriately
+        if (isCashPurchase) {
+          analysisUpdate.downPayment = deal.price // Full price
+          analysisUpdate.loanRate = 0
+          analysisUpdate.loanTerm = 0
+        } else {
+          // If switching to financed, use existing values or defaults
+          analysisUpdate.downPayment = deal.downPayment || (deal.price * 0.2) // 20% default
+          analysisUpdate.loanRate = deal.loanRate || 6.5
+          analysisUpdate.loanTerm = deal.loanTerm || 30
+        }
+        
+        console.log('📤 Sending analysis update:', analysisUpdate)
+        
+        const response = await fetch(`/api/dealiq/${deal.dealId}/update-analysis`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(analysisUpdate)
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Analysis update failed:', errorData)
+          throw new Error('Failed to update analysis')
+        }
+
+        console.log('✅ Analysis updated successfully')
+      }
+      
+      // Step 3: Refresh to show updated data
+      console.log('🔄 Refreshing deal data...')
+      await onRefresh()
+      
+      console.log('✅ Refresh complete, financing type should now be:', tempFinancingType)
+      
+      // Step 4: Exit edit mode after everything completes
+      setIsEditingFinancing(false)
+      
+    } catch (error) {
+      console.error('Failed to update financing type:', error)
+      alert('Failed to update financing type. Please try again.')
+      // Reset to original value on error
+      setTempFinancingType(deal.financingType === 'cash' ? 'cash' : 'financed')
     } finally {
       setIsSaving(false)
     }
@@ -1160,7 +1207,6 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 <button
                   onClick={() => {
                     setTempSqft(deal.squareFeet || 0)
-                    setSqftError(null) // ✅ Clear error when starting edit
                     setIsEditingSqft(true)
                   }}
                   className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
@@ -1169,54 +1215,32 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={SQFT_MIN}
-                    max={SQFT_MAX}
-                    step="100"
-                    value={tempSqft}
-                    onChange={(e) => handleSqftChange(e.target.value)}
-                    className={`flex-1 px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                      sqftError ? 'border-error-500 bg-error-50' : 'border-neutral-300'
-                    }`}
-                    disabled={isSaving}
-                    placeholder={`${SQFT_MIN.toLocaleString()} - ${SQFT_MAX.toLocaleString()} sq ft`}
-                  />
-                  <button
-                    onClick={handleSaveSqft}
-                    disabled={isSaving || !!sqftError}
-                    className="text-success-600 hover:text-success-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    title={sqftError || 'Save'}
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingSqft(false)
-                      setSqftError(null)
-                    }}
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  step="100"
+                  value={tempSqft}
+                  onChange={(e) => setTempSqft(parseInt(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={isSaving}
+                  placeholder="Square footage"
+                />
+                <button
+                  onClick={handleSaveSqft}
+                  disabled={isSaving}
+                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditingSqft(false)}
                   disabled={isSaving}
                   className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              {/* ✅ NEW: Error message */}
-              {sqftError && (
-                <div className="text-xs text-error-600 mt-1 flex items-start gap-1">
-                  <span>⚠️</span>
-                  <span>{sqftError}</span>
-                </div>
-              )}
-              {/* ✅ NEW: Helpful hint */}
-              {!sqftError && (
-                <div className="text-xs text-neutral-500 mt-1">
-                  Typical range: {SQFT_MIN.toLocaleString()} - 50,000 sq ft
-                </div>
-              )}
-            </div>
             )}
           </div>
 
@@ -1269,15 +1293,80 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             )}
           </div>
 
-          {/* Financing Type - Not Editable */}
+          {/* ✅ UPDATED: Financing Type - Now Editable */}
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
               <Hash className="w-4 h-4" />
-              Financing
+              Financing Type
             </div>
-            <div className="font-medium text-neutral-900 capitalize">
-              {deal.financingType || 'Not specified'}
-            </div>
+            {!isEditingFinancing ? (
+              <div className="flex items-center gap-2">
+                <div className="font-medium text-neutral-900 capitalize">
+                  {deal.financingType || 'Not specified'}
+                </div>
+                <button
+                  onClick={() => {
+                    setTempFinancingType(deal.financingType === 'cash' ? 'cash' : 'financed')
+                    setIsEditingFinancing(true)
+                  }}
+                  className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
+                  title="Edit financing type"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {/* Toggle buttons */}
+                  <div className="flex bg-neutral-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setTempFinancingType('cash')}
+                      disabled={isSaving}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        tempFinancingType === 'cash'
+                          ? 'bg-white text-primary-600 shadow-sm'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      Cash
+                    </button>
+                    <button
+                      onClick={() => setTempFinancingType('financed')}
+                      disabled={isSaving}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        tempFinancingType === 'financed'
+                          ? 'bg-white text-primary-600 shadow-sm'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      Financed
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleSaveFinancing}
+                    disabled={isSaving}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
+                    title="Save"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsEditingFinancing(false)}
+                    disabled={isSaving}
+                    className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Info text */}
+                <div className="text-xs text-neutral-500">
+                  {tempFinancingType === 'cash' 
+                    ? '💡 Switching to cash will update the analysis to remove financing calculations'
+                    : '💡 Switching to financed will enable loan calculations in the analysis'}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

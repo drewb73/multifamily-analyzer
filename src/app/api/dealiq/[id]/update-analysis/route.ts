@@ -163,7 +163,9 @@ export async function PATCH(
     // Handle down payment update
     if (body.downPayment !== undefined) {
       const purchasePrice = deal.price || 0
-      const isCashPurchase = deal.financingType === 'cash'
+      // ✅ NEW: Use financingType from body if provided, otherwise from deal
+      const financingType = body.financingType || deal.financingType
+      const isCashPurchase = financingType === 'cash'
 
       if (!isCashPurchase && body.downPayment > purchasePrice) {
         return NextResponse.json(
@@ -288,13 +290,16 @@ export async function PATCH(
       const downPayment = body.downPayment !== undefined ? body.downPayment : (updatedProperty.downPayment || 0)
       const loanRate = body.loanRate !== undefined ? body.loanRate : (deal.loanRate || 0)
       const loanTerm = body.loanTerm !== undefined ? body.loanTerm : (deal.loanTerm || 30)
-      const isCashPurchase = deal.financingType === 'cash'
+      // ✅ NEW: Use financingType from body if provided
+      const financingType = body.financingType || deal.financingType
+      const isCashPurchase = financingType === 'cash'
       
       console.log('💰 Recalculation inputs:', {
         purchasePrice,
         downPayment,
         loanRate,
         loanTerm,
+        financingType,
         isCashPurchase
       })
       
