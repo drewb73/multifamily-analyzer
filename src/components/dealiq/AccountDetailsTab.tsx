@@ -119,6 +119,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const exportButtonRef = useRef<HTMLButtonElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
 
+  // ✅ NEW: P&L Monthly/Yearly toggle
+  const [isPLYearly, setIsPLYearly] = useState(false)
+
   // ✅ NEW: Close export menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -604,12 +607,16 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const exportToCSV = () => {
     if (!plData) return
 
+    const multiplier = isPLYearly ? 12 : 1
+    const period = isPLYearly ? 'Yearly' : 'Monthly'
+
     const csvRows = []
     
     // Header
     csvRows.push('Profit & Loss Statement')
     csvRows.push(`Property: ${deal.address}`)
     csvRows.push(`Deal ID: ${deal.dealId}`)
+    csvRows.push(`Period: ${period}`)
     csvRows.push(`Date: ${new Date().toLocaleDateString()}`)
     csvRows.push('') // Empty row
     
@@ -618,42 +625,33 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     
     // INCOME
     csvRows.push('INCOME,,')
-    csvRows.push(`Rental Income,${plData.current.rentalIncome},${plData.market.rentalIncome}`)
-    csvRows.push(`Other Income,${plData.current.otherIncome},${plData.market.otherIncome}`)
-    csvRows.push(`Total Income,${plData.current.totalIncome},${plData.market.totalIncome}`)
+    csvRows.push(`Rental Income,${plData.current.rentalIncome * multiplier},${plData.market.rentalIncome * multiplier}`)
+    csvRows.push(`Other Income,${plData.current.otherIncome * multiplier},${plData.market.otherIncome * multiplier}`)
+    csvRows.push(`Total Income,${plData.current.totalIncome * multiplier},${plData.market.totalIncome * multiplier}`)
     csvRows.push('') // Empty row
     
     // OPERATING EXPENSES
     csvRows.push('OPERATING EXPENSES,,')
     plData.current.expenses.forEach((expense: any, index: number) => {
-      csvRows.push(`${expense.name},${expense.amount},${plData.market.expenses[index].amount}`)
+      csvRows.push(`${expense.name},${expense.amount * multiplier},${plData.market.expenses[index].amount * multiplier}`)
     })
-    csvRows.push(`Total Expenses,${plData.current.totalExpenses},${plData.market.totalExpenses}`)
+    csvRows.push(`Total Expenses,${plData.current.totalExpenses * multiplier},${plData.market.totalExpenses * multiplier}`)
     csvRows.push('') // Empty row
     
     // NET OPERATING INCOME
-    csvRows.push(`NET OPERATING INCOME,${plData.current.noi},${plData.market.noi}`)
+    csvRows.push(`NET OPERATING INCOME,${plData.current.noi * multiplier},${plData.market.noi * multiplier}`)
     csvRows.push('') // Empty row
     
     // DEBT SERVICE
     csvRows.push('DEBT SERVICE,,')
-    csvRows.push(`Mortgage Payment,${plData.current.debtService},${plData.market.debtService}`)
+    csvRows.push(`Mortgage Payment,${plData.current.debtService * multiplier},${plData.market.debtService * multiplier}`)
     csvRows.push('') // Empty row
     
     // CASH FLOW
-    csvRows.push(`CASH FLOW,${plData.current.cashFlow},${plData.market.cashFlow}`)
+    csvRows.push(`CASH FLOW,${plData.current.cashFlow * multiplier},${plData.market.cashFlow * multiplier}`)
     csvRows.push('') // Empty row
     
-    // ANNUAL SUMMARY
-    csvRows.push('ANNUAL SUMMARY,,')
-    csvRows.push(`Annual Income,${plData.current.totalIncome * 12},${plData.market.totalIncome * 12}`)
-    csvRows.push(`Annual Expenses,${plData.current.totalExpenses * 12},${plData.market.totalExpenses * 12}`)
-    csvRows.push(`Annual NOI,${plData.current.noi * 12},${plData.market.noi * 12}`)
-    csvRows.push(`Annual Debt Service,${plData.current.debtService * 12},${plData.market.debtService * 12}`)
-    csvRows.push(`Annual Cash Flow,${plData.current.cashFlow * 12},${plData.market.cashFlow * 12}`)
-    csvRows.push('') // Empty row
-    
-    // KEY METRICS
+    // KEY METRICS (always annual-based)
     csvRows.push('KEY METRICS,,')
     
     // Cap Rate
@@ -717,6 +715,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   const exportToPDF = () => {
     if (!plData) return
 
+    const multiplier = isPLYearly ? 12 : 1
+    const period = isPLYearly ? 'Yearly' : 'Monthly'
+
     const doc = new jsPDF()
     let yPosition = 20
 
@@ -732,6 +733,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     
     yPosition += 5
     doc.text(`Deal ID: ${deal.dealId}`, 105, yPosition, { align: 'center' })
+    
+    yPosition += 5
+    doc.text(`Period: ${period}`, 105, yPosition, { align: 'center' })
     
     yPosition += 5
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, yPosition, { align: 'center' })
@@ -779,9 +783,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     doc.text('INCOME', 20, yPosition)
     yPosition += 6
     
-    addLine('Rental Income:', plData.current.rentalIncome, plData.market.rentalIncome)
-    addLine('Other Income:', plData.current.otherIncome, plData.market.otherIncome)
-    addLine('Total Income:', plData.current.totalIncome, plData.market.totalIncome, true)
+    addLine('Rental Income:', plData.current.rentalIncome * multiplier, plData.market.rentalIncome * multiplier)
+    addLine('Other Income:', plData.current.otherIncome * multiplier, plData.market.otherIncome * multiplier)
+    addLine('Total Income:', plData.current.totalIncome * multiplier, plData.market.totalIncome * multiplier, true)
     
     yPosition += 4
 
@@ -791,9 +795,9 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     yPosition += 6
     
     plData.current.expenses.forEach((expense: any, index: number) => {
-      addLine(`${expense.name}:`, expense.amount, plData.market.expenses[index].amount)
+      addLine(`${expense.name}:`, expense.amount * multiplier, plData.market.expenses[index].amount * multiplier)
     })
-    addLine('Total Expenses:', plData.current.totalExpenses, plData.market.totalExpenses, true)
+    addLine('Total Expenses:', plData.current.totalExpenses * multiplier, plData.market.totalExpenses * multiplier, true)
     
     yPosition += 4
 
@@ -801,7 +805,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     doc.setFont('helvetica', 'bold')
     doc.setFillColor(219, 234, 254) // Light blue (blue-100)
     doc.rect(15, yPosition - 4, 180, 8, 'F')
-    addLine('NET OPERATING INCOME', plData.current.noi, plData.market.noi, true)
+    addLine('NET OPERATING INCOME', plData.current.noi * multiplier, plData.market.noi * multiplier, true)
     
     yPosition += 4
 
@@ -810,7 +814,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     doc.text('DEBT SERVICE', 20, yPosition)
     yPosition += 6
     
-    addLine('Mortgage Payment:', plData.current.debtService, plData.market.debtService)
+    addLine('Mortgage Payment:', plData.current.debtService * multiplier, plData.market.debtService * multiplier)
     
     yPosition += 4
 
@@ -818,26 +822,11 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     doc.setFont('helvetica', 'bold')
     doc.setFillColor(243, 244, 246) // Light gray (gray-100)
     doc.rect(15, yPosition - 4, 180, 8, 'F')
-    addLine('CASH FLOW', plData.current.cashFlow, plData.market.cashFlow, true)
+    addLine('CASH FLOW', plData.current.cashFlow * multiplier, plData.market.cashFlow * multiplier, true)
     
     yPosition += 8
 
-    // ANNUAL SUMMARY
-    doc.setFont('helvetica', 'bold')
-    doc.text('ANNUAL SUMMARY', 20, yPosition)
-    yPosition += 6
-    
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    addLine('• Annual Income:', plData.current.totalIncome * 12, plData.market.totalIncome * 12)
-    addLine('• Annual Expenses:', plData.current.totalExpenses * 12, plData.market.totalExpenses * 12)
-    addLine('• Annual NOI:', plData.current.noi * 12, plData.market.noi * 12)
-    addLine('• Annual Debt Service:', plData.current.debtService * 12, plData.market.debtService * 12)
-    addLine('• Annual Cash Flow:', plData.current.cashFlow * 12, plData.market.cashFlow * 12)
-
-    yPosition += 8
-
-    // KEY METRICS
+    // KEY METRICS (always annual-based)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.text('KEY METRICS', 20, yPosition)
@@ -1708,7 +1697,29 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
               <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-neutral-500">Monthly</span>
+              {/* ✅ NEW: Monthly/Yearly Toggle */}
+              <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setIsPLYearly(false)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                    !isPLYearly 
+                      ? 'bg-white text-primary-600 shadow-sm' 
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setIsPLYearly(true)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                    isPLYearly 
+                      ? 'bg-white text-primary-600 shadow-sm' 
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  Yearly
+                </button>
+              </div>
               {deal.analysis && (
                 <a
                   href={`/dashboard?analysisId=${deal.analysis.id}`}
@@ -1781,28 +1792,28 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-sm text-neutral-700">Rental Income:</div>
                   <div className="text-sm text-neutral-900 text-right font-medium">
-                    {formatCurrency(plData.current.rentalIncome)}
+                    {formatCurrency(plData.current.rentalIncome * (isPLYearly ? 12 : 1))}
                   </div>
                   <div className="text-sm text-neutral-900 text-right font-medium">
-                    {formatCurrency(plData.market.rentalIncome)}
+                    {formatCurrency(plData.market.rentalIncome * (isPLYearly ? 12 : 1))}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-sm text-neutral-700">Other Income:</div>
                   <div className="text-sm text-neutral-900 text-right font-medium">
-                    {formatCurrency(plData.current.otherIncome)}
+                    {formatCurrency(plData.current.otherIncome * (isPLYearly ? 12 : 1))}
                   </div>
                   <div className="text-sm text-neutral-900 text-right font-medium">
-                    {formatCurrency(plData.market.otherIncome)}
+                    {formatCurrency(plData.market.otherIncome * (isPLYearly ? 12 : 1))}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 pt-2 border-t border-neutral-100">
                   <div className="text-sm font-semibold text-neutral-900">Total Income:</div>
                   <div className="text-sm font-bold text-neutral-900 text-right">
-                    {formatCurrency(plData.current.totalIncome)}
+                    {formatCurrency(plData.current.totalIncome * (isPLYearly ? 12 : 1))}
                   </div>
                   <div className="text-sm font-bold text-neutral-900 text-right">
-                    {formatCurrency(plData.market.totalIncome)}
+                    {formatCurrency(plData.market.totalIncome * (isPLYearly ? 12 : 1))}
                   </div>
                 </div>
               </div>
@@ -1816,20 +1827,20 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                   <div key={index} className="grid grid-cols-3 gap-4">
                     <div className="text-sm text-neutral-700">{expense.name}:</div>
                     <div className="text-sm text-neutral-900 text-right font-medium">
-                      {formatCurrency(expense.amount)}
+                      {formatCurrency(expense.amount * (isPLYearly ? 12 : 1))}
                     </div>
                     <div className="text-sm text-neutral-900 text-right font-medium">
-                      {formatCurrency(plData.market.expenses[index].amount)}
+                      {formatCurrency(plData.market.expenses[index].amount * (isPLYearly ? 12 : 1))}
                     </div>
                   </div>
                 ))}
                 <div className="grid grid-cols-3 gap-4 pt-2 border-t border-neutral-100">
                   <div className="text-sm font-semibold text-neutral-900">Total Expenses:</div>
                   <div className="text-sm font-bold text-neutral-900 text-right">
-                    {formatCurrency(plData.current.totalExpenses)}
+                    {formatCurrency(plData.current.totalExpenses * (isPLYearly ? 12 : 1))}
                   </div>
                   <div className="text-sm font-bold text-neutral-900 text-right">
-                    {formatCurrency(plData.market.totalExpenses)}
+                    {formatCurrency(plData.market.totalExpenses * (isPLYearly ? 12 : 1))}
                   </div>
                 </div>
               </div>
@@ -1839,10 +1850,10 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             <div className="grid grid-cols-3 gap-4 py-3 border-y-2 border-primary-200 bg-primary-50/30">
               <div className="text-sm font-bold text-neutral-900">NET OPERATING INCOME</div>
               <div className="text-sm font-bold text-primary-700 text-right">
-                {formatCurrency(plData.current.noi)}
+                {formatCurrency(plData.current.noi * (isPLYearly ? 12 : 1))}
               </div>
               <div className="text-sm font-bold text-primary-700 text-right">
-                {formatCurrency(plData.market.noi)}
+                {formatCurrency(plData.market.noi * (isPLYearly ? 12 : 1))}
               </div>
             </div>
 
@@ -1852,10 +1863,10 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
               <div className="grid grid-cols-3 gap-4 ml-4">
                 <div className="text-sm text-neutral-700">Mortgage Payment:</div>
                 <div className="text-sm text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.current.debtService)}
+                  {formatCurrency(plData.current.debtService * (isPLYearly ? 12 : 1))}
                 </div>
                 <div className="text-sm text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.market.debtService)}
+                  {formatCurrency(plData.market.debtService * (isPLYearly ? 12 : 1))}
                 </div>
               </div>
             </div>
@@ -1864,56 +1875,10 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
             <div className="grid grid-cols-3 gap-4 py-3 border-y-2 border-neutral-300 bg-neutral-50">
               <div className="text-base font-bold text-neutral-900">CASH FLOW</div>
               <div className={`text-base font-bold text-right ${plData.current.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
-                {formatCurrency(plData.current.cashFlow)}
+                {formatCurrency(plData.current.cashFlow * (isPLYearly ? 12 : 1))}
               </div>
               <div className={`text-base font-bold text-right ${plData.market.cashFlow >= 0 ? 'text-success-600' : 'text-error-600'}`}>
-                {formatCurrency(plData.market.cashFlow)}
-              </div>
-            </div>
-
-            {/* ANNUAL SUMMARY */}
-            <div className="pt-4 border-t border-neutral-200">
-              <div className="text-sm font-semibold text-neutral-900 mb-3">ANNUAL SUMMARY</div>
-              <div className="grid grid-cols-3 gap-4 text-xs">
-                <div className="text-neutral-600">• Annual Income:</div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.current.totalIncome * 12)}
-                </div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.market.totalIncome * 12)}
-                </div>
-                
-                <div className="text-neutral-600">• Annual Expenses:</div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.current.totalExpenses * 12)}
-                </div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.market.totalExpenses * 12)}
-                </div>
-                
-                <div className="text-neutral-600">• Annual NOI:</div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.current.noi * 12)}
-                </div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.market.noi * 12)}
-                </div>
-                
-                <div className="text-neutral-600">• Annual Debt Service:</div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.current.debtService * 12)}
-                </div>
-                <div className="text-neutral-900 text-right font-medium">
-                  {formatCurrency(plData.market.debtService * 12)}
-                </div>
-                
-                <div className="text-neutral-600 font-semibold">• Annual Cash Flow:</div>
-                <div className={`text-right font-bold ${plData.current.cashFlow * 12 >= 0 ? 'text-success-600' : 'text-error-600'}`}>
-                  {formatCurrency(plData.current.cashFlow * 12)}
-                </div>
-                <div className={`text-right font-bold ${plData.market.cashFlow * 12 >= 0 ? 'text-success-600' : 'text-error-600'}`}>
-                  {formatCurrency(plData.market.cashFlow * 12)}
-                </div>
+                {formatCurrency(plData.market.cashFlow * (isPLYearly ? 12 : 1))}
               </div>
             </div>
 
