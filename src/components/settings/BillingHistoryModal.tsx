@@ -1,7 +1,7 @@
 // src/components/settings/BillingHistoryModal.tsx
 'use client'
 
-import { X, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
+import { X, CheckCircle, Clock, XCircle, Download, ExternalLink, Gift } from 'lucide-react'
 import { useEffect } from 'react'
 
 interface BillingHistoryItem {
@@ -10,6 +10,9 @@ interface BillingHistoryItem {
   amount: number
   status: 'paid' | 'pending' | 'failed'
   description: string
+  invoiceUrl?: string | null  // ✅ NEW: Stripe-hosted invoice page
+  pdfUrl?: string | null      // ✅ NEW: Direct PDF download
+  isManual?: boolean          // ✅ NEW: Flag for manual/discount entries
 }
 
 interface BillingHistoryModalProps {
@@ -132,11 +135,19 @@ export function BillingHistoryModal({ isOpen, onClose, billingHistory }: Billing
                 {billingHistory.map((item) => (
                   <div 
                     key={item.id}
-                    className="border border-neutral-200 rounded-lg p-4 hover:border-neutral-300 transition-colors"
+                    className={`border rounded-lg p-4 transition-colors ${
+                      item.isManual 
+                        ? 'border-primary-200 bg-primary-50/30' 
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 flex-1">
-                        {getStatusIcon(item.status)}
+                        {item.isManual ? (
+                          <Gift className="w-5 h-5 text-primary-600" />
+                        ) : (
+                          getStatusIcon(item.status)
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-neutral-900">
@@ -149,21 +160,44 @@ export function BillingHistoryModal({ isOpen, onClose, billingHistory }: Billing
                           <div className="text-sm text-neutral-500">
                             {formatDate(item.date)}
                           </div>
+                          {item.isManual && (
+                            <div className="text-xs text-primary-600 mt-1 font-medium">
+                              Complimentary Access
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <div className="font-semibold text-neutral-900">
+                          <div className={`font-semibold ${item.amount === 0 ? 'text-primary-600' : 'text-neutral-900'}`}>
                             {formatCurrency(item.amount)}
                           </div>
                         </div>
-                        {item.status === 'paid' && (
-                          <button
-                            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                            title="Download receipt"
-                          >
-                            <Download className="w-4 h-4 text-neutral-600" />
-                          </button>
+                        {/* ✅ NEW: Download buttons for Stripe invoices */}
+                        {item.status === 'paid' && !item.isManual && (
+                          <div className="flex gap-1">
+                            {item.invoiceUrl && (
+                              <a
+                                href={item.invoiceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                                title="View invoice"
+                              >
+                                <ExternalLink className="w-4 h-4 text-neutral-600" />
+                              </a>
+                            )}
+                            {item.pdfUrl && (
+                              <a
+                                href={item.pdfUrl}
+                                download
+                                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                                title="Download receipt"
+                              >
+                                <Download className="w-4 h-4 text-neutral-600" />
+                              </a>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

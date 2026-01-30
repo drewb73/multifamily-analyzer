@@ -33,6 +33,25 @@ export default function SettingsPage() {
     cancelledAt: null // ✅ NEW
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
+  const [billingLoading, setBillingLoading] = useState(false)
+  
+  // ✅ NEW: Load billing history separately
+  const loadBillingHistory = async () => {
+    if (!user) return
+    
+    setBillingLoading(true)
+    try {
+      const response = await fetch('/api/billing/history')
+      if (response.ok) {
+        const data = await response.json()
+        setBillingHistory(data.billingHistory || [])
+      }
+    } catch (error) {
+      console.error('Failed to load billing history:', error)
+    } finally {
+      setBillingLoading(false)
+    }
+  }
   
   // Load user data
   const loadUserData = async () => {
@@ -58,8 +77,8 @@ export default function SettingsPage() {
           cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null // ✅ NEW
         })
         
-        // Set billing history (will be populated after Stripe integration)
-        setBillingHistory(data.billingHistory || [])
+        // ✅ NEW: Load billing history after user data is loaded
+        loadBillingHistory()
       } else {
         // Fallback to Clerk data if profile doesn't exist yet
         setUserProfile({
