@@ -720,6 +720,7 @@ export function PropertyAnalysisForm({
             data={formData.unitMix ?? []}
             onUpdate={handleUnitMixUpdate}
             totalUnits={formData.property?.totalUnits || 0}
+            propertySize={formData.property?.propertySize || 0}
           />
         )}
         

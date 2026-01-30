@@ -10,6 +10,7 @@ interface UnitMixFormProps {
   data: UnitType[]
   onUpdate: (data: UnitType[]) => void
   totalUnits: number
+  propertySize: number  // ✅ NEW: Total property square footage for validation
 }
 
 const UNIT_TYPES = [
@@ -28,7 +29,8 @@ const UNIT_TYPES = [
 export function UnitMixForm({ 
   data, 
   onUpdate, 
-  totalUnits
+  totalUnits,
+  propertySize  // ✅ NEW
 }: UnitMixFormProps) {
   const [unitMix, setUnitMix] = useState<UnitType[]>(data)
   const [newUnit, setNewUnit] = useState<Omit<UnitType, 'id'>>({
@@ -115,6 +117,47 @@ export function UnitMixForm({
     return unitMix.reduce((sum, unit) => sum + (unit.marketRent * unit.count), 0)
   }
 
+  // ✅ NEW: Calculate total square footage from all units
+  const calculateTotalUnitSqft = () => {
+    return unitMix.reduce((sum, unit) => sum + (unit.squareFootage * unit.count), 0)
+  }
+
+  // ✅ NEW: Validate unit sqft matches property sqft
+  const getSqftValidation = () => {
+    if (!propertySize || propertySize === 0) {
+      return { isValid: true, message: null, type: null }
+    }
+
+    const totalUnitSqft = calculateTotalUnitSqft()
+    const difference = totalUnitSqft - propertySize
+    const percentDiff = Math.abs(difference / propertySize) * 100
+
+    // Allow 5% tolerance for rounding
+    if (Math.abs(percentDiff) <= 5) {
+      return { 
+        isValid: true, 
+        message: '✓ Unit square footage matches property total',
+        type: 'success' as const
+      }
+    }
+
+    // 5-15% difference: Warning
+    if (Math.abs(percentDiff) <= 15) {
+      return {
+        isValid: false,
+        message: `⚠️ Unit sqft (${totalUnitSqft.toLocaleString()}) differs from property sqft (${propertySize.toLocaleString()}) by ${Math.abs(difference).toLocaleString()} sq ft (${percentDiff.toFixed(1)}%)`,
+        type: 'warning' as const
+      }
+    }
+
+    // >15% difference: Error
+    return {
+      isValid: false,
+      message: `❌ Unit sqft (${totalUnitSqft.toLocaleString()}) differs significantly from property sqft (${propertySize.toLocaleString()}) by ${Math.abs(difference).toLocaleString()} sq ft (${percentDiff.toFixed(1)}%)`,
+      type: 'error' as const
+    }
+  }
+
   const calculateUpsidePotential = () => {
     const currentGross = calculateTotalCurrentRent()
     const marketGross = calculateTotalMarketRent()
@@ -168,6 +211,44 @@ export function UnitMixForm({
           </div>
         </div>
       </Card>
+
+      {/* ✅ NEW: Square Footage Validation Banner */}
+      {propertySize > 0 && unitMix.length > 0 && (() => {
+        const validation = getSqftValidation()
+        const totalUnitSqft = calculateTotalUnitSqft()
+        
+        return (
+          <Card className={`p-4 ${
+            validation.type === 'success' ? 'bg-success-50 border-success-200' :
+            validation.type === 'warning' ? 'bg-warning-50 border-warning-200' :
+            validation.type === 'error' ? 'bg-error-50 border-error-200' : ''
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <div className="font-semibold text-sm mb-1">
+                  Square Footage Validation
+                </div>
+                <div className={`text-sm ${
+                  validation.type === 'success' ? 'text-success-700' :
+                  validation.type === 'warning' ? 'text-warning-700' :
+                  validation.type === 'error' ? 'text-error-700' : 'text-neutral-700'
+                }`}>
+                  {validation.message}
+                </div>
+                <div className="text-xs text-neutral-600 mt-2 space-y-1">
+                  <div>Total unit sqft: <span className="font-medium">{totalUnitSqft.toLocaleString()} sq ft</span></div>
+                  <div>Property sqft: <span className="font-medium">{propertySize.toLocaleString()} sq ft</span></div>
+                  {!validation.isValid && (
+                    <div className="mt-2 text-xs">
+                      💡 <strong>Tip:</strong> Adjust individual unit square footages or counts to match the total property size.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )
+      })()}
 
       {/* Add New Unit Form */}
       <Card className="p-6">

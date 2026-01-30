@@ -14,6 +14,11 @@ interface PropertyDetailsFormProps {
 export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps) {
   const [formData, setFormData] = useState<PropertyDetails>(data)
   const [isCashPurchase, setIsCashPurchase] = useState(data.isCashPurchase || false)
+  const [propertySizeError, setPropertySizeError] = useState<string | null>(null)
+
+  // ✅ NEW: Square feet validation constants
+  const SQFT_MIN = 100
+  const SQFT_MAX = 1000000
 
   // ✅ FIX: Sync with incoming data prop when it changes
   useEffect(() => {
@@ -57,6 +62,33 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
         interestRate: 6.5
       }))
     }
+  }
+
+  // ✅ NEW: Validate property size
+  const validatePropertySize = (value: number): string | null => {
+    if (value <= 0) {
+      return 'Square feet must be greater than 0'
+    }
+    if (value < SQFT_MIN) {
+      return `Square feet must be at least ${SQFT_MIN.toLocaleString()} sq ft`
+    }
+    if (value > SQFT_MAX) {
+      return `Square feet cannot exceed ${SQFT_MAX.toLocaleString()} sq ft`
+    }
+    if (!Number.isInteger(value)) {
+      return 'Square feet must be a whole number'
+    }
+    return null
+  }
+
+  // ✅ NEW: Handle property size change with validation
+  const handlePropertySizeChange = (value: string) => {
+    const numValue = parseFloat(value) || 0
+    handleChange('propertySize', numValue)
+    
+    // Validate and set error
+    const error = validatePropertySize(numValue)
+    setPropertySizeError(error)
   }
 
   const calculatePricePerUnit = () => {
@@ -303,16 +335,32 @@ export function PropertyDetailsForm({ data, onUpdate }: PropertyDetailsFormProps
                 <input
                   type="number"
                   value={formData.propertySize || ''}
-                  onChange={(e) => handleChange('propertySize', parseFloat(e.target.value) || 0)}
-                  className="input-field pr-12"
-                  placeholder="10,000"
-                  min="0"
+                  onChange={(e) => handlePropertySizeChange(e.target.value)}
+                  className={`input-field pr-12 ${
+                    propertySizeError ? 'border-error-500 bg-error-50' : ''
+                  }`}
+                  placeholder={`${SQFT_MIN.toLocaleString()} - ${SQFT_MAX.toLocaleString()}`}
+                  min={SQFT_MIN}
+                  max={SQFT_MAX}
                   required
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <span className="text-neutral-500">sq ft</span>
                 </div>
               </div>
+              {/* ✅ NEW: Error message */}
+              {propertySizeError && (
+                <div className="text-xs text-error-600 mt-1 flex items-start gap-1">
+                  <span>⚠️</span>
+                  <span>{propertySizeError}</span>
+                </div>
+              )}
+              {/* ✅ NEW: Helpful hint */}
+              {!propertySizeError && (
+                <div className="text-xs text-neutral-500 mt-1">
+                  Typical range: {SQFT_MIN.toLocaleString()} - 50,000 sq ft
+                </div>
+              )}
             </div>
             
             <div>

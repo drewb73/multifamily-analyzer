@@ -107,6 +107,11 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   
   const [isEditingSqft, setIsEditingSqft] = useState(false)
   const [tempSqft, setTempSqft] = useState(deal.squareFeet || 0)
+  const [sqftError, setSqftError] = useState<string | null>(null)
+
+  // ✅ NEW: Square feet validation constants
+  const SQFT_MIN = 100
+  const SQFT_MAX = 1000000 // 1 million sqft max (very large properties)
 
   // ✨ NEW: Collapsible sections state
   const [isDealTrackingCollapsed, setIsDealTrackingCollapsed] = useState(false)
@@ -533,8 +538,42 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     }
   }
 
+  // ✅ NEW: Validate square feet input
+  const validateSqft = (value: number): string | null => {
+    if (value <= 0) {
+      return 'Square feet must be greater than 0'
+    }
+    if (value < SQFT_MIN) {
+      return `Square feet must be at least ${SQFT_MIN.toLocaleString()} sq ft`
+    }
+    if (value > SQFT_MAX) {
+      return `Square feet cannot exceed ${SQFT_MAX.toLocaleString()} sq ft`
+    }
+    if (!Number.isInteger(value)) {
+      return 'Square feet must be a whole number'
+    }
+    return null
+  }
+
+  // ✅ NEW: Handle sqft input change with validation
+  const handleSqftChange = (value: string) => {
+    const numValue = parseInt(value) || 0
+    setTempSqft(numValue)
+    
+    // Validate and set error
+    const error = validateSqft(numValue)
+    setSqftError(error)
+  }
+
   // ✨ NEW: Save square feet
   const handleSaveSqft = async () => {
+    // ✅ Validate before saving
+    const error = validateSqft(tempSqft)
+    if (error) {
+      setSqftError(error)
+      return
+    }
+
     setIsSaving(true)
     try {
       console.log('💾 Saving square feet:', tempSqft)
@@ -1121,6 +1160,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 <button
                   onClick={() => {
                     setTempSqft(deal.squareFeet || 0)
+                    setSqftError(null) // ✅ Clear error when starting edit
                     setIsEditingSqft(true)
                   }}
                   className="text-neutral-400 hover:text-primary-600 transition-colors flex-shrink-0"
@@ -1129,32 +1169,54 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  step="100"
-                  value={tempSqft}
-                  onChange={(e) => setTempSqft(parseInt(e.target.value) || 0)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  disabled={isSaving}
-                  placeholder="Square footage"
-                />
-                <button
-                  onClick={handleSaveSqft}
-                  disabled={isSaving}
-                  className="text-success-600 hover:text-success-700 disabled:opacity-50 flex-shrink-0"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsEditingSqft(false)}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={SQFT_MIN}
+                    max={SQFT_MAX}
+                    step="100"
+                    value={tempSqft}
+                    onChange={(e) => handleSqftChange(e.target.value)}
+                    className={`flex-1 px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                      sqftError ? 'border-error-500 bg-error-50' : 'border-neutral-300'
+                    }`}
+                    disabled={isSaving}
+                    placeholder={`${SQFT_MIN.toLocaleString()} - ${SQFT_MAX.toLocaleString()} sq ft`}
+                  />
+                  <button
+                    onClick={handleSaveSqft}
+                    disabled={isSaving || !!sqftError}
+                    className="text-success-600 hover:text-success-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    title={sqftError || 'Save'}
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingSqft(false)
+                      setSqftError(null)
+                    }}
                   disabled={isSaving}
                   className="text-error-600 hover:text-error-700 disabled:opacity-50 flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
+              {/* ✅ NEW: Error message */}
+              {sqftError && (
+                <div className="text-xs text-error-600 mt-1 flex items-start gap-1">
+                  <span>⚠️</span>
+                  <span>{sqftError}</span>
+                </div>
+              )}
+              {/* ✅ NEW: Helpful hint */}
+              {!sqftError && (
+                <div className="text-xs text-neutral-500 mt-1">
+                  Typical range: {SQFT_MIN.toLocaleString()} - 50,000 sq ft
+                </div>
+              )}
+            </div>
             )}
           </div>
 
