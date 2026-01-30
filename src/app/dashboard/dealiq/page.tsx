@@ -1,13 +1,17 @@
 // FILE LOCATION: /src/app/dashboard/dealiq/page.tsx
 // REVAMPED: Added search, sort/filters, fixed stage pills to match individual deal page
+// BATCH E ITEM #4: Added route protection for DealIQ feature toggle
 
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Briefcase, Plus, Trash2, AlertTriangle, Search, Filter } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Briefcase, Plus, Trash2, AlertTriangle, Search, Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_STATUS } from '@/lib/dealiq-constants'
 import { CreateDealModal } from '@/components/dealiq/CreateDealModal'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
+import { useUser } from '@clerk/nextjs'
 
 interface Deal {
   id: string
@@ -27,6 +31,10 @@ type SortField = 'address' | 'stage' | 'forecastStatus' | 'expectedCloseDate' | 
 type SortDirection = 'asc' | 'desc'
 
 export default function DealIQPage() {
+  const router = useRouter()
+  const { user } = useUser()
+  const { settings, isLoading: settingsLoading } = useSystemSettings()
+  
   const [deals, setDeals] = useState<Deal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +48,8 @@ export default function DealIQPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [filterStage, setFilterStage] = useState<string>('all')
   const [filterForecast, setFilterForecast] = useState<string>('all')
+
+  // ✅ BATCH E #4: Don't redirect - just show disabled message below
 
   useEffect(() => {
     loadDeals()
@@ -188,6 +198,36 @@ export default function DealIQPage() {
   }
 
   const hasActiveFilters = searchQuery.trim() || filterStage !== 'all' || filterForecast !== 'all'
+
+  // ✅ BATCH E #4: Show loading while checking settings
+  if (settingsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Briefcase className="w-12 h-12 text-primary-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ✅ BATCH E #4: Show maintenance message if DealIQ is turned off
+  if (settings && !settings.dealiqEnabled) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="elevated-card p-12 text-center max-w-md mx-auto">
+          <Lock className="w-20 h-20 text-neutral-400 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold text-neutral-900 mb-3">Feature Disabled</h2>
+          <p className="text-lg text-neutral-600 mb-4">
+            DealIQ is currently unavailable.
+          </p>
+          <p className="text-sm text-neutral-500">
+            This feature has been temporarily disabled by your administrator.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

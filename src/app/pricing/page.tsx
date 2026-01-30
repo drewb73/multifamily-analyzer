@@ -28,31 +28,22 @@ export default function PricingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { settings } = useSystemSettings()
+  
+  // ✅ CRITICAL FIX: Check URL params synchronously on very first render
+  // This prevents ANY flash by immediately showing loading if checkout=success
+  const checkoutSuccess = searchParams?.get('checkout') === 'success'
+  const checkoutCanceled = searchParams?.get('checkout') === 'canceled'
+  const startCheckout = searchParams?.get('start_checkout') === 'true'
+  
   const [isProcessing, setIsProcessing] = useState(false)
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null)
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
-  const [showCanceledMessage, setShowCanceledMessage] = useState(false)
+  const [showCanceledMessage, setShowCanceledMessage] = useState(checkoutCanceled)
   
-  // ✅ FIX: Immediate loading states to prevent flashes
-  const [showLoadingScreen, setShowLoadingScreen] = useState(false)
+  // ✅ CRITICAL: Initialize loading state based on URL params (prevents flash)
+  const [showLoadingScreen, setShowLoadingScreen] = useState(checkoutSuccess)
   const [webhookStatus, setWebhookStatus] = useState('Processing your payment...')
-  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false)
-
-  // Check immediately on mount if we should show loading
-  useEffect(() => {
-    const checkout = searchParams.get('checkout')
-    const startCheckout = searchParams.get('start_checkout')
-    
-    // ✅ FIX: Show loading immediately for payment success
-    if (checkout === 'success') {
-      setShowLoadingScreen(true)
-    }
-    
-    // ✅ FIX: Show "redirecting to checkout" for auto-checkout
-    if (startCheckout === 'true' && user) {
-      setIsRedirectingToCheckout(true)
-    }
-  }, [])
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(startCheckout && !!user)
 
   // Fetch subscription status if user is logged in
   useEffect(() => {

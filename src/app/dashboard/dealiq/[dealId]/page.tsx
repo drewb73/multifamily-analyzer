@@ -1,6 +1,7 @@
 // FILE LOCATION: /src/app/dashboard/dealiq/[dealId]/page.tsx
 // PURPOSE: Individual deal detail page with tabs for Account, Contacts, Notes, Activity
 // UPDATED: Added ContactsTab integration
+// BATCH E ITEM #4: Added route protection for DealIQ feature toggle
 
 'use client'
 
@@ -13,7 +14,8 @@ import {
   Users, 
   FileText, 
   History,
-  AlertTriangle
+  AlertTriangle,
+  Lock
 } from 'lucide-react'
 import Link from 'next/link'
 import { getStageLabel, getStageColors, DEAL_STAGES } from '@/lib/dealiq-constants'
@@ -21,6 +23,7 @@ import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 import { ContactsTab } from '@/components/dealiq/ContactsTab'
 import { NotesTab } from '@/components/dealiq/NotesTab'
 import { ActivityLogTab } from '@/components/dealiq/ActivityLogTab'
+import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface Deal {
   id: string
@@ -58,12 +61,16 @@ type TabType = 'account' | 'contacts' | 'notes' | 'activity'
 
 export default function DealDetailPage({ params }: { params: Promise<{ dealId: string }> }) {
   const router = useRouter()
+  const { settings, isLoading: settingsLoading } = useSystemSettings()
+  
   const [dealId, setDealId] = useState<string | null>(null)
   const [deal, setDeal] = useState<Deal | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('account')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
+
+  // ✅ BATCH E #4: Don't redirect - just show disabled message below
 
   // Unwrap params
   useEffect(() => {
@@ -179,6 +186,40 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value)
+  }
+
+  // ✅ BATCH E #4: Show loading while checking settings
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  // ✅ BATCH E #4: Show maintenance message if DealIQ is turned off
+  if (settings && !settings.dealiqEnabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="elevated-card p-12 text-center max-w-md mx-auto">
+          <Lock className="w-20 h-20 text-neutral-400 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold text-neutral-900 mb-3">Feature Disabled</h2>
+          <p className="text-lg text-neutral-600 mb-4">
+            DealIQ is currently unavailable.
+          </p>
+          <p className="text-sm text-neutral-500 mb-6">
+            This feature has been temporarily disabled by your administrator.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {
