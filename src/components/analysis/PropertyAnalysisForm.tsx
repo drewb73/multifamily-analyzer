@@ -42,6 +42,14 @@ export function PropertyAnalysisForm({
   userSubscriptionStatus = null,
   initialDealData = null  // ✅ NEW
 }: PropertyAnalysisFormProps) {
+  // ✅ CHECK FOR CLEAR FLAG IMMEDIATELY (before any hooks run)
+  const shouldClearForm = typeof window !== 'undefined' && sessionStorage.getItem('clearAnalysisForm') === 'true'
+  
+  if (shouldClearForm) {
+    console.log('🧹 Form will be cleared on mount')
+    sessionStorage.removeItem('clearAnalysisForm')
+  }
+  
   // ✅ DEBUG: Log what we receive IMMEDIATELY
   console.log('🎯 PropertyAnalysisForm MOUNTED with initialDealData:', initialDealData)
   console.log('  Is it null?', initialDealData === null)
@@ -56,6 +64,7 @@ export function PropertyAnalysisForm({
     saveDraft,
     autoSaveDraft,
     createNewDraft,
+    clearCurrentDraft,  // ✅ NEW: Need this to clear draft
     isSaving,
   } = useDraftAnalysis({ analysisId: draftId })
 
@@ -94,6 +103,41 @@ export function PropertyAnalysisForm({
   
   // Track if we've loaded the initial draft
   const [hasLoadedInitialDraft, setHasLoadedInitialDraft] = useState(false)
+  
+  // ✅ NEW: Reset form if flag was set
+  useEffect(() => {
+    if (shouldClearForm) {
+      console.log('🧹 Resetting analysis form to empty state')
+      
+      // Clear the draft
+      if (clearCurrentDraft) {
+        clearCurrentDraft()
+      }
+      
+      // Reset form to empty state
+      setFormData({
+        property: {
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          purchasePrice: 0,
+          downPayment: 0,
+          loanTerm: 30,
+          interestRate: 6.5,
+          propertySize: 0,
+          totalUnits: 0,
+          isCashPurchase: false,
+        },
+        unitMix: [],
+        expenses: [],
+        income: [],
+      })
+      setCurrentStep(1)
+      setResults(null)
+      setHasLoadedInitialDraft(true) // Prevent draft from loading later
+    }
+  }, [shouldClearForm]) // Run when flag changes
   
   // ✅ NEW: Separate useEffect JUST for initialDealData that always runs
   useEffect(() => {
@@ -155,6 +199,12 @@ export function PropertyAnalysisForm({
   // Load draft data ONCE when component mounts or when draft changes
   useEffect(() => {
     const loadAnalysisData = async () => {
+      // ✅ NEW: Skip ALL loading if form should be cleared
+      if (shouldClearForm) {
+        console.log('⏭️ Skipping ALL data loading - form is being cleared')
+        return
+      }
+      
       // ✅ REMOVED: Pre-population now handled by dedicated useEffect above
       // This prevents conflicts and makes the flow clearer
       

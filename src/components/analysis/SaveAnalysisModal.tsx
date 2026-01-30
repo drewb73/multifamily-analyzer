@@ -42,6 +42,10 @@ export function SaveAnalysisModal({
   const [existingAnalysis, setExistingAnalysis] = useState<any | null>(null)
   const [overrideExisting, setOverrideExisting] = useState(false)
   
+  // ✅ NEW: Duplicate deal detection
+  const [existingDeal, setExistingDeal] = useState<any | null>(null)
+  const [createDealAnyway, setCreateDealAnyway] = useState(false)
+  
   // ✅ Default to TRUE if we have a linkedDealId
   const [createDeal, setCreateDeal] = useState(!!linkedDealId)
   const [isLoading, setIsLoading] = useState(false)
@@ -87,6 +91,27 @@ export function SaveAnalysisModal({
       } else {
         setPropertyName(propertyAddress)
       }
+
+      // ✅ NEW: Check for existing deal with same address
+      if (!linkedDealId) {  // Only check if not already linked to a deal
+        try {
+          const dealsResponse = await fetch('/api/dealiq')
+          if (dealsResponse.ok) {
+            const dealsData = await dealsResponse.json()
+            const existingDealMatch = dealsData.deals.find((d: any) => 
+              d.address?.toLowerCase().trim() === propertyAddress.toLowerCase().trim()
+            )
+            if (existingDealMatch) {
+              setExistingDeal(existingDealMatch)
+              setCreateDealAnyway(false)  // Default to NOT creating duplicate
+            }
+          }
+        } catch (dealErr) {
+          console.error('Error checking for duplicate deals:', dealErr)
+          // Don't fail the whole modal if deal check fails
+        }
+      }
+
     } catch (err) {
       console.error('Error loading data:', err)
       setError('Failed to load groups')
@@ -102,12 +127,42 @@ export function SaveAnalysisModal({
       return
     }
 
+    // ✅ NEW: If duplicate deal exists and user chose "View Existing", redirect instead
+    if (createDeal && existingDeal && !createDealAnyway && !linkedDealId) {
+      // User wants to view existing deal instead of creating new
+      // Clear draft-related storage (but not auth/preferences)
+      try {
+        // Clear specific draft-related localStorage keys
+        const draftKeys = Object.keys(localStorage).filter(key => 
+          key.includes('draft') || 
+          key.includes('analysis') || 
+          key.startsWith('property_analysis') ||
+          key.includes('saved_analysis')
+        )
+        draftKeys.forEach(key => {
+          localStorage.removeItem(key)
+          console.log('🧹 Removed localStorage key:', key)
+        })
+        
+        // Clear all sessionStorage (safe to clear everything)
+        sessionStorage.clear()
+        
+        console.log('✅ Cleared draft storage before navigating to deal')
+      } catch (e) {
+        console.error('Error clearing storage:', e)
+      }
+      
+      // Navigate to deal in SAME tab (abandons current analysis)
+      window.location.href = `/dashboard/dealiq?deal=${existingDeal.dealId}`
+      return
+    }
+
     onConfirm({
       propertyName: propertyName.trim(),
       groupId: selectedGroupId,
       overrideExisting: existingAnalysis ? overrideExisting : false,
       existingAnalysisId: existingAnalysis?.id,
-      createDeal,
+      createDeal: createDeal && (!existingDeal || createDealAnyway || !!linkedDealId),  // ✅ Convert to boolean with !!
       linkedDealId
     })
   }
@@ -225,6 +280,76 @@ export function SaveAnalysisModal({
                     </p>
                   </div>
                 </label>
+              </div>
+            )}
+
+            {/* ✅ NEW: Duplicate Deal Warning */}
+            {createDeal && existingDeal && !linkedDealId && (
+              <div className="mb-6 p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-warning-900 mb-1">
+                      Deal Already Exists
+                    </h3>
+                    <p className="text-sm text-warning-800 mb-3">
+                      A deal for "{existingDeal.address}" already exists in your pipeline{' '}
+                      (Stage: <strong>{existingDeal.stage}</strong>).
+                      What would you like to do?
+                    </p>
+                    
+                    {/* Options */}
+                    <div className="space-y-2 mb-4">
+                      <label className="flex items-start gap-2 cursor-pointer p-2 hover:bg-warning-100 rounded transition-colors">
+                        <input
+                          type="radio"
+                          checked={!createDealAnyway}
+                          onChange={() => setCreateDealAnyway(false)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-warning-900">
+                            Go to Existing Deal
+                          </div>
+                          <div className="text-xs text-warning-700">
+                            Navigate to Deal #{existingDeal.dealId} instead of creating duplicate (analysis will not be saved)
+                          </div>
+                        </div>
+                      </label>
+                      
+                      <label className="flex items-start gap-2 cursor-pointer p-2 hover:bg-warning-100 rounded transition-colors">
+                        <input
+                          type="radio"
+                          checked={createDealAnyway}
+                          onChange={() => setCreateDealAnyway(true)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-warning-900">
+                            Create New Deal Anyway
+                          </div>
+                          <div className="text-xs text-warning-700">
+                            Create another deal for this same address (not recommended)
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* View Deal Button - Preview in new tab */}
+                    {!createDealAnyway && (
+                      <a
+                        href={`/dashboard/dealiq?deal=${existingDeal.dealId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+                      >
+                        <Briefcase className="w-4 h-4" />
+                        Preview Deal #{existingDeal.dealId}
+                        <span className="text-xs text-neutral-500">↗</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
