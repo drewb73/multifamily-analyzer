@@ -188,6 +188,11 @@ export default function DealIQPage() {
     }
   }
 
+  // ✅ MOBILE: Toggle sort direction without changing field
+  const toggleSortDirection = () => {
+    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+  }
+
   // ✨ NEW: Clear all filters
   const clearFilters = () => {
     setSearchQuery('')
@@ -257,13 +262,16 @@ export default function DealIQPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <Briefcase className="w-8 h-8 text-primary-600" />
-            <h1 className="text-3xl font-bold text-neutral-900">DealIQ</h1>
+        {/* Title Row - Always visible */}
+        <div className="flex items-center justify-between mb-2 gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <Briefcase className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 flex-shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 truncate">DealIQ</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-neutral-600">
+          
+          {/* Desktop: Deal count + Create button */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="text-sm text-neutral-600 whitespace-nowrap">
               {filteredAndSortedDeals.length} {filteredAndSortedDeals.length === 1 ? 'deal' : 'deals'}
               {hasActiveFilters && deals.length !== filteredAndSortedDeals.length && (
                 <span className="text-neutral-400"> (filtered from {deals.length})</span>
@@ -271,14 +279,34 @@ export default function DealIQPage() {
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap"
             >
               <Plus className="w-5 h-5" />
               Create New Deal
             </button>
           </div>
+
+          {/* Mobile: Just create button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="md:hidden flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm sm:text-base whitespace-nowrap flex-shrink-0"
+          >
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden xs:inline">New Deal</span>
+            <span className="xs:hidden">New</span>
+          </button>
         </div>
-        <p className="text-neutral-600">
+
+        {/* Mobile: Deal count below title */}
+        <div className="md:hidden text-sm text-neutral-600 mb-2">
+          {filteredAndSortedDeals.length} {filteredAndSortedDeals.length === 1 ? 'deal' : 'deals'}
+          {hasActiveFilters && deals.length !== filteredAndSortedDeals.length && (
+            <span className="text-neutral-400"> ({deals.length} total)</span>
+          )}
+        </div>
+
+        {/* Description - Hide on very small screens */}
+        <p className="hidden sm:block text-neutral-600 text-sm sm:text-base">
           Track your multifamily deals through the entire pipeline
         </p>
       </div>
@@ -343,13 +371,44 @@ export default function DealIQPage() {
         </div>
 
         {/* Sort Controls & Clear Filters */}
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-200">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-200 gap-3 flex-wrap sm:flex-nowrap">
+          {/* ✅ MOBILE: Dropdown + Arrow (< 640px on very small, < 768px for comfort) */}
+          <div className="flex sm:hidden items-center gap-2 flex-1 min-w-0">
+            <Filter className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+            <select
+              value={sortField}
+              onChange={(e) => handleSort(e.target.value as SortField)}
+              className="flex-1 min-w-0 text-sm px-2 py-1.5 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="createdAt">Created</option>
+              <option value="expectedCloseDate">Close Date</option>
+              <option value="stage">Stage</option>
+              <option value="forecastStatus">Forecast</option>
+            </select>
+            <button
+              onClick={toggleSortDirection}
+              className="p-1.5 rounded-md bg-neutral-100 hover:bg-neutral-200 transition-colors flex-shrink-0"
+              title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortDirection === 'asc' ? (
+                <svg className="w-4 h-4 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* ✅ DESKTOP: Button Pills (>= 640px) */}
+          <div className="hidden sm:flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-neutral-500" />
-            <span className="text-sm font-medium text-neutral-700">Sort by:</span>
+            <span className="text-sm font-medium text-neutral-700 whitespace-nowrap">Sort by:</span>
             <button
               onClick={() => handleSort('createdAt')}
-              className={`text-sm px-3 py-1 rounded-md ${
+              className={`text-sm px-3 py-1 rounded-md whitespace-nowrap transition-colors ${
                 sortField === 'createdAt'
                   ? 'bg-primary-100 text-primary-700 font-medium'
                   : 'text-neutral-600 hover:bg-neutral-100'
@@ -359,7 +418,7 @@ export default function DealIQPage() {
             </button>
             <button
               onClick={() => handleSort('expectedCloseDate')}
-              className={`text-sm px-3 py-1 rounded-md ${
+              className={`text-sm px-3 py-1 rounded-md whitespace-nowrap transition-colors ${
                 sortField === 'expectedCloseDate'
                   ? 'bg-primary-100 text-primary-700 font-medium'
                   : 'text-neutral-600 hover:bg-neutral-100'
@@ -369,7 +428,7 @@ export default function DealIQPage() {
             </button>
             <button
               onClick={() => handleSort('stage')}
-              className={`text-sm px-3 py-1 rounded-md ${
+              className={`text-sm px-3 py-1 rounded-md whitespace-nowrap transition-colors ${
                 sortField === 'stage'
                   ? 'bg-primary-100 text-primary-700 font-medium'
                   : 'text-neutral-600 hover:bg-neutral-100'
@@ -379,7 +438,7 @@ export default function DealIQPage() {
             </button>
             <button
               onClick={() => handleSort('forecastStatus')}
-              className={`text-sm px-3 py-1 rounded-md ${
+              className={`text-sm px-3 py-1 rounded-md whitespace-nowrap transition-colors ${
                 sortField === 'forecastStatus'
                   ? 'bg-primary-100 text-primary-700 font-medium'
                   : 'text-neutral-600 hover:bg-neutral-100'
@@ -392,7 +451,7 @@ export default function DealIQPage() {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap flex-shrink-0"
             >
               Clear Filters
             </button>

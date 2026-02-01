@@ -188,6 +188,17 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
     }).format(value)
   }
 
+  // ✅ MOBILE: Format price in thousands (Salesforce style)
+  const formatThousands = (value: number) => {
+    const thousands = value / 1000
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(thousands)
+  }
+
   // ✅ BATCH E #4: Show loading while checking settings
   if (settingsLoading) {
     return (
@@ -468,8 +479,15 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
           
           {/* Price */}
           <div className="bg-white border border-neutral-200 rounded-lg shadow-sm px-4 py-3">
-            <div className="text-xs text-neutral-500 mb-1">Price</div>
-            <div className="text-lg font-bold text-neutral-900">{formatCurrency(deal.price)}</div>
+            {/* Mobile: Show (000's) */}
+            <div className="md:hidden text-xs text-neutral-500 mb-1">Price (000&apos;s)</div>
+            {/* Desktop: Show "Price" */}
+            <div className="hidden md:block text-xs text-neutral-500 mb-1">Price</div>
+            
+            {/* Mobile: Show abbreviated (1,725) */}
+            <div className="md:hidden text-lg font-bold text-neutral-900">{formatThousands(deal.price)}</div>
+            {/* Desktop: Show full ($1,725,000) */}
+            <div className="hidden md:block text-lg font-bold text-neutral-900">{formatCurrency(deal.price)}</div>
           </div>
           
           {/* Units */}
