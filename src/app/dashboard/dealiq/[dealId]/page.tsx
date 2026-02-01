@@ -352,12 +352,17 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                 const currentStage = DEAL_STAGES.find(s => s.id === deal.stage)
                 const currentOrder = currentStage?.order || 0
                 const maxOrder = 6
+                
+                // ✅ FIX: Cap progress at 100% for final stages (Closed Won/Lost)
                 const progressPercent = Math.min((currentOrder / maxOrder) * 100, 100)
                 
                 return (
                   <div 
                     className="absolute top-[calc(1.5rem+1.75rem)] left-8 h-1.5 bg-gradient-to-r from-primary-500 via-primary-600 to-primary-500 rounded-full transition-all duration-700 ease-out shadow-md" 
-                    style={{ width: `calc(${progressPercent}% + ${currentOrder * 0.5}rem)` }}
+                    style={{ 
+                      // ✅ FIX: Don't extend beyond 100% - cap at last bubble
+                      width: `calc(${Math.min(progressPercent, 100)}% - 1.5rem)`
+                    }}
                   >
                     {/* Animated glow */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 rounded-full animate-shimmer"
@@ -389,14 +394,27 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                         <div className={`
                           relative w-14 h-14 rounded-full flex items-center justify-center font-bold text-sm z-10 
                           transition-all duration-300 border-4
-                          ${isActive 
+                          ${isActive && deal.stage === 'closed_won'
+                            ? 'bg-gradient-to-br from-success-500 to-success-700 border-white text-white shadow-xl scale-110 ring-4 ring-success-100'
+                            : isActive && deal.stage === 'closed_lost'
+                            ? 'bg-gradient-to-br from-error-500 to-error-700 border-white text-white shadow-xl scale-110 ring-4 ring-error-100'
+                            : isActive 
                             ? 'bg-gradient-to-br from-primary-500 to-primary-700 border-white text-white shadow-xl scale-110 ring-4 ring-primary-100' 
                             : isCompleted
                             ? 'bg-gradient-to-br from-success-400 to-success-600 border-white text-white shadow-lg'
                             : 'bg-white border-neutral-300 text-neutral-400 shadow-md'
                           }
                         `}>
-                          {isCompleted ? (
+                          {/* ✅ FIX: Show checkmark for Closed Won, X for Closed Lost, checkmark for completed stages */}
+                          {deal.stage === 'closed_won' && isActive ? (
+                            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : deal.stage === 'closed_lost' && isActive ? (
+                            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          ) : isCompleted ? (
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
@@ -409,7 +427,11 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
                       {/* Label */}
                       <div className={`
                         mt-3 text-center text-xs font-medium leading-tight transition-colors
-                        ${isActive 
+                        ${isActive && deal.stage === 'closed_won'
+                          ? 'text-success-700 font-bold'
+                          : isActive && deal.stage === 'closed_lost'
+                          ? 'text-error-700 font-bold'
+                          : isActive 
                           ? 'text-primary-700 font-bold' 
                           : isCompleted 
                           ? 'text-success-700 font-semibold' 

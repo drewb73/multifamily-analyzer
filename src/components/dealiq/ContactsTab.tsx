@@ -351,14 +351,19 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
     newName: string
   } | null>(null)
 
-  // Check if role is a custom "Other" role
+  // ✅ "Other" Role Logic:
+  // - isCustomRole: true if role value is not in the standard CONTACT_ROLES list
+  // - selectedRole: Shows 'Other' in dropdown if it's a custom role, otherwise shows actual role
+  // - When 'Other' selected: role='Other', customRole='' → custom input shows
+  // - When user types: role=custom text, customRole=custom text → custom input stays visible
+  // - On save: sends the custom text as the role value
   const isCustomRole = formData.role && !CONTACT_ROLES.includes(formData.role)
   const selectedRole = isCustomRole ? 'Other' : formData.role
 
   const handleRoleChange = (value: string) => {
     if (value === 'Other') {
-      // When "Other" is selected, clear role and let user type custom role
-      setFormData({ ...formData, role: '', customRole: '' })
+      // ✅ FIX: When "Other" is selected, set role to 'Other' (not empty) so the custom input shows
+      setFormData({ ...formData, role: 'Other', customRole: '' })
     } else {
       // Standard role selected
       setFormData({ ...formData, role: value, customRole: '' })
@@ -366,6 +371,7 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
   }
 
   const handleCustomRoleChange = (value: string) => {
+    // ✅ As user types, update both customRole (for display) and role (for saving)
     setFormData({ ...formData, customRole: value, role: value })
   }
 
@@ -393,8 +399,17 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
     await saveContact()
   }
 
-  const saveContact = async () => {
+  const saveContact = async (overrideIsPrimary?: boolean) => {
     setIsSaving(true)
+    
+    // ✅ FIX: Use override if provided, otherwise use formData
+    const isPrimaryValue = overrideIsPrimary !== undefined ? overrideIsPrimary : formData.isPrimary
+    
+    console.log('💾 saveContact called')
+    console.log('  isPrimaryValue:', isPrimaryValue)
+    console.log('  formData.isPrimary:', formData.isPrimary)
+    console.log('  overrideIsPrimary:', overrideIsPrimary)
+    
     try {
       const url = contact
         ? `/api/dealiq/${dealId}/contacts/${contact.id}`
@@ -411,18 +426,20 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
           email: formData.email || null,
           phone: formData.phone || null,
           company: formData.company || null,
-          isPrimary: formData.isPrimary
+          isPrimary: isPrimaryValue  // ✅ Use the resolved value
         })
       })
 
       if (response.ok) {
+        console.log('✅ Contact saved successfully')
         onSuccess()
       } else {
         const data = await response.json()
+        console.error('❌ Save contact failed:', data)
         alert(data.error || 'Failed to save contact')
       }
     } catch (error) {
-      console.error('Error saving contact:', error)
+      console.error('❌ Error saving contact:', error)
       alert('Failed to save contact')
     } finally {
       setIsSaving(false)
@@ -430,9 +447,18 @@ function ContactModal({ dealId, contact, contacts, onClose, onSuccess }: Contact
   }
 
   const confirmSwitchPrimary = async () => {
+    // ✅ FIX: Add logging to track the flow
+    console.log('🔄 confirmSwitchPrimary called - switching primary contact')
+    console.log('  Current formData.isPrimary:', formData.isPrimary)
+    console.log('  New contact name:', formData.name)
+    
+    // Close the confirmation modal
     setPrimaryModalOpen(false)
     setPrimaryModalData(null)
-    await saveContact()
+    
+    // ✅ FIX: Explicitly pass true to ensure this contact becomes primary
+    // This avoids any state issues with formData.isPrimary
+    await saveContact(true)
   }
 
   return (
