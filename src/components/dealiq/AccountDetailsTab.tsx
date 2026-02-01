@@ -1842,80 +1842,158 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       {/* P&L Statement with Current vs Market */}
       {plData && (
         <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-primary-600" />
-              <h3 className="text-lg font-bold text-neutral-900">Profit & Loss Statement</h3>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* ✅ NEW: Monthly/Yearly Toggle */}
-              <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
-                <button
-                  onClick={() => setIsPLYearly(false)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                    !isPLYearly 
-                      ? 'bg-white text-primary-600 shadow-sm' 
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setIsPLYearly(true)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                    isPLYearly 
-                      ? 'bg-white text-primary-600 shadow-sm' 
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`}
-                >
-                  Yearly
-                </button>
+          {/* ✅ MOBILE: Responsive Header */}
+          <div className="mb-4">
+            {/* Title Row */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Receipt className="w-5 h-5 text-primary-600 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold text-neutral-900 truncate">
+                  {/* Mobile: Abbreviated */}
+                  <span className="md:hidden">P&L Statement</span>
+                  {/* Desktop: Full */}
+                  <span className="hidden md:inline">Profit & Loss Statement</span>
+                </h3>
               </div>
+              
+              {/* Desktop: All controls inline */}
+              <div className="hidden md:flex items-center gap-3">
+                {/* Monthly/Yearly Toggle */}
+                <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setIsPLYearly(false)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                      !isPLYearly 
+                        ? 'bg-white text-primary-600 shadow-sm' 
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setIsPLYearly(true)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                      isPLYearly 
+                        ? 'bg-white text-primary-600 shadow-sm' 
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    Yearly
+                  </button>
+                </div>
+                
+                {/* View Analysis Link */}
+                {deal.analysis && (
+                  <a
+                    href={`/dashboard?analysisId=${deal.analysis.id}`}
+                    className="text-sm text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-1 whitespace-nowrap"
+                  >
+                    📊 View Analysis
+                  </a>
+                )}
+                
+                {/* Export Button */}
+                <div className="relative">
+                  <button
+                    ref={exportButtonRef}
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    title="Export P&L Statement"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  
+                  {showExportMenu && (
+                    <div
+                      ref={exportMenuRef}
+                      className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-10"
+                    >
+                      <button
+                        onClick={exportToPDF}
+                        className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download as PDF
+                      </button>
+                      <button
+                        onClick={exportToCSV}
+                        className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download as CSV
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Collapse Button */}
+                <button
+                  onClick={() => setIsPLCollapsed(!isPLCollapsed)}
+                  className="text-neutral-400 hover:text-neutral-600 transition-colors ml-2"
+                  aria-label={isPLCollapsed ? "Expand section" : "Collapse section"}
+                >
+                {isPLCollapsed ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronUp className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+          
+          {/* ✅ MOBILE: Controls Row (below title) */}
+          <div className="md:hidden flex items-center justify-between gap-2 mb-4 flex-wrap">
+            {/* Monthly/Yearly Toggle */}
+            <div className="flex items-center bg-neutral-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setIsPLYearly(false)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                  !isPLYearly 
+                    ? 'bg-white text-primary-600 shadow-sm' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsPLYearly(true)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                  isPLYearly 
+                    ? 'bg-white text-primary-600 shadow-sm' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                Yearly
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* View Analysis - Icon only */}
               {deal.analysis && (
                 <a
                   href={`/dashboard?analysisId=${deal.analysis.id}`}
-                  className="text-sm text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-1"
+                  className="p-1.5 text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+                  title="View Analysis"
                 >
-                  📊 View Analysis
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </a>
               )}
-              {/* ✅ NEW: Export Button with Dropdown */}
-              <div className="relative">
-                <button
-                  ref={exportButtonRef}
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                  title="Export P&L Statement"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-                
-                {/* Export Dropdown Menu */}
-                {showExportMenu && (
-                  <div
-                    ref={exportMenuRef}
-                    className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-10"
-                  >
-                    <button
-                      onClick={exportToPDF}
-                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download as PDF
-                    </button>
-                    <button
-                      onClick={exportToCSV}
-                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download as CSV
-                    </button>
-                  </div>
-                )}
-              </div>
+              
+              {/* Export Button */}
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors relative"
+                title="Export P&L"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              
+              {/* Collapse Button */}
               <button
                 onClick={() => setIsPLCollapsed(!isPLCollapsed)}
-                className="text-neutral-400 hover:text-neutral-600 transition-colors ml-2"
+                className="text-neutral-400 hover:text-neutral-600 transition-colors"
                 aria-label={isPLCollapsed ? "Expand section" : "Collapse section"}
               >
                 {isPLCollapsed ? (
@@ -1925,6 +2003,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 )}
               </button>
             </div>
+          </div>
           </div>
 
           {!isPLCollapsed && (
