@@ -4,6 +4,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button, Card } from '@/components'
 import { RotateCcw } from 'lucide-react'
 import { PropertyDetailsForm } from './PropertyDetailsForm'
@@ -55,6 +56,9 @@ export function PropertyAnalysisForm({
   console.log('  Is it null?', initialDealData === null)
   console.log('  Is it undefined?', initialDealData === undefined)
   console.log('  Type:', typeof initialDealData)
+  
+  // ✅ Router for navigation
+  const router = useRouter()
   
   // Use draft hook - this is our single source of truth
   const {
@@ -249,9 +253,11 @@ export function PropertyAnalysisForm({
         }
       }
       
-      // Fallback to localStorage draft (for non-premium or if database fetch failed)
-      if (draft && !hasLoadedInitialDraft) {
-        console.log('📥 Loading draft from storage:', { 
+      // ✅ FIX: Only load from localStorage draft if we have a draftId in URL
+      // This prevents "ghost" drafts from appearing when user wants a fresh form
+      if (draft && !hasLoadedInitialDraft && draftId) {
+        console.log('📥 Loading draft from storage (draftId provided):', { 
+          draftId,
           step: draft.step, 
           hasResults: !!draft.results,
           dataPresent: !!draft.data?.property?.address 
@@ -270,6 +276,10 @@ export function PropertyAnalysisForm({
           setResults(draft.results)
         }
         
+        setHasLoadedInitialDraft(true)
+      } else if (!draftId && !hasLoadedInitialDraft && !initialDealData) {
+        // ✅ NEW: No draftId = user wants fresh form
+        console.log('✨ No draftId provided - starting with fresh form')
         setHasLoadedInitialDraft(true)
       }
     }
@@ -623,12 +633,18 @@ export function PropertyAnalysisForm({
   }
 
   const handleStartNewAnalysis = () => {
-    console.log('🔄 Starting new analysis')
+    console.log('🔄 Starting new analysis - clearing URL and form')
+    
+    // Clear form data
     const newDraft = createNewDraft()
     setFormData(newDraft.data)
     setCurrentStep(1)
     setResults(null)
-    setHasLoadedInitialDraft(true) // Mark as loaded since we have a new draft
+    setHasLoadedInitialDraft(true)
+    
+    // ✅ CRITICAL FIX: Navigate to /dashboard (no params) to clear analysisId from URL
+    // This prevents the form from reloading the old analysis
+    router.push('/dashboard')
   }
 
   // ✅ NEW: Clear Form button handler
