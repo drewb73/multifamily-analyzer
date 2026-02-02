@@ -12,6 +12,7 @@ import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_
 import { CreateDealModal } from '@/components/dealiq/CreateDealModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { useUser } from '@clerk/nextjs'
+import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper'
 
 interface Deal {
   id: string
@@ -49,7 +50,40 @@ export default function DealIQPage() {
   const [filterStage, setFilterStage] = useState<string>('all')
   const [filterForecast, setFilterForecast] = useState<string>('all')
 
+  // Access control state
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
+  const [canAccessDealIQ, setCanAccessDealIQ] = useState<boolean | null>(null)
+  const [canStartTrial, setCanStartTrial] = useState(false)
+
   // ✅ BATCH E #4: Don't redirect - just show disabled message below
+
+  // Check subscription status and access
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const response = await fetch('/api/user/profile')
+        if (response.ok) {
+          const data = await response.json()
+          setSubscriptionStatus(data.subscriptionStatus)
+          
+          // Check if user can access DealIQ (only premium/enterprise)
+          const isPremium = data.subscriptionStatus === 'premium' || data.subscriptionStatus === 'enterprise'
+          setCanAccessDealIQ(isPremium)
+          
+          // Check if can start trial
+          const isFree = data.subscriptionStatus === 'free'
+          setCanStartTrial(isFree && !data.hasUsedTrial)
+        }
+      } catch (error) {
+        console.error('Failed to check access:', error)
+        setCanAccessDealIQ(false)
+      }
+    }
+    
+    if (user) {
+      checkAccess()
+    }
+  }, [user])
 
   useEffect(() => {
     loadDeals()
@@ -258,6 +292,25 @@ export default function DealIQPage() {
     )
   }
 
+  // Show loading while checking access
+  if (canAccessDealIQ === null) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  // Show locked feature wrapper if no access
+  if (!canAccessDealIQ) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <LockedFeatureWrapper canStartTrial={canStartTrial} />
+      </div>
+    )
+  }
+
+  // User has access - show DealIQ interface
   return (
     <div className="space-y-6">
       {/* Header */}

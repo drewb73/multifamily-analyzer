@@ -1,4 +1,7 @@
-// src/components/settings/DeleteAccountModal.tsx
+// FILE LOCATION: /src/components/settings/DeleteAccountModal.tsx
+// PURPOSE: Enhanced account deletion modal with text confirmation
+// BATCH G - G11: Account Deletion Confirmation Modal
+
 'use client'
 
 import { useState } from 'react'
@@ -13,12 +16,20 @@ interface DeleteAccountModalProps {
 export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: DeleteAccountModalProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [understandChecked, setUnderstandChecked] = useState(false)
   
   const isPremium = subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise'
+  const isConfirmValid = confirmText === 'DELETE' && understandChecked
   
   const handleDelete = async () => {
     if (isPremium) {
       return // Shouldn't happen, but safety check
+    }
+    
+    if (!isConfirmValid) {
+      setError('Please type DELETE and check the confirmation box')
+      return
     }
     
     setIsDeleting(true)
@@ -34,12 +45,12 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
   }
   
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in zoom-in duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600"
+          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600 transition-colors"
           disabled={isDeleting}
         >
           <X className="w-5 h-5" />
@@ -83,51 +94,117 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
             </button>
           </>
         ) : (
-          // Free/Trial users - can delete
+          // Free/Trial users - can delete with enhanced confirmation
           <>
-            <p className="text-neutral-600 mb-4 text-center">
-              Are you sure you want to delete your account?
+            <p className="text-neutral-600 mb-4 text-center leading-relaxed">
+              This action will permanently delete your account and all associated data after 60 days.
             </p>
             
+            {/* 60-Day Retention Info */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-semibold text-blue-900 mb-2">
-                📅 60-Day Data Retention
+              <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                <span className="text-lg">📅</span>
+                60-Day Data Retention
               </h3>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-blue-700 leading-relaxed">
                 You will lose access to your account immediately, but your data will be kept for 60 days in case you change your mind. 
                 After 60 days, everything will be permanently deleted.
               </p>
             </div>
             
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 mb-6">
+            {/* What Happens */}
+            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 mb-4">
               <h3 className="text-sm font-semibold text-neutral-900 mb-2">
                 What happens:
               </h3>
-              <ul className="text-sm text-neutral-600 space-y-1">
-                <li>• <strong>Immediate:</strong> You'll be logged out and lose access</li>
-                <li>• <strong>60 Days:</strong> Your data is kept (can be restored by support)</li>
-                <li>• <strong>After 60 Days:</strong> Everything is permanently deleted</li>
+              <ul className="text-sm text-neutral-600 space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-neutral-400 mt-1.5"></span>
+                  <span><strong>Immediate:</strong> You'll be logged out and lose access</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-neutral-400 mt-1.5"></span>
+                  <span><strong>60 Days:</strong> Your data is kept (can be restored by support)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-neutral-400 mt-1.5"></span>
+                  <span><strong>After 60 Days:</strong> Everything is permanently deleted</span>
+                </li>
               </ul>
             </div>
             
+            {/* ✅ ENHANCED: Text Confirmation Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-neutral-900 mb-2">
+                Type <span className="font-bold text-error-600">DELETE</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => {
+                  setConfirmText(e.target.value)
+                  if (error) setError(null)
+                }}
+                placeholder="Type DELETE"
+                disabled={isDeleting}
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-error-500 focus:border-error-500 transition-all disabled:bg-neutral-50 disabled:cursor-not-allowed ${
+                  confirmText === 'DELETE' 
+                    ? 'border-success-300 bg-success-50' 
+                    : 'border-neutral-300'
+                }`}
+                autoFocus
+              />
+              {confirmText && confirmText !== 'DELETE' && (
+                <p className="text-xs text-neutral-500 mt-1">
+                  Must match exactly: <span className="font-semibold">DELETE</span>
+                </p>
+              )}
+            </div>
+            
+            {/* ✅ ENHANCED: Understanding Checkbox */}
+            <div className="mb-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={understandChecked}
+                  onChange={(e) => {
+                    setUnderstandChecked(e.target.checked)
+                    if (error) setError(null)
+                  }}
+                  disabled={isDeleting}
+                  className="mt-0.5 w-4 h-4 text-error-600 border-neutral-300 rounded focus:ring-error-500 focus:ring-2 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-neutral-700 leading-relaxed group-hover:text-neutral-900 transition-colors">
+                  I understand this action is <strong>permanent</strong> and my data will be deleted after 60 days
+                </span>
+              </label>
+            </div>
+            
+            {/* Error Message */}
             {error && (
-              <div className="mb-4 bg-error-50 border border-error-200 rounded-lg p-3">
+              <div className="mb-4 bg-error-50 border border-error-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-error-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-error-700">{error}</p>
               </div>
             )}
             
+            {/* Action Buttons */}
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="btn-secondary flex-1"
+                className="flex-1 px-4 py-2.5 border border-neutral-300 rounded-lg text-neutral-700 font-medium hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isDeleting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 px-4 py-3 bg-error-600 text-white rounded-lg font-semibold hover:bg-error-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                disabled={isDeleting}
+                disabled={!isConfirmValid || isDeleting}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                  isConfirmValid
+                    ? 'bg-error-600 text-white hover:bg-error-700'
+                    : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                }`}
               >
                 {isDeleting ? (
                   <>
@@ -142,6 +219,13 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
                 )}
               </button>
             </div>
+            
+            {/* Helper text */}
+            {!isConfirmValid && (
+              <p className="text-xs text-neutral-500 text-center mt-3">
+                Complete both requirements above to enable deletion
+              </p>
+            )}
           </>
         )}
       </div>

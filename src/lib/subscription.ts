@@ -18,6 +18,7 @@ export interface SubscriptionTierConfig {
   canAnalyze: boolean;
   canViewSavedAnalyses: boolean;
   canExportPDF: boolean;
+  canAccessDealIQ: boolean;
   canStartTrial: boolean;
   showUpgradePrompt: boolean;
   maxAnalyses?: number; // undefined = unlimited
@@ -30,6 +31,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionStatus, SubscriptionTierConf
     canAnalyze: false,
     canViewSavedAnalyses: false,
     canExportPDF: false,
+    canAccessDealIQ: false,
     canStartTrial: true, // Can start trial if they haven't used it
     showUpgradePrompt: true,
     maxAnalyses: 0,
@@ -40,6 +42,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionStatus, SubscriptionTierConf
     canAnalyze: true,
     canViewSavedAnalyses: false,
     canExportPDF: false,
+    canAccessDealIQ: false,
     canStartTrial: false,
     showUpgradePrompt: true,
     maxAnalyses: undefined, // Unlimited during trial
@@ -50,6 +53,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionStatus, SubscriptionTierConf
     canAnalyze: true,
     canViewSavedAnalyses: true,
     canExportPDF: true,
+    canAccessDealIQ: true,
     canStartTrial: false,
     showUpgradePrompt: false,
     maxAnalyses: undefined, // Unlimited
@@ -60,6 +64,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionStatus, SubscriptionTierConf
     canAnalyze: true,
     canViewSavedAnalyses: true,
     canExportPDF: true,
+    canAccessDealIQ: true,
     canStartTrial: false,
     showUpgradePrompt: false,
     maxAnalyses: undefined, // Unlimited
@@ -78,7 +83,7 @@ export function getTierConfig(status: SubscriptionStatus): SubscriptionTierConfi
  */
 export function canUserPerformAction(
   subscriptionStatus: SubscriptionStatus | null,
-  action: 'analyze' | 'viewSavedAnalyses' | 'exportPDF'
+  action: 'analyze' | 'viewSavedAnalyses' | 'exportPDF' | 'accessDealIQ'
 ): boolean {
   if (!subscriptionStatus) return false;
   
@@ -91,6 +96,8 @@ export function canUserPerformAction(
       return tier.canViewSavedAnalyses;
     case 'exportPDF':
       return tier.canExportPDF;
+    case 'accessDealIQ':
+      return tier.canAccessDealIQ;
     default:
       return false;
   }
