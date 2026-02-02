@@ -1981,14 +1981,40 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 </a>
               )}
               
-              {/* Export Button */}
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors relative"
-                title="Export P&L"
-              >
-                <Download className="w-4 h-4" />
-              </button>
+              {/* Export Button with Dropdown */}
+              <div className="relative">
+                <button
+                  ref={exportButtonRef}
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  title="Export P&L"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {showExportMenu && (
+                  <div
+                    ref={exportMenuRef}
+                    className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-10"
+                  >
+                    <button
+                      onClick={exportToPDF}
+                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      PDF
+                    </button>
+                    <button
+                      onClick={exportToCSV}
+                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      CSV
+                    </button>
+                  </div>
+                )}
+              </div>
               
               {/* Collapse Button */}
               <button
