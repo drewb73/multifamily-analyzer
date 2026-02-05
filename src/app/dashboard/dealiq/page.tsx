@@ -434,7 +434,7 @@ export default function DealIQPage() {
               className="flex-1 min-w-0 text-sm px-2 py-1.5 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="createdAt">Created</option>
-              <option value="expectedCloseDate">Close Date</option>
+              <option value="expectedCloseDate">Expected Close Date</option>
               <option value="stage">Stage</option>
               <option value="forecastStatus">Forecast</option>
             </select>
@@ -477,7 +477,7 @@ export default function DealIQPage() {
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
-              Close Date {sortField === 'expectedCloseDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+              Expected Close Date {sortField === 'expectedCloseDate' && (sortDirection === 'asc' ? '↑' : '↓')}
             </button>
             <button
               onClick={() => handleSort('stage')}
@@ -556,7 +556,7 @@ export default function DealIQPage() {
                     Forecast Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
-                    Close Date
+                    Expected Close Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                     Created
@@ -607,7 +607,7 @@ export default function DealIQPage() {
                         {getForecastLabel(deal.forecastStatus)}
                       </td>
 
-                      {/* Close Date */}
+                      {/* Expected Close Date */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">
                         {formatDate(deal.expectedCloseDate)}
                       </td>

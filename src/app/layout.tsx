@@ -4,7 +4,7 @@ import "./globals.css";
 import { AdminMaintenanceBanner } from '@/components/AdminMaintenanceBanner'
 
 export const metadata: Metadata = {
-  title: "PropertyAnalyzer - Multifamily Investment Analysis",
+  title: "NumexRE - Multifamily Investment Analysis",
   description: "Professional multifamily property analysis made simple",
 };
 

@@ -51,11 +51,8 @@ export default function DashboardHeader({
           {/* Title (Desktop) */}
           <div className="hidden lg:block">
             <h1 className="text-lg font-semibold text-neutral-900">
-              Property Analysis Dashboard
+              NumexRE
             </h1>
-            <p className="text-sm text-neutral-500">
-              Analyze, save, and export your multifamily property analyses
-            </p>
           </div>
         </div>
 

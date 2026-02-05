@@ -15,7 +15,7 @@ import "../globals.css";
 import DashboardLayoutClient from "@/components/dashboard/DashboardLayoutClient";
 
 export const metadata: Metadata = {
-  title: "Dashboard - PropertyAnalyzer",
+  title: "Dashboard - NumexRE",
   description: "Your multifamily property analysis dashboard",
 };
 
