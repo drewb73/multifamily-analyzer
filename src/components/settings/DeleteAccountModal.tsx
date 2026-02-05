@@ -16,11 +16,10 @@ interface DeleteAccountModalProps {
 export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: DeleteAccountModalProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirmText, setConfirmText] = useState('')
   const [understandChecked, setUnderstandChecked] = useState(false)
   
   const isPremium = subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise'
-  const isConfirmValid = confirmText === 'DELETE' && understandChecked
+  const isConfirmValid = understandChecked
   
   const handleDelete = async () => {
     if (isPremium) {
@@ -28,7 +27,7 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
     }
     
     if (!isConfirmValid) {
-      setError('Please type DELETE and check the confirmation box')
+      setError('Please check the confirmation box to proceed')
       return
     }
     
@@ -133,35 +132,7 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
               </ul>
             </div>
             
-            {/* ✅ ENHANCED: Text Confirmation Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-neutral-900 mb-2">
-                Type <span className="font-bold text-error-600">DELETE</span> to confirm:
-              </label>
-              <input
-                type="text"
-                value={confirmText}
-                onChange={(e) => {
-                  setConfirmText(e.target.value)
-                  if (error) setError(null)
-                }}
-                placeholder="Type DELETE"
-                disabled={isDeleting}
-                className={`w-full px-4 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-error-500 focus:border-error-500 transition-all disabled:bg-neutral-50 disabled:cursor-not-allowed ${
-                  confirmText === 'DELETE' 
-                    ? 'border-success-300 bg-success-50' 
-                    : 'border-neutral-300'
-                }`}
-                autoFocus
-              />
-              {confirmText && confirmText !== 'DELETE' && (
-                <p className="text-xs text-neutral-500 mt-1">
-                  Must match exactly: <span className="font-semibold">DELETE</span>
-                </p>
-              )}
-            </div>
-            
-            {/* ✅ ENHANCED: Understanding Checkbox */}
+            {/* Confirmation Checkbox */}
             <div className="mb-4">
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input
@@ -223,7 +194,7 @@ export function DeleteAccountModal({ subscriptionStatus, onDelete, onClose }: De
             {/* Helper text */}
             {!isConfirmValid && (
               <p className="text-xs text-neutral-500 text-center mt-3">
-                Complete both requirements above to enable deletion
+                Check the box above to enable deletion
               </p>
             )}
           </>
