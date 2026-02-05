@@ -18,7 +18,7 @@ import {
   Lock
 } from 'lucide-react'
 import Link from 'next/link'
-import { getStageLabel, getStageColors, DEAL_STAGES } from '@/lib/dealiq-constants'
+import { getStageLabel, getStageColors, DEAL_STAGES, getOpportunityStatusLabel, getOpportunityStatusColors } from '@/lib/dealiq-constants'
 import { AccountDetailsTab } from '@/components/dealiq/AccountDetailsTab'
 import { ContactsTab } from '@/components/dealiq/ContactsTab'
 import { NotesTab } from '@/components/dealiq/NotesTab'
@@ -467,6 +467,13 @@ export default function DealDetailPage({ params }: { params: Promise<{ dealId: s
               )}
             </div>
           </div>
+        </div>
+
+        {/* Opportunity Status Badge */}
+        <div className="mb-6 flex justify-center">
+          <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getOpportunityStatusColors(deal.stage).bg} ${getOpportunityStatusColors(deal.stage).text}`}>
+            {getOpportunityStatusLabel(deal.stage)}
+          </span>
         </div>
 
         {/* Quick Stats */}

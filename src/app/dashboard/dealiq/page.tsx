@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Trash2, AlertTriangle, Search, Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
-import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_STATUS } from '@/lib/dealiq-constants'
+import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_STATUS, getOpportunityStatusLabel, getOpportunityStatusColors } from '@/lib/dealiq-constants'
 import { CreateDealModal } from '@/components/dealiq/CreateDealModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { useUser } from '@clerk/nextjs'
@@ -26,6 +26,8 @@ interface Deal {
   createdAt: Date
   price: number
   units: number | null
+  commissionPercent: number | null
+  commissionAmount: number | null
 }
 
 type SortField = 'address' | 'stage' | 'forecastStatus' | 'expectedCloseDate' | 'createdAt'
@@ -553,10 +555,16 @@ export default function DealIQPage() {
                     Stage
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                     Forecast Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                     Expected Close Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
+                    Expected Commission
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider whitespace-nowrap">
                     Created
@@ -602,6 +610,13 @@ export default function DealIQPage() {
                         </span>
                       </td>
 
+                      {/* Opportunity Status - ✅ FIX #10: Active (0-5) or Inactive (6-7) */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getOpportunityStatusColors(deal.stage).bg} ${getOpportunityStatusColors(deal.stage).text}`}>
+                          {getOpportunityStatusLabel(deal.stage)}
+                        </span>
+                      </td>
+
                       {/* Forecast Status - ✅ CHANGED header from "Forecast" to "Forecast Status" */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">
                         {getForecastLabel(deal.forecastStatus)}
@@ -610,6 +625,25 @@ export default function DealIQPage() {
                       {/* Expected Close Date */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">
                         {formatDate(deal.expectedCloseDate)}
+                      </td>
+
+                      {/* Expected Commission */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-success-700">
+                        {deal.commissionPercent 
+                          ? new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }).format(deal.price * (deal.commissionPercent / 100))
+                          : deal.commissionAmount
+                          ? new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }).format(deal.commissionAmount)
+                          : '—'}
                       </td>
 
                       {/* Created */}
@@ -667,9 +701,12 @@ export default function DealIQPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColors.bg} ${stageColors.text}`}>
                         {stageLabel}
+                      </span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getOpportunityStatusColors(deal.stage).bg} ${getOpportunityStatusColors(deal.stage).text}`}>
+                        {getOpportunityStatusLabel(deal.stage)}
                       </span>
                       <span className="text-xs text-neutral-600">
                         {getForecastLabel(deal.forecastStatus)}
@@ -679,6 +716,24 @@ export default function DealIQPage() {
                     <div className="text-xs text-neutral-500">
                       Close: {formatDate(deal.expectedCloseDate)}
                     </div>
+
+                    {(deal.commissionPercent || deal.commissionAmount) && (
+                      <div className="text-xs font-medium text-success-700">
+                        Expected Commission: {deal.commissionPercent 
+                          ? new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }).format(deal.price * (deal.commissionPercent / 100))
+                          : new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }).format(deal.commissionAmount!)}
+                      </div>
+                    )}
                   </div>
                 </div>
               )

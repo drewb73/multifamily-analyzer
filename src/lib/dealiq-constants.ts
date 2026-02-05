@@ -325,3 +325,33 @@ export function formatCurrency(amount: number): string {
 export function formatPercentage(value: number, decimals: number = 1): string {
   return `${value.toFixed(decimals)}%`
 }
+
+/**
+ * Get opportunity status based on stage
+ * Stages 0-5: Active
+ * Stages 6-7: Inactive (closed_won, closed_lost, on_hold)
+ */
+export function getOpportunityStatus(stage: string): 'active' | 'inactive' {
+  const stageInfo = DEAL_STAGES.find(s => s.id === stage)
+  if (!stageInfo) return 'active'
+  
+  // Stages with order >= 6 are inactive (closed won, closed lost, on hold)
+  return stageInfo.order >= 6 ? 'inactive' : 'active'
+}
+
+/**
+ * Get opportunity status label
+ */
+export function getOpportunityStatusLabel(stage: string): string {
+  return getOpportunityStatus(stage) === 'active' ? 'Active' : 'Inactive'
+}
+
+/**
+ * Get opportunity status colors for badge
+ */
+export function getOpportunityStatusColors(stage: string): { bg: string; text: string } {
+  const status = getOpportunityStatus(stage)
+  return status === 'active'
+    ? { bg: 'bg-success-100', text: 'text-success-700' }
+    : { bg: 'bg-neutral-100', text: 'text-neutral-600' }
+}
