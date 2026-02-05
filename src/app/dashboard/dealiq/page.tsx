@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Plus, Trash2, AlertTriangle, Search, Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
-import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_STATUS, getOpportunityStatusLabel, getOpportunityStatusColors } from '@/lib/dealiq-constants'
+import { getStageLabel, getStageColors, getForecastLabel, DEAL_STAGES, FORECAST_STATUS, getOpportunityStatusLabel, getOpportunityStatusColors, getOpportunityStatus } from '@/lib/dealiq-constants'
 import { CreateDealModal } from '@/components/dealiq/CreateDealModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { useUser } from '@clerk/nextjs'
@@ -30,7 +30,7 @@ interface Deal {
   commissionAmount: number | null
 }
 
-type SortField = 'address' | 'stage' | 'forecastStatus' | 'expectedCloseDate' | 'createdAt'
+type SortField = 'address' | 'stage' | 'forecastStatus' | 'expectedCloseDate' | 'createdAt' | 'commission'
 type SortDirection = 'asc' | 'desc'
 
 export default function DealIQPage() {
@@ -51,6 +51,7 @@ export default function DealIQPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [filterStage, setFilterStage] = useState<string>('all')
   const [filterForecast, setFilterForecast] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('all') // active, inactive, all
 
   // Access control state
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
@@ -180,6 +181,14 @@ export default function DealIQPage() {
       filtered = filtered.filter(deal => deal.forecastStatus === filterForecast)
     }
 
+    // Filter by opportunity status (active/inactive)
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(deal => {
+        const status = getOpportunityStatus(deal.stage)
+        return status === filterStatus
+      })
+    }
+
     // Sort
     filtered.sort((a, b) => {
       let comparison = 0
@@ -206,13 +215,23 @@ export default function DealIQPage() {
           const createdB = new Date(b.createdAt).getTime()
           comparison = createdA - createdB
           break
+        case 'commission':
+          // Calculate commission for each deal
+          const commissionA = a.commissionPercent 
+            ? a.price * (a.commissionPercent / 100)
+            : a.commissionAmount || 0
+          const commissionB = b.commissionPercent 
+            ? b.price * (b.commissionPercent / 100)
+            : b.commissionAmount || 0
+          comparison = commissionA - commissionB
+          break
       }
 
       return sortDirection === 'asc' ? comparison : -comparison
     })
 
     return filtered
-  }, [deals, searchQuery, filterStage, filterForecast, sortField, sortDirection])
+  }, [deals, searchQuery, filterStage, filterForecast, filterStatus, sortField, sortDirection])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -234,11 +253,12 @@ export default function DealIQPage() {
     setSearchQuery('')
     setFilterStage('all')
     setFilterForecast('all')
+    setFilterStatus('all')
     setSortField('createdAt')
     setSortDirection('desc')
   }
 
-  const hasActiveFilters = searchQuery.trim() || filterStage !== 'all' || filterForecast !== 'all'
+  const hasActiveFilters = searchQuery.trim() || filterStage !== 'all' || filterForecast !== 'all' || filterStatus !== 'all'
 
   // ✅ BATCH E #4: Show loading while checking settings
   if (settingsLoading) {
@@ -368,7 +388,7 @@ export default function DealIQPage() {
 
       {/* ✨ NEW: Search and Filters */}
       <div className="bg-white rounded-lg border border-neutral-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search Bar */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-neutral-700 mb-1">
@@ -389,7 +409,7 @@ export default function DealIQPage() {
           {/* Stage Filter */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Filter by Stage
+              Stage
             </label>
             <select
               value={filterStage}
@@ -405,10 +425,26 @@ export default function DealIQPage() {
             </select>
           </div>
 
+          {/* Status Filter (Active/Inactive) */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
+              Status
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
           {/* Forecast Filter */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Filter by Forecast
+              Forecast
             </label>
             <select
               value={filterForecast}
@@ -437,6 +473,7 @@ export default function DealIQPage() {
             >
               <option value="createdAt">Created</option>
               <option value="expectedCloseDate">Expected Close Date</option>
+              <option value="commission">Exp. Commission</option>
               <option value="stage">Stage</option>
               <option value="forecastStatus">Forecast</option>
             </select>
@@ -480,6 +517,16 @@ export default function DealIQPage() {
               }`}
             >
               Expected Close Date {sortField === 'expectedCloseDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </button>
+            <button
+              onClick={() => handleSort('commission')}
+              className={`text-sm px-3 py-1 rounded-md whitespace-nowrap transition-colors ${
+                sortField === 'commission'
+                  ? 'bg-primary-100 text-primary-700 font-medium'
+                  : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              Expected Commission {sortField === 'commission' && (sortDirection === 'asc' ? '↑' : '↓')}
             </button>
             <button
               onClick={() => handleSort('stage')}
