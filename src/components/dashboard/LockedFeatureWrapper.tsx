@@ -1,32 +1,46 @@
-// FILE 8 of 8: REPLACE ENTIRE FILE
-// Location: src/components/dashboard/LockedFeatureWrapper.tsx
-// Action: REPLACE YOUR ENTIRE LockedFeatureWrapper.tsx WITH THIS
+// FILE LOCATION: /src/components/dashboard/LockedFeatureWrapper.tsx
+// UPDATED: Now accepts children and conditionally renders based on isLocked prop
 
 'use client'
 
 import { Lock } from 'lucide-react'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import Link from 'next/link'
+import { ReactNode } from 'react'
 
 interface LockedFeatureWrapperProps {
+  children: ReactNode
+  isLocked: boolean
+  featureName: string
   canStartTrial: boolean
 }
 
-export function LockedFeatureWrapper({ canStartTrial }: LockedFeatureWrapperProps) {
+export function LockedFeatureWrapper({ 
+  children, 
+  isLocked, 
+  featureName, 
+  canStartTrial 
+}: LockedFeatureWrapperProps) {
   const { settings } = useSystemSettings()
   
+  // If not locked, render children normally
+  if (!isLocked) {
+    return <>{children}</>
+  }
+  
+  // If locked, show the locked screen
   return (
     <div className="bg-white rounded-lg shadow-sm p-8 text-center">
       <Lock className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
       
       <h2 className="text-2xl font-bold text-neutral-900 mb-2">
-        This Feature is Locked
+        {featureName} is Locked
       </h2>
       
       <p className="text-neutral-600 mb-6">
         {canStartTrial
-          ? "Start your FREE 72-hour trial to unlock unlimited property analysis with no credit card required!"
-          : "Upgrade to Premium to unlock unlimited property analysis and advanced features."}
+          ? "Start your FREE 72-hour trial to unlock this feature with no credit card required!"
+          : "Upgrade to Premium to unlock this feature and access advanced capabilities."}
       </p>
       
       {/* Check if Stripe is enabled */}
