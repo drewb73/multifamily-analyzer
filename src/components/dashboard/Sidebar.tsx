@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { useClerk } from '@clerk/nextjs'
+import { NumexRELogo } from './NumexRELogo' // ← NEW: Professional logo
 
 interface DashboardSidebarProps {
   userSubscriptionStatus: string | null
@@ -155,12 +156,7 @@ export default function DashboardSidebar({
       >
         {/* Logo */}
         <div className="flex items-center justify-start border-b border-neutral-200 p-4">
-          <div className="flex items-center">
-            <div className="text-2xl">🏢</div>
-            <h1 className="ml-3 text-xl font-display font-bold text-primary-600 truncate">
-              NumexRE
-            </h1>
-          </div>
+          <NumexRELogo size="md" variant="full" />
         </div>
 
         {/* Navigation */}
@@ -241,14 +237,10 @@ export default function DashboardSidebar({
           flex items-center border-b border-neutral-200 p-4
           ${isCollapsed ? 'justify-center' : 'justify-start'}
         `}>
-          <div className="flex items-center">
-            <div className="text-2xl">🏢</div>
-            {!isCollapsed && (
-              <h1 className="ml-3 text-xl font-display font-bold text-primary-600 truncate">
-                NumexRE
-              </h1>
-            )}
-          </div>
+          <NumexRELogo 
+            size="md" 
+            variant={isCollapsed ? 'icon-only' : 'full'} 
+          />
         </div>
 
         {/* Navigation */}
