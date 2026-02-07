@@ -123,8 +123,15 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
   // ✅ NEW: P&L Export dropdown state
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showExportMenuMobile, setShowExportMenuMobile] = useState(false)
+  
+  // Desktop refs
   const exportButtonRef = useRef<HTMLButtonElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
+  
+  // Mobile refs  
+  const exportButtonRefMobile = useRef<HTMLButtonElement>(null)
+  const exportMenuRefMobile = useRef<HTMLDivElement>(null)
 
   // ✅ NEW: P&L Monthly/Yearly toggle
   const [isPLYearly, setIsPLYearly] = useState(false)
@@ -132,6 +139,7 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
   // ✅ NEW: Close export menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Desktop menu
       if (
         showExportMenu &&
         exportMenuRef.current &&
@@ -141,11 +149,22 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
       ) {
         setShowExportMenu(false)
       }
+      
+      // Mobile menu
+      if (
+        showExportMenuMobile &&
+        exportMenuRefMobile.current &&
+        exportButtonRefMobile.current &&
+        !exportMenuRefMobile.current.contains(event.target as Node) &&
+        !exportButtonRefMobile.current.contains(event.target as Node)
+      ) {
+        setShowExportMenuMobile(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showExportMenu])
+  }, [showExportMenu, showExportMenuMobile])
 
   // Format created date as mm/dd/yyyy
   const createdDate = new Date(deal.createdAt).toLocaleDateString('en-US', {
@@ -691,11 +710,21 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
 
   // ✅ NEW: Export P&L to CSV
   const exportToCSV = () => {
-    if (!plData) return
+    console.log('🔍 exportToCSV called!')
+    console.log('📊 plData:', plData)
+    console.log('📊 analysisData:', analysisData)
+    console.log('📊 monthlyBreakdown:', monthlyBreakdown)
+    
+    if (!plData) {
+      console.error('❌ plData is null, cannot export!')
+      return
+    }
 
     const multiplier = isPLYearly ? 12 : 1
     const period = isPLYearly ? 'Yearly' : 'Monthly'
 
+    console.log('✅ Starting CSV export...')
+    
     const csvRows = []
     
     // Header
@@ -785,169 +814,188 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     // Create CSV string
     const csvContent = csvRows.join('\n')
     
+    console.log('✅ CSV content created, downloading...')
+    
     // Download
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `PL-Statement-Deal-${deal.dealId}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+    try {
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `PL-Statement-Deal-${deal.dealId}.csv`
+      document.body.appendChild(link) // Append to body
+      link.click()
+      document.body.removeChild(link) // Remove from body
+      URL.revokeObjectURL(url)
+      console.log('✅ CSV downloaded successfully!')
+    } catch (error) {
+      console.error('❌ Error downloading CSV:', error)
+    }
     
     setShowExportMenu(false)
+    setShowExportMenuMobile(false)
   }
 
   // ✅ NEW: Export P&L to PDF
   const exportToPDF = () => {
-    if (!plData) return
+    console.log('🔍 exportToPDF called!')
+    console.log('📊 plData:', plData)
+    
+    if (!plData) {
+      console.error('❌ plData is null, cannot export!')
+      return
+    }
+
+    console.log('✅ Starting PDF export...')
 
     const multiplier = isPLYearly ? 12 : 1
     const period = isPLYearly ? 'Yearly' : 'Monthly'
 
-    const doc = new jsPDF()
-    let yPosition = 20
+    try {
+      const doc = new jsPDF()
+      let yPosition = 20
 
-    // Title
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Profit & Loss Statement', 105, yPosition, { align: 'center' })
-    
-    yPosition += 10
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Property: ${deal.address}`, 105, yPosition, { align: 'center' })
-    
-    yPosition += 5
-    doc.text(`Deal ID: ${deal.dealId}`, 105, yPosition, { align: 'center' })
-    
-    yPosition += 5
-    doc.text(`Period: ${period}`, 105, yPosition, { align: 'center' })
-    
-    yPosition += 5
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, yPosition, { align: 'center' })
-    
-    yPosition += 10
-
-    // Column Headers
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Current', 120, yPosition, { align: 'right' })
-    doc.text('Market', 170, yPosition, { align: 'right' })
-    
-    yPosition += 7
-
-    // Helper function to add a line
-    const addLine = (label: string, currentValue: number, marketValue: number, isBold = false) => {
-      if (yPosition > 270) {
-        doc.addPage()
-        yPosition = 20
-      }
+      // Title
+      doc.setFontSize(18)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Profit & Loss Statement', 105, yPosition, { align: 'center' })
       
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-      doc.text(label, 20, yPosition)
-      doc.text(formatCurrency(currentValue), 120, yPosition, { align: 'right' })
-      doc.text(formatCurrency(marketValue), 170, yPosition, { align: 'right' })
-      yPosition += 6
-    }
-
-    // Helper function to add a percentage line
-    const addPercentLine = (label: string, currentValue: string, marketValue: string) => {
-      if (yPosition > 270) {
-        doc.addPage()
-        yPosition = 20
-      }
-      
+      yPosition += 10
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
-      doc.text(label, 20, yPosition)
-      doc.text(currentValue, 120, yPosition, { align: 'right' })
-      doc.text(marketValue, 170, yPosition, { align: 'right' })
+      doc.text(`Property: ${deal.address}`, 105, yPosition, { align: 'center' })
+      
+      yPosition += 5
+      doc.text(`Deal ID: ${deal.dealId}`, 105, yPosition, { align: 'center' })
+      
+      yPosition += 5
+      doc.text(`Period: ${period}`, 105, yPosition, { align: 'center' })
+      
+      yPosition += 5
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, yPosition, { align: 'center' })
+      
+      yPosition += 10
+
+      // Column Headers
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Current', 120, yPosition, { align: 'right' })
+      doc.text('Market', 170, yPosition, { align: 'right' })
+      
+      yPosition += 7
+
+      // Helper function to add a line
+      const addLine = (label: string, currentValue: number, marketValue: number, isBold = false) => {
+        if (yPosition > 270) {
+          doc.addPage()
+          yPosition = 20
+        }
+        
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+        doc.text(label, 20, yPosition)
+        doc.text(formatCurrency(currentValue), 120, yPosition, { align: 'right' })
+        doc.text(formatCurrency(marketValue), 170, yPosition, { align: 'right' })
+        yPosition += 6
+      }
+
+      // Helper function to add a percentage line
+      const addPercentLine = (label: string, currentValue: string, marketValue: string) => {
+        if (yPosition > 270) {
+          doc.addPage()
+          yPosition = 20
+        }
+        
+        doc.setFont('helvetica', 'normal')
+        doc.text(label, 20, yPosition)
+        doc.text(currentValue, 120, yPosition, { align: 'right' })
+        doc.text(marketValue, 170, yPosition, { align: 'right' })
+        yPosition += 6
+      }
+
+      // INCOME
+      doc.setFont('helvetica', 'bold')
+      doc.text('INCOME', 20, yPosition)
       yPosition += 6
-    }
+      
+      addLine('Rental Income:', plData.current.rentalIncome * multiplier, plData.market.rentalIncome * multiplier)
+      addLine('Other Income:', plData.current.otherIncome * multiplier, plData.market.otherIncome * multiplier)
+      addLine('Total Income:', plData.current.totalIncome * multiplier, plData.market.totalIncome * multiplier, true)
+      
+      yPosition += 4
 
-    // INCOME
-    doc.setFont('helvetica', 'bold')
-    doc.text('INCOME', 20, yPosition)
-    yPosition += 6
-    
-    addLine('Rental Income:', plData.current.rentalIncome * multiplier, plData.market.rentalIncome * multiplier)
-    addLine('Other Income:', plData.current.otherIncome * multiplier, plData.market.otherIncome * multiplier)
-    addLine('Total Income:', plData.current.totalIncome * multiplier, plData.market.totalIncome * multiplier, true)
-    
-    yPosition += 4
+      // OPERATING EXPENSES
+      doc.setFont('helvetica', 'bold')
+      doc.text('OPERATING EXPENSES', 20, yPosition)
+      yPosition += 6
+      
+      plData.current.expenses.forEach((expense: any, index: number) => {
+        addLine(`${expense.name}:`, expense.amount * multiplier, plData.market.expenses[index].amount * multiplier)
+      })
+      addLine('Total Expenses:', plData.current.totalExpenses * multiplier, plData.market.totalExpenses * multiplier, true)
+      
+      yPosition += 4
 
-    // OPERATING EXPENSES
-    doc.setFont('helvetica', 'bold')
-    doc.text('OPERATING EXPENSES', 20, yPosition)
-    yPosition += 6
-    
-    plData.current.expenses.forEach((expense: any, index: number) => {
-      addLine(`${expense.name}:`, expense.amount * multiplier, plData.market.expenses[index].amount * multiplier)
-    })
-    addLine('Total Expenses:', plData.current.totalExpenses * multiplier, plData.market.totalExpenses * multiplier, true)
-    
-    yPosition += 4
+      // NET OPERATING INCOME (lighter blue highlight)
+      doc.setFont('helvetica', 'bold')
+      doc.setFillColor(219, 234, 254) // Light blue (blue-100)
+      doc.rect(15, yPosition - 4, 180, 8, 'F')
+      addLine('NET OPERATING INCOME', plData.current.noi * multiplier, plData.market.noi * multiplier, true)
+      
+      yPosition += 4
 
-    // NET OPERATING INCOME (lighter blue highlight)
-    doc.setFont('helvetica', 'bold')
-    doc.setFillColor(219, 234, 254) // Light blue (blue-100)
-    doc.rect(15, yPosition - 4, 180, 8, 'F')
-    addLine('NET OPERATING INCOME', plData.current.noi * multiplier, plData.market.noi * multiplier, true)
-    
-    yPosition += 4
+      // DEBT SERVICE
+      doc.setFont('helvetica', 'bold')
+      doc.text('DEBT SERVICE', 20, yPosition)
+      yPosition += 6
+      
+      addLine('Mortgage Payment:', plData.current.debtService * multiplier, plData.market.debtService * multiplier)
+      
+      yPosition += 4
 
-    // DEBT SERVICE
-    doc.setFont('helvetica', 'bold')
-    doc.text('DEBT SERVICE', 20, yPosition)
-    yPosition += 6
-    
-    addLine('Mortgage Payment:', plData.current.debtService * multiplier, plData.market.debtService * multiplier)
-    
-    yPosition += 4
+      // CASH FLOW (lighter gray highlight)
+      doc.setFont('helvetica', 'bold')
+      doc.setFillColor(243, 244, 246) // Light gray (gray-100)
+      doc.rect(15, yPosition - 4, 180, 8, 'F')
+      addLine('CASH FLOW', plData.current.cashFlow * multiplier, plData.market.cashFlow * multiplier, true)
+      
+      yPosition += 8
 
-    // CASH FLOW (lighter gray highlight)
-    doc.setFont('helvetica', 'bold')
-    doc.setFillColor(243, 244, 246) // Light gray (gray-100)
-    doc.rect(15, yPosition - 4, 180, 8, 'F')
-    addLine('CASH FLOW', plData.current.cashFlow * multiplier, plData.market.cashFlow * multiplier, true)
-    
-    yPosition += 8
-
-    // KEY METRICS (always annual-based)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('KEY METRICS', 20, yPosition)
-    yPosition += 6
-    
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    
-    // Cap Rate
-    const currentCapRate = plData.current.noi * 12 > 0 
-      ? formatPercentage((plData.current.noi * 12 / deal.price) * 100, 2)
-      : 'N/A'
-    const marketCapRate = plData.market.noi * 12 > 0 
-      ? formatPercentage((plData.market.noi * 12 / deal.price) * 100, 2)
-      : 'N/A'
-    addPercentLine('• Cap Rate:', currentCapRate, marketCapRate)
-    
-    // Cash-on-Cash Return (only if down payment exists)
-    if (downPayment > 0) {
-      const currentCoC = formatPercentage((plData.current.cashFlow * 12 / downPayment) * 100, 2)
-      const marketCoC = formatPercentage((plData.market.cashFlow * 12 / downPayment) * 100, 2)
-      addPercentLine('• Cash-on-Cash:', currentCoC, marketCoC)
-    }
-    
-    // GRM
-    const currentGRM = plData.current.rentalIncome * 12 > 0 
-      ? (deal.price / (plData.current.rentalIncome * 12)).toFixed(2)
-      : 'N/A'
-    const marketGRM = plData.market.rentalIncome * 12 > 0 
-      ? (deal.price / (plData.market.rentalIncome * 12)).toFixed(2)
-      : 'N/A'
-    addPercentLine('• GRM:', currentGRM, marketGRM)
-    
-    // DSCR
-    const currentDSCR = plData.current.debtService > 0 
+      // KEY METRICS (always annual-based)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text('KEY METRICS', 20, yPosition)
+      yPosition += 6
+      
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      
+      // Cap Rate
+      const currentCapRate = plData.current.noi * 12 > 0 
+        ? formatPercentage((plData.current.noi * 12 / deal.price) * 100, 2)
+        : 'N/A'
+      const marketCapRate = plData.market.noi * 12 > 0 
+        ? formatPercentage((plData.market.noi * 12 / deal.price) * 100, 2)
+        : 'N/A'
+      addPercentLine('• Cap Rate:', currentCapRate, marketCapRate)
+      
+      // Cash-on-Cash Return (only if down payment exists)
+      if (downPayment > 0) {
+        const currentCoC = formatPercentage((plData.current.cashFlow * 12 / downPayment) * 100, 2)
+        const marketCoC = formatPercentage((plData.market.cashFlow * 12 / downPayment) * 100, 2)
+        addPercentLine('• Cash-on-Cash:', currentCoC, marketCoC)
+      }
+      
+      // GRM
+      const currentGRM = plData.current.rentalIncome * 12 > 0 
+        ? (deal.price / (plData.current.rentalIncome * 12)).toFixed(2)
+        : 'N/A'
+      const marketGRM = plData.market.rentalIncome * 12 > 0 
+        ? (deal.price / (plData.market.rentalIncome * 12)).toFixed(2)
+        : 'N/A'
+      addPercentLine('• GRM:', currentGRM, marketGRM)
+      
+      // DSCR
+      const currentDSCR = plData.current.debtService > 0 
       ? (plData.current.noi / plData.current.debtService).toFixed(2)
       : 'N/A'
     const marketDSCR = plData.market.debtService > 0 
@@ -973,13 +1021,22 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
     }
 
     // Save
+    console.log('✅ PDF created, downloading...')
     doc.save(`PL-Statement-Deal-${deal.dealId}.pdf`)
+    console.log('✅ PDF downloaded successfully!')
+    
+    } catch (error) {
+      console.error('❌ Error creating PDF:', error)
+    }
+    
     setShowExportMenu(false)
+    setShowExportMenuMobile(false)
   }
 
   // Calculate P&L with Current vs Market Rents
   const calculatePL = () => {
-    if (!analysisData || !monthlyBreakdown) return null
+    // ✅ FIX: Only require analysisData (monthlyBreakdown is optional - we calculate it ourselves)
+    if (!analysisData) return null
 
     const unitMix = analysisData.unitMix || []
     const income = analysisData.income || []
@@ -1984,8 +2041,8 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
               {/* Export Button with Dropdown */}
               <div className="relative">
                 <button
-                  ref={exportButtonRef}
-                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  ref={exportButtonRefMobile}
+                  onClick={() => setShowExportMenuMobile(!showExportMenuMobile)}
                   className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                   title="Export P&L"
                 >
@@ -1993,20 +2050,26 @@ export function AccountDetailsTab({ deal, onUpdate, onRefresh }: AccountDetailsT
                 </button>
                 
                 {/* Dropdown Menu */}
-                {showExportMenu && (
+                {showExportMenuMobile && (
                   <div
-                    ref={exportMenuRef}
+                    ref={exportMenuRefMobile}
                     className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-10"
                   >
                     <button
-                      onClick={exportToPDF}
+                      onClick={() => {
+                        exportToPDF()
+                        setShowExportMenuMobile(false)
+                      }}
                       className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
                     >
                       <Download className="w-3.5 h-3.5" />
                       PDF
                     </button>
                     <button
-                      onClick={exportToCSV}
+                      onClick={() => {
+                        exportToCSV()
+                        setShowExportMenuMobile(false)
+                      }}
                       className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
                     >
                       <Download className="w-3.5 h-3.5" />
