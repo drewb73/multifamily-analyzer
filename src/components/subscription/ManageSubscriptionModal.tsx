@@ -94,7 +94,7 @@ export function ManageSubscriptionModal({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-neutral-900">$7</div>
+                <div className="text-3xl font-bold text-neutral-900">$9.99</div>
                 <div className="text-sm text-neutral-600">per month</div>
               </div>
             </div>

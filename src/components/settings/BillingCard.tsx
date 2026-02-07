@@ -71,7 +71,7 @@ export function BillingCard({
   const getPlanDisplay = () => {
     switch (subscriptionStatus) {
       case 'premium':
-        return isCancelledButActive ? 'Premium - Cancelled' : 'Premium - $7/month'
+        return isCancelledButActive ? 'Premium - Cancelled' : 'Premium - $9.99/month'
       case 'enterprise':
         return 'Enterprise - Custom'
       case 'trial':
@@ -152,11 +152,11 @@ export function BillingCard({
               <div className="font-medium text-neutral-900">
                 {isCancelledButActive ? (
                   <>
-                    <span className="line-through text-neutral-400 mr-2">$7.00</span>
+                    <span className="line-through text-neutral-400 mr-2">$9.99</span>
                     <span className="text-success-600">$0.00 USD</span>
                   </>
                 ) : (
-                  '$7.00 USD'
+                  '$9.99 USD'
                 )}
               </div>
               <p className="text-xs text-neutral-600 mt-1">

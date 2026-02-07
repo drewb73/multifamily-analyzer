@@ -138,7 +138,7 @@ export function UpgradeModal({
               <div className="bg-gradient-to-br from-primary-50 to-secondary-50 border-2 border-primary-200 rounded-xl p-6">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-baseline gap-2">
-                    <span className="text-5xl font-bold text-neutral-900">$7</span>
+                    <span className="text-5xl font-bold text-neutral-900">$9.99</span>
                     <span className="text-xl text-neutral-600">/month</span>
                   </div>
                   <p className="text-sm text-neutral-600 mt-2">
