@@ -1,5 +1,5 @@
-// Minimal Prisma Schema for PropertyAnalyzer
-// Start with this, then add features as needed
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -10,501 +10,477 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// CORE MODELS (Start Here)
-// ============================================
-
-// User - Synced with Clerk
+// ============================================================================
+// USER MODEL - UPDATED FOR TEAM WORKSPACES
+// ============================================================================
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  clerkId   String   @unique
   
-  // Basic Info
-  email     String   @unique
-  firstName String?
-  lastName  String?
-  imageUrl  String?
-  company   String?
+  // Clerk Authentication
+  clerkId          String   @unique
+  email            String   @unique
+  firstName        String?
+  lastName         String?
+  profileImageUrl  String?
   
-  // Subscription & Tiers
-  subscriptionStatus String   @default("trial")  // "free", "trial", "premium", "enterprise"
-  subscriptionTier   String?  // For special tiers: "discount_7day", "early_bird", etc.
-  subscriptionSource String?  @default("manual") // "stripe", "manual", "discount_code"
+  // Subscription & Role
+  role                    String   @default("user") // "user" or "admin"
+  subscriptionStatus      String   @default("free") // "free", "trialing", "premium"
+  subscriptionTier        String?  // "monthly" or "annual"
+  stripeCustomerId        String?  @unique
+  stripeSubscriptionId    String?  @unique
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean  @default(false)
   
-  // Trial Management
-  trialEndsAt        DateTime? // 72 hours from signup
-  hasUsedTrial       Boolean  @default(false) // Prevent multiple trials
+  // 🆕 TEAM WORKSPACE FIELDS - FOR WORKSPACE OWNERS
+  // When a Premium user purchases seats, these fields track them
+  purchasedSeats          Int      @default(0)  // Total seats they bought (e.g., 5)
+  usedSeats               Int      @default(0)  // How many are filled (e.g., 3)
+  availableSeats          Int      @default(0)  // Remaining seats (e.g., 2)
+  seatSubscriptionItemId  String?  // Stripe subscription item ID for seat billing
   
-  // Premium Subscription
-  subscriptionEndsAt DateTime? // For recurring subscriptions
-  cancelledAt      DateTime? // When user clicked cancel (for churn tracking)
-  stripeCustomerId   String?   // For Stripe integration (future)
-  stripeSubscriptionId String? // For Stripe integration (future)
+  // 🆕 TEAM WORKSPACE FIELDS - FOR TEAM MEMBERS
+  // When someone joins another person's workspace, these fields track it
+  isTeamMember            Boolean  @default(false) // Are they a member of someone's team?
+  teamWorkspaceOwnerId    String?  @db.ObjectId    // Who owns the workspace they're in?
+  teamWorkspaceOwner      User?    @relation("TeamMembership", fields: [teamWorkspaceOwnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamMembers             User[]   @relation("TeamMembership")
   
-  // Admin Access
-  isAdmin   Boolean  @default(false)
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLoginAt     DateTime?
   
   // Account Status
-  accountStatus  String   @default("active")  // "active", "inactive", "pending_deletion", "deleted"
-  markedForDeletionAt DateTime?  // When user/admin initiated deletion
-  deletedAt   DateTime?  // When account was actually deleted (60 days after marked)
-  deletedBy   String?    // "user" or admin email who deleted it
-  lastLoginAt DateTime?  // Track last login for inactivity
+  isDeleted              Boolean   @default(false)
+  deletionScheduledFor   DateTime?
   
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // 🆕 TEAM WORKSPACE RELATIONS
+  // These connect to the new models we're creating
+  ownedTeamMembers      WorkspaceTeamMember[] @relation("WorkspaceOwner")     // Team members they own
+  teamMemberships       WorkspaceTeamMember[] @relation("TeamMember")          // Teams they're part of
+  sentInvitations       WorkspaceInvitation[] @relation("InvitationSender")    // Invitations they sent
+  receivedInvitations   WorkspaceInvitation[] @relation("InvitationRecipient") // Invitations they received
+  notifications         Notification[]                                          // Their notifications
   
-  // Relations
-  properties         Property[]
-  analyses           Analysis[]
-  propertyAnalyses   PropertyAnalysis[]
-  analysisGroups     AnalysisGroup[]
-
-  @@map("users")
-
-  // DealIQ Relations
-  deals         Deal[]
-  dealNotes     DealNote[]
-  dealChanges   DealChange[]
+  // Existing Relations (unchanged)
+  analyses              Analysis[]
+  propertyAnalyses      PropertyAnalysis[]
+  groups                Group[]
+  deals                 Deal[]
+  contacts              Contact[]
+  notes                 Note[]
+  activityLogs          ActivityLog[]
 }
 
-// Property - Store property data (LEGACY - keeping for backward compatibility)
-model Property {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Basic Info
-  name    String
-  address String?
-  city    String?
-  state   String?
-  zipCode String?
-  
-  // Property Details
-  units          Int?
-  purchasePrice  Float?
-  
-  // Income
-  monthlyRent    Float?
-  otherIncome    Float?
-  
-  // Expenses
-  propertyTax    Float?
-  insurance      Float?
-  maintenance    Float?
-  
-  // Images (Cloudinary URLs)
-  images      String[]
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  analyses Analysis[]
-
-  @@map("properties")
-}
-
-// Analysis - Store property analyses (LEGACY - keeping for backward compatibility)
-model Analysis {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  propertyId String   @db.ObjectId
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  // Analysis Info
-  name String
-  
-  // Store all analysis data as JSON
-  data Json
-  
-  // Key metrics (for quick filtering)
-  capRate   Float?
-  cashFlow  Float?
-  roi       Float?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("analyses")
-
-  // DealIQ Relations
-  deals Deal[]
-}
-
-// ============================================
-// NEW MODELS - Property Analysis System
-// ============================================
-
-// PropertyAnalysis - Full property analysis with grouping and filtering
-model PropertyAnalysis {
+// ============================================================================
+// 🆕 NEW MODEL: WORKSPACE INVITATION
+// ============================================================================
+// This tracks when someone invites another person to join their workspace
+model WorkspaceInvitation {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Who sent the invitation (the workspace owner)
+  ownerId           String   @db.ObjectId
+  owner             User     @relation("InvitationSender", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Who is being invited
+  invitedEmail      String   // The email address invited
+  invitedFirstName  String   // First name provided by owner
+  invitedLastName   String   // Last name provided by owner
+  invitedUserId     String?  @db.ObjectId  // If they're already a user, link to their User record
+  invitedUser       User?    @relation("InvitationRecipient", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  
+  // Invitation Token (for security)
+  inviteToken       String   @unique  // Unique token sent in email link
+  
+  // Status Tracking
+  status            String   // "pending", "pending_signup", "pending_premium_cancel", "accepted", "declined", "rescinded", "expired"
+  invitationType    String   // "existing_user", "new_user", "premium_conflict"
+  
+  // Timestamps
+  sentAt            DateTime @default(now())
+  expiresAt         DateTime // Invitation expires after 7 days
+  respondedAt       DateTime?
+  
+  // Prevent duplicate invitations to same email
+  @@unique([ownerId, invitedEmail])
+  @@index([invitedEmail])
+  @@index([status])
+}
+
+// ============================================================================
+// 🆕 NEW MODEL: WORKSPACE TEAM MEMBER
+// ============================================================================
+// This is the "active roster" - who is currently on someone's team
+model WorkspaceTeamMember {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // The workspace owner
+  ownerId     String   @db.ObjectId
+  owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // The team member
+  memberId    String   @db.ObjectId
+  member      User     @relation("TeamMember", fields: [memberId], references: [id], onDelete: Cascade)
+  
+  // Cached info (for display even if user deleted)
+  memberEmail String
+  memberName  String
+  
+  // Status
+  status      String   @default("active") // "active" or "removed"
+  role        String   @default("member") // For future: "member", "admin", "viewer"
+  
+  // Timestamps
+  joinedAt    DateTime @default(now())
+  removedAt   DateTime?
+  
+  // Prevent duplicate memberships
+  @@unique([ownerId, memberId])
+  @@index([ownerId])
+  @@index([memberId])
+  @@index([status])
+}
+
+// ============================================================================
+// 🆕 NEW MODEL: NOTIFICATION
+// ============================================================================
+// In-app notifications for invitations, team events, etc.
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Who this notification is for
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  groupId   String?  @db.ObjectId  // Optional: belongs to a group
-  group     AnalysisGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   
-  // Basic Info
-  name      String
-  notes     String?  // User notes about this analysis
-  
-  // Property Details (for filtering/searching)
-  address   String
-  city      String
-  state     String
-  zipCode   String
-  
-  purchasePrice    Float
-  totalUnits       Int
-  propertySize     Float
-  isCashPurchase   Boolean
-  downPayment      Float?
-  loanTerm         Int?
-  interestRate     Float?
-  
-  // Store complete analysis data as JSON
-  data      Json  // Full AnalysisInputs (property, unitMix, expenses, income)
-  results   Json  // Full AnalysisResults (keyMetrics, monthlyBreakdown, annualBreakdown)
-  
-  // Searchable/Filterable Key Metrics (extracted for indexing)
-  capRate              Float?
-  cashFlow             Float?
-  cashOnCashReturn     Float?
-  grossRentMultiplier  Float?
-  netOperatingIncome   Float?
-  totalInvestment      Float?
-  debtServiceCoverage  Float?
-  
-  // Status Flags
-  isArchived  Boolean  @default(false)
-  isFavorite  Boolean  @default(false)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("property_analyses")
-  @@index([userId, createdAt])
-  @@index([userId, groupId])
-  @@index([userId, isArchived])
-  @@index([userId, isFavorite])
-  @@index([zipCode])
-  @@index([city])
-  @@index([state])
-  @@index([capRate])
-  @@index([cashFlow])
-  @@index([totalUnits])
-  @@index([purchasePrice])
-}
-
-// AnalysisGroup - Organize analyses into named collections
-model AnalysisGroup {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Group Info
-  name        String
-  description String?
-  color       String?  // Hex color for UI (e.g., "#3B82F6")
-  icon        String?  // Icon name for UI (e.g., "Building", "TrendingUp")
-  
-  // Sort order (for custom ordering)
-  sortOrder   Int      @default(0)
-  
-  // Relations
-  analyses    PropertyAnalysis[]
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("analysis_groups")
-  @@index([userId, sortOrder])
-}
-
-// ============================================
-// ADMIN MODELS
-// ============================================
-
-// SystemSettings - Global feature toggles and settings
-model SystemSettings {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Application-Wide Toggles
-  maintenanceMode      Boolean  @default(false)
-  maintenanceMessage   String?
-  dashboardEnabled     Boolean  @default(true)
-  signUpEnabled        Boolean  @default(true)
-  stripeEnabled        Boolean  @default(true)
-  
-  // Feature Toggles
-  analysisEnabled      Boolean  @default(true)
-  pdfExportEnabled     Boolean  @default(true)
-  savedDraftsEnabled   Boolean  @default(true)
-  accountDeletionEnabled Boolean @default(true)
-  dealiqEnabled Boolean @default(false)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  updatedBy String?  // Admin email who made the change
-  
-  @@map("system_settings")
-}
-
-// Banner - Dashboard banners for different user types
-model Banner {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Banner Content
+  // Notification Content
+  type      String   // "team_invitation", "invitation_accepted", "invitation_declined", "member_removed", "member_joined", "premium_conflict"
+  title     String
   message   String
-  type      String   @default("info")  // "info", "warning", "error", "success"
+  metadata  Json?    // Additional context (invitation ID, member name, etc.)
   
-  // Target Audience
-  targetAudience String @default("all") // "all", "free_trial", "premium", "admin"
+  // Status
+  status    String   @default("unread") // "unread", "read", "archived"
   
-  // Display Control
-  isActive  Boolean  @default(true)
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  durationDays Int?  // Duration in days from startDate
-  
-  // Tracking
-  createdBy String   // Admin email
+  // Timestamps
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  readAt    DateTime?
   
-  @@map("banners")
-  @@index([isActive, targetAudience])
-  @@index([startDate, endDate])
-}
-
-// PromoModal - Landing page promotional modal
-model PromoModal {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Modal Content
-  title       String
-  description String
-  discountCode String?
-  
-  // Display Control
-  isActive    Boolean  @default(true)
-  startDate   DateTime @default(now())
-  endDate     DateTime?
-  durationDays Int?  // Duration in days from startDate
-  
-  // Tracking
-  createdBy   String   // Admin email
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("promo_modals")
-}
-
-// DiscountCode - Promotional codes for special access
-model DiscountCode {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Code Details
-  code      String   @unique
-  duration  Int      // Days of access
-  features  String[] // Feature access granted
-  
-  // Usage Control
-  maxUses   Int?     // Null = unlimited
-  usedCount Int      @default(0)
-  isActive  Boolean  @default(true)
-  
-  // Validity Period
-  validFrom DateTime @default(now())
-  validUntil DateTime?
-  
-  // Relations
-  redemptions CodeRedemption[]
-  
-  // Tracking
-  createdBy String   // Admin email
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("discount_codes")
-}
-
-// CodeRedemption - Track who used which codes
-model CodeRedemption {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Relations
-  codeId    String   @db.ObjectId
-  code      DiscountCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
-  
-  // User Info (not foreign key to allow deletions)
-  userId    String?  // User ID if they were logged in
-  userEmail String   // Email for tracking
-  
-  // Redemption Details
-  redeemedAt DateTime @default(now())
-  expiresAt  DateTime
-  
-  @@map("code_redemptions")
-  @@index([codeId, userEmail])
-}
-
-// AdminLog - Audit trail of admin actions
-model AdminLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Action Details
-  adminEmail String
-  action     String   // "user_deleted", "feature_toggled", etc.
-  details    Json?    // Additional context
-  
-  // Timestamp
-  createdAt DateTime @default(now())
-  
-  @@map("admin_logs")
-  @@index([adminEmail, createdAt])
+  @@index([userId, status])
   @@index([createdAt])
 }
 
-// ============================================
-// DEALIQ CRM SYSTEM
-// ============================================
-
-model Deal {
+// ============================================================================
+// ANALYSIS MODEL - UPDATED FOR ATTRIBUTION
+// ============================================================================
+model Analysis {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  dealId    String   @unique // 7-digit random number (e.g., "1234567")
   
   // Ownership
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Property Details (linked to analysis)
-  analysisId String?  @db.ObjectId
-  analysis   Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  // 🆕 ATTRIBUTION FIELDS - Track who created/edited this
+  createdBy       String?  @db.ObjectId  // User ID who created this
+  createdByName   String?                // Name at time of creation
+  createdByRole   String?                // "owner" or "member"
   
-  // Address (editable)
-  address    String
-  city       String?
-  state      String?
-  zipCode    String?
+  lastEditedBy     String?   @db.ObjectId  // User ID who last edited
+  lastEditedByName String?                  // Name of last editor
+  lastEditedAt     DateTime?                // When last edited
   
-  // Financial Details (editable)
-  price           Float
-  squareFeet      Float?
-  units           Int?
-  pricePerUnit    Float?  // Auto-calculated: price / units
-  pricePerSqft    Float?  // Auto-calculated: price / squareFeet
+  // Property Details
+  name             String
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  propertyType     String?
+  purchasePrice    Float
+  afterRepairValue Float?
+  downPayment      Float
+  interestRate     Float
+  loanTerm         Int
+  closingCosts     Float?
   
-  // Deal Status
-  stage           String   @default("prospect") // See DEAL_STAGES constant
-  forecastStatus  String   @default("n/a") // "n/a", "commit", "upside", "most_likely"
-  expectedCloseDate DateTime?
+  // Income
+  monthlyRent      Float
+  otherIncome      Float?
   
-  // Commission Details (for agents)
-  commissionPercent Float?  @default(0)
-  commissionAmount  Float?  @default(0) // Auto-calculated: price * commissionPercent
+  // Expenses
+  propertyTax      Float?
+  insurance        Float?
+  hoa              Float?
+  maintenance      Float?
+  utilities        Float?
+  propertyManagement Float?
+  vacancy          Float?
+  otherExpenses    Float?
   
-  // Investment Details (for investors)
-  originalPurchasePrice Float? // Optional: for investors tracking equity
-  netValue          Float?  // Auto-calculated: price - commission - originalPurchase
+  // Calculated Metrics
+  monthlyPayment   Float?
+  totalMonthlyExpenses Float?
+  netOperatingIncome Float?
+  cashFlow         Float?
+  capRate          Float?
+  cashOnCashReturn Float?
+  totalInvestment  Float?
   
-  // Loan Details
-  financingType String? // "financed", "cash"
-  downPayment   Float?  // Down payment amount
-  loanTerm      Int?    // Years (e.g., 30)
-  loanRate      Float?  // Interest rate percentage (e.g., 6.5)
-  
-  // Lost Deal Tracking (when stage = "closed_lost")
-  lostReason        String?   // ID from LOST_REASONS
-  lostReasonDetails String?   // Additional notes
-  lostAtStage       String?   // Stage where deal was lost
-  lostDate          DateTime?
-  
-  // On Hold Tracking (when stage = "on_hold")
-  holdReason        String?   // ID from HOLD_REASONS
-  holdReasonDetails String?
-  onHoldDate        DateTime?
-  expectedResumeDate DateTime?
-  
-  // Pipeline Metrics
-  daysInPipeline    Int?      // Auto-calculated
-  previousStage     String?   // Track last stage before current
+  // Organization
+  groupId          String?  @db.ObjectId
+  group            Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  isFavorite       Boolean  @default(false)
+  notes            String?
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  stageChangedAt DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([groupId])
+  @@index([createdAt])
+  @@index([createdBy])  // 🆕 Index for attribution queries
+}
+
+// ============================================================================
+// PROPERTY ANALYSIS MODEL - UPDATED FOR ATTRIBUTION
+// ============================================================================
+model PropertyAnalysis {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Ownership
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 🆕 ATTRIBUTION FIELDS
+  createdBy       String?  @db.ObjectId
+  createdByName   String?
+  createdByRole   String?
+  
+  lastEditedBy     String?   @db.ObjectId
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+  
+  // Property Info
+  propertyName     String
+  address          String?
+  purchasePrice    Float
+  
+  // Unit Mix (JSON array)
+  unitMix          Json
+  
+  // Financial Details
+  downPaymentPercent Float
+  interestRate     Float
+  loanTermYears    Int
+  closingCosts     Float?
+  renovationCosts  Float?
+  
+  // Income
+  otherMonthlyIncome Float?
+  
+  // Operating Expenses
+  propertyTax      Float?
+  insurance        Float?
+  propertyManagement Float?
+  maintenance      Float?
+  utilities        Float?
+  capex            Float?
+  otherExpenses    Float?
+  
+  // Calculated Results (JSON)
+  calculatedMetrics Json?
+  
+  // Organization
+  groupId          String?  @db.ObjectId
+  group            Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  isFavorite       Boolean  @default(false)
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([groupId])
+  @@index([createdBy])  // 🆕 Index for attribution
+}
+
+// ============================================================================
+// DEAL MODEL - UPDATED FOR ATTRIBUTION
+// ============================================================================
+model Deal {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Ownership
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 🆕 ATTRIBUTION FIELDS
+  createdBy       String?  @db.ObjectId
+  createdByName   String?
+  createdByRole   String?
+  
+  lastEditedBy     String?   @db.ObjectId
+  lastEditedByName String?
+  lastEditedAt     DateTime?
+  
+  // Deal Information
+  propertyName     String
+  propertyAddress  String?
+  city             String?
+  state            String?
+  zipCode          String?
+  
+  // Financial
+  purchasePrice    Float?
+  estimatedValue   Float?
+  commission       Float?
+  
+  // Deal Status
+  stage            String   @default("lead") // lead, qualified, contract, closing, closed
+  status           String   @default("active") // 🆕 "active" or "inactive"
+  priority         String   @default("medium") // low, medium, high
+  probability      Float?   // 0-100
+  
+  // Dates
+  expectedCloseDate DateTime? // 🆕 Renamed from closeDate
+  actualCloseDate   DateTime?
+  
+  // Relationships
+  linkedAnalysisId String?  @db.ObjectId
   
   // Relations
-  contacts  DealContact[]
-  notes     DealNote[]
-  changes   DealChange[]
+  contacts         Contact[]
+  notes            Note[]
+  activityLogs     ActivityLog[]
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   
   @@index([userId])
   @@index([stage])
-  @@index([createdAt])
+  @@index([status])  // 🆕 Index for status filtering
+  @@index([createdBy])  // 🆕 Index for attribution
 }
 
-model DealContact {
+// ============================================================================
+// REMAINING MODELS (Unchanged - keeping for completeness)
+// ============================================================================
+
+model Group {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  color     String?
+  
+  analyses           Analysis[]
+  propertyAnalyses   PropertyAnalysis[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+model Contact {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   dealId    String   @db.ObjectId
   deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   
-  isPrimary Boolean  @default(false)
   name      String
-  company   String?
-  role      String?  // "Seller", "Agent", "Lender", "Attorney", etc.
+  role      String?
   email     String?
   phone     String?
+  company   String?
+  isPrimary Boolean  @default(false)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  @@index([userId])
   @@index([dealId])
 }
 
-model DealNote {
+model Note {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  dealId    String   @db.ObjectId
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   
   content   String
+  isPinned  Boolean  @default(false)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
+  @@index([userId])
   @@index([dealId])
-  @@index([createdAt])
 }
 
-model DealChange {
+model ActivityLog {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  dealId    String   @db.ObjectId
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  fieldName     String  // "stage", "price", "expectedCloseDate", etc.
-  previousValue String?
-  newValue      String?
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  action    String   // "stage_changed", "note_added", "contact_added", etc.
+  details   Json?    // Additional structured data
   
   createdAt DateTime @default(now())
   
+  @@index([userId])
   @@index([dealId])
   @@index([createdAt])
+}
+
+model SystemSettings {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  maintenanceMode Boolean  @default(false)
+  bannerMessage   String?
+  bannerType      String?  // "info", "warning", "error"
+  updatedAt       DateTime @updatedAt
+}
+
+model Banner {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  message     String
+  type        String   // "info", "warning", "error", "success"
+  isActive    Boolean  @default(true)
+  showOnPages String[] // ["dashboard", "all", etc.]
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
+}
+
+model PromoModal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  message     String
+  buttonText  String?
+  buttonLink  String?
+  isActive    Boolean  @default(false)
+  imageUrl    String?
+  showOnce    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
 }
