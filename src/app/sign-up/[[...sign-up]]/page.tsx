@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/sign-up/[[...sign-up]]/page.tsx
-// FIX #1: Handle redirect_url parameter to enable checkout flow after signup
+// Updated with team invitation support
 
 'use client'
 
@@ -7,9 +7,19 @@ import { useState, useEffect } from 'react'
 import { useSignUp } from '@clerk/nextjs'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Mail, Lock, AlertCircle, Eye, EyeOff, Loader2, User, CheckCircle } from 'lucide-react'
+import { Mail, Lock, AlertCircle, Eye, EyeOff, Loader2, User, CheckCircle, Users } from 'lucide-react'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 import { AuthMaintenancePage } from '@/components/auth/AuthMaintenancePage'
+
+interface InvitationData {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  ownerName: string;
+  ownerEmail: string;
+  expiresAt: string;
+}
 
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp()
@@ -26,6 +36,42 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [pendingVerification, setPendingVerification] = useState(false)
   const [code, setCode] = useState('')
+  
+  // Team invitation state
+  const [invitationToken, setInvitationToken] = useState<string | null>(null)
+  const [invitationData, setInvitationData] = useState<InvitationData | null>(null)
+  const [loadingInvitation, setLoadingInvitation] = useState(false)
+
+  // Check for invitation token on mount
+  useEffect(() => {
+    const token = searchParams.get('invitation')
+    if (token) {
+      setInvitationToken(token)
+      loadInvitationData(token)
+    }
+  }, [searchParams])
+
+  const loadInvitationData = async (token: string) => {
+    setLoadingInvitation(true)
+    try {
+      const response = await fetch(`/api/team/invitations/validate?token=${token}`)
+      if (response.ok) {
+        const data = await response.json()
+        setInvitationData(data.invitation)
+        // Pre-populate form
+        setEmail(data.invitation.email)
+        setFirstName(data.invitation.firstName)
+        setLastName(data.invitation.lastName)
+      } else {
+        setError('Invalid or expired invitation. Please contact the workspace owner.')
+      }
+    } catch (error) {
+      console.error('Error loading invitation:', error)
+      setError('Failed to load invitation details.')
+    } finally {
+      setLoadingInvitation(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,15 +128,32 @@ export default function SignUpPage() {
       if (completeSignUp.status === 'complete') {
         await setActive({ session: completeSignUp.createdSessionId })
         
-        // ✅ FIX #1: Check for redirect_url parameter
-        const urlParams = new URLSearchParams(window.location.search)
-        const redirectUrl = urlParams.get('redirect_url')
-        
         // Wait for webhook to create user in database
         await new Promise(resolve => setTimeout(resolve, 2000))
         
-        // If redirect_url exists, go there (for checkout flow)
-        // Otherwise, go to dashboard (normal signup flow)
+        // If this was an invitation signup, accept the invitation
+        if (invitationToken && invitationData) {
+          try {
+            const acceptResponse = await fetch(`/api/team/invitations/${invitationData.id}/accept`, {
+              method: 'POST',
+            })
+            
+            if (acceptResponse.ok) {
+              // Successfully joined team - redirect to dashboard
+              router.push('/dashboard')
+              return
+            } else {
+              console.error('Failed to accept invitation automatically')
+            }
+          } catch (error) {
+            console.error('Error accepting invitation:', error)
+          }
+        }
+        
+        // Check for redirect_url parameter (for checkout flow)
+        const urlParams = new URLSearchParams(window.location.search)
+        const redirectUrl = urlParams.get('redirect_url')
+        
         if (redirectUrl) {
           router.push(decodeURIComponent(redirectUrl))
         } else {
@@ -130,7 +193,7 @@ export default function SignUpPage() {
   }
 
   // Show loading while settings are loading
-  if (settingsLoading) {
+  if (settingsLoading || loadingInvitation) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
@@ -224,18 +287,50 @@ export default function SignUpPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-            Create Your Account
-          </h1>
-          <p className="text-neutral-600">
-            Start analyzing your multifamily investments
-          </p>
+          {invitationData ? (
+            <>
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-primary-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+                Join {invitationData.ownerName}'s Team
+              </h1>
+              <p className="text-neutral-600">
+                You've been invited to join their workspace
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+                Create Your Account
+              </h1>
+              <p className="text-neutral-600">
+                Start analyzing your multifamily investments
+              </p>
+            </>
+          )}
         </div>
+
+        {/* Team Invitation Info */}
+        {invitationData && (
+          <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <Users className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-primary-900">
+                  Team Workspace Invitation
+                </p>
+                <p className="text-sm text-primary-700 mt-1">
+                  You'll join {invitationData.ownerName}'s workspace after creating your account
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sign Up Form */}
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* ✅ FIX: Add clerk-captcha element to prevent warning */}
             <div id="clerk-captcha" className="hidden" />
             
             {error && (
@@ -258,7 +353,8 @@ export default function SignUpPage() {
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="John"
                     required
-                    className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={!!invitationData}
+                    className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -273,7 +369,8 @@ export default function SignUpPage() {
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
                   required
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!!invitationData}
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -290,7 +387,8 @@ export default function SignUpPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  disabled={!!invitationData}
+                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -337,7 +435,7 @@ export default function SignUpPage() {
                   Creating account...
                 </>
               ) : (
-                'Create Account'
+                invitationData ? 'Create Account & Join Team' : 'Create Account'
               )}
             </button>
           </form>

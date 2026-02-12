@@ -1,7 +1,11 @@
+// File Location: src/app/api/webhooks/clerk/route.ts
+// Updated Clerk webhook with team invitation support - TypeScript fixed
+
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function POST(req: Request) {
   // Get the headers
@@ -45,28 +49,82 @@ export async function POST(req: Request) {
 
   if (eventType === "user.created") {
     const { id, email_addresses, first_name, last_name, image_url } = evt.data;
+    const userEmail = email_addresses[0].email_address;
 
-    // Calculate 72 hours from now
-    const trialEndsAt = new Date();
-    trialEndsAt.setHours(trialEndsAt.getHours() + 72);
+    // Check if this user has a pending invitation
+    const pendingInvitation = await prisma.workspaceInvitation.findFirst({
+      where: {
+        invitedEmail: userEmail.toLowerCase(),
+        status: {
+          in: ['pending_signup', 'pending'],
+        },
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            isAdmin: true,
+            usedSeats: true,
+            availableSeats: true,
+          },
+        },
+      },
+    });
+
+    let subscriptionStatus = "trial";
+    let trialEndsAt = null;
+    let isTeamMember = false;
+    let teamWorkspaceOwnerId = null;
+
+    // If user has pending invitation, set them up as team member
+    if (pendingInvitation) {
+      subscriptionStatus = "free"; // Team members don't get trial
+      isTeamMember = true;
+      teamWorkspaceOwnerId = pendingInvitation.ownerId;
+      
+      console.log(`🎉 New user ${userEmail} has pending invitation from ${pendingInvitation.owner.email}`);
+    } else {
+      // Normal signup - give trial
+      trialEndsAt = new Date();
+      trialEndsAt.setHours(trialEndsAt.getHours() + 72);
+      console.log(`🎁 New trial user: ${userEmail}, trial ends at:`, trialEndsAt);
+    }
 
     // Create user in your database
     try {
-      await prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           clerkId: id,
-          email: email_addresses[0].email_address,
+          email: userEmail,
           firstName: first_name || null,
           lastName: last_name || null,
           imageUrl: image_url || null,
-          subscriptionStatus: "trial", // Start on trial
-          trialEndsAt: trialEndsAt, // 72 hours from now
-          hasUsedTrial: true, // Mark that they've used their trial
+          subscriptionStatus: subscriptionStatus,
+          trialEndsAt: trialEndsAt,
+          hasUsedTrial: !isTeamMember, // Team members haven't used trial
+          isTeamMember: isTeamMember,
+          teamWorkspaceOwnerId: teamWorkspaceOwnerId,
         },
       });
 
       console.log("✅ User created in database:", id);
-      console.log("🎁 Trial ends at:", trialEndsAt);
+
+      // If this was an invited user, update the invitation
+      if (pendingInvitation) {
+        await prisma.workspaceInvitation.update({
+          where: { id: pendingInvitation.id },
+          data: {
+            invitedUserId: newUser.id,
+            // Keep status as pending_signup - accept endpoint will mark it accepted
+          },
+        });
+        
+        console.log(`📧 Updated invitation record for ${userEmail}`);
+      }
+      
     } catch (error) {
       console.error("Error creating user in database:", error);
       return new Response("Error: Database error", { status: 500 });
@@ -101,37 +159,24 @@ export async function POST(req: Request) {
     // Delete user from your database
     try {
       await prisma.user.delete({
-        where: { clerkId: id as string },
+        where: { clerkId: id },
       });
 
       console.log("✅ User deleted from database:", id);
     } catch (error) {
       console.error("Error deleting user from database:", error);
+      
+      // Don't return error if user doesn't exist (P2025)
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          console.log("User doesn't exist in database, skipping delete");
+          return new Response("Webhook received", { status: 200 });
+        }
+      }
+      
       return new Response("Error: Database error", { status: 500 });
     }
   }
 
-  // Handle session.created - Update lastLoginAt when user logs in
-  if (eventType === "session.created") {
-    const { user_id } = evt.data;
-
-    if (user_id) {
-      try {
-        await prisma.user.update({
-          where: { clerkId: user_id },
-          data: {
-            lastLoginAt: new Date(),
-          },
-        });
-
-        console.log("✅ User login tracked:", user_id);
-      } catch (error) {
-        console.error("Error updating lastLoginAt:", error);
-        // Don't return error - session was created successfully in Clerk
-        // This is just tracking, not critical
-      }
-    }
-  }
-
-  return new Response("Webhook processed successfully", { status: 200 });
+  return new Response("Webhook received", { status: 200 });
 }
