@@ -1,10 +1,11 @@
 // File Location: src/app/api/team/invite/route.ts
-// API endpoint to invite a team member
+// API endpoint to invite a team member (UPDATED with email sending)
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { sendInvitationEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -202,8 +203,26 @@ export async function POST(request: Request) {
       });
     }
 
-    // 14. TODO: Send invitation email (we'll implement this in CHUNK 7)
-    // For now, we'll just create the invitation in the database
+    // 14. Send invitation email
+    const emailResult = await sendInvitationEmail(
+      {
+        invitedEmail: email.toLowerCase(),
+        invitedFirstName: firstName,
+        invitedLastName: lastName,
+        ownerFirstName: owner.firstName || '',
+        ownerLastName: owner.lastName || '',
+        ownerEmail: owner.email,
+        inviteToken: inviteToken,
+        expiresAt: expiresAt,
+      },
+      invitationType
+    );
+
+    if (!emailResult.success) {
+      console.error('Failed to send invitation email:', emailResult.error);
+      // Don't fail the whole request if email fails
+      // The invitation is still created and user will see it in notifications
+    }
 
     // 15. Return success response
     return NextResponse.json({
@@ -212,7 +231,7 @@ export async function POST(request: Request) {
         ? `Invitation sent to ${email}. They will receive an email with signup instructions.`
         : invitationType === 'premium_conflict'
         ? `Invitation sent to ${email}. They must cancel their Premium subscription to accept.`
-        : `Invitation sent to ${email}. They will be notified in-app.`,
+        : `Invitation sent to ${email}. They will be notified in-app and via email.`,
       invitation: {
         id: invitation.id,
         email: invitation.invitedEmail,
@@ -222,6 +241,7 @@ export async function POST(request: Request) {
         sentAt: invitation.sentAt,
         expiresAt: invitation.expiresAt,
       },
+      emailSent: emailResult.success,
     });
 
   } catch (error: any) {

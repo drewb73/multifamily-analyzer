@@ -1,10 +1,11 @@
 // File Location: src/app/api/team/invitations/[id]/resend/route.ts
-// API endpoint to resend a team invitation (owner only)
+// API endpoint to resend a team invitation (UPDATED with email sending)
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { sendInvitationReminderEmail } from '@/lib/email';
 
 export async function POST(
   request: Request,
@@ -56,6 +57,7 @@ export async function POST(
         invitationType: true,
         expiresAt: true,
         sentAt: true,
+        inviteToken: true,
       },
     });
 
@@ -141,8 +143,25 @@ export async function POST(
       });
     }
 
-    // 12. TODO: Resend invitation email (we'll implement this in CHUNK 7)
-    // For now, we just update the database
+    // 12. Send reminder email
+    const emailResult = await sendInvitationReminderEmail(
+      {
+        invitedEmail: invitation.invitedEmail,
+        invitedFirstName: invitation.invitedFirstName,
+        invitedLastName: invitation.invitedLastName,
+        ownerFirstName: user.firstName || '',
+        ownerLastName: user.lastName || '',
+        ownerEmail: user.email,
+        inviteToken: newInviteToken,
+        expiresAt: newExpiresAt,
+      },
+      invitation.invitationType === 'new_user'
+    );
+
+    if (!emailResult.success) {
+      console.error('Failed to send invitation reminder email:', emailResult.error);
+      // Don't fail the whole request if email fails
+    }
 
     // 13. Return success response
     return NextResponse.json({
@@ -156,6 +175,7 @@ export async function POST(
         sentAt: updatedInvitation.sentAt,
         expiresAt: updatedInvitation.expiresAt,
       },
+      emailSent: emailResult.success,
     });
 
   } catch (error: any) {
