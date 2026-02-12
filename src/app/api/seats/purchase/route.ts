@@ -1,15 +1,10 @@
 // File Location: src/app/api/seats/purchase/route.ts
-// API endpoint to purchase seats for the first time
+// API endpoint to purchase seats (first time) - with admin support
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import {
-  purchaseSeats,
-  canPurchaseSeats,
-  isValidSeatQuantity,
-  calculateMonthlyCost,
-} from '@/lib/stripe-seats';
+import { purchaseSeats, canPurchaseSeats, calculateMonthlyCost } from '@/lib/stripe-seats';
 
 export async function POST(request: Request) {
   try {
@@ -25,13 +20,12 @@ export async function POST(request: Request) {
 
     // 2. Get request body
     const body = await request.json();
-    const { numberOfSeats } = body;
+    const { quantity } = body;
 
-    // 3. Validate seat quantity
-    const validation = isValidSeatQuantity(numberOfSeats);
-    if (!validation.valid) {
+    // 3. Validate input
+    if (!quantity || typeof quantity !== 'number' || quantity < 1) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: 'Valid quantity is required' },
         { status: 400 }
       );
     }
@@ -47,8 +41,7 @@ export async function POST(request: Request) {
         stripeCustomerId: true,
         stripeSubscriptionId: true,
         purchasedSeats: true,
-        usedSeats: true,
-        availableSeats: true,
+        seatSubscriptionItemId: true,
       },
     });
 
@@ -59,43 +52,34 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Check if user already has seats
+    // 5. Check if already purchased seats
     if (user.purchasedSeats > 0) {
       return NextResponse.json(
         { 
-          error: 'You already have seats. Use the "Add Seats" option to purchase more.',
-          currentSeats: user.purchasedSeats 
+          error: 'You have already purchased seats. Use the "Add More Seats" option instead.',
+          currentSeats: user.purchasedSeats,
         },
         { status: 400 }
       );
     }
 
     // 6. Check if user can purchase seats
-    const canPurchase = await canPurchaseSeats(
-      user.subscriptionStatus,
-      user.isAdmin
-    );
-
-    if (!canPurchase.canPurchase) {
+    const canPurchase = await canPurchaseSeats(user.subscriptionStatus, user.isAdmin);
+    
+    if (!canPurchase.allowed) {
       return NextResponse.json(
         { error: canPurchase.reason },
         { status: 403 }
       );
     }
 
-    // 7. Verify Stripe customer and subscription exist
-    if (!user.stripeCustomerId || !user.stripeSubscriptionId) {
-      return NextResponse.json(
-        { error: 'Stripe customer or subscription not found. Please contact support.' },
-        { status: 400 }
-      );
-    }
-
-    // 8. Purchase seats through Stripe
+    // 7. Purchase seats via Stripe (or bypass for admins)
     const result = await purchaseSeats(
+      user.id,
       user.stripeCustomerId,
       user.stripeSubscriptionId,
-      numberOfSeats
+      quantity,
+      user.isAdmin
     );
 
     if (!result.success) {
@@ -105,35 +89,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // 9. Update user in database
-    const updatedUser = await prisma.user.update({
+    // 8. Update user in database
+    await prisma.user.update({
       where: { id: user.id },
       data: {
-        purchasedSeats: numberOfSeats,
+        purchasedSeats: quantity,
         usedSeats: 0,
-        availableSeats: numberOfSeats,
+        availableSeats: quantity,
         seatSubscriptionItemId: result.subscriptionItemId,
-      },
-      select: {
-        purchasedSeats: true,
-        usedSeats: true,
-        availableSeats: true,
-        seatSubscriptionItemId: true,
       },
     });
 
-    // 10. Calculate monthly cost
-    const monthlyCost = calculateMonthlyCost(numberOfSeats);
+    // 9. Calculate cost
+    const monthlyCost = calculateMonthlyCost(quantity, user.isAdmin);
 
-    // 11. Return success response
+    // 10. Return success
     return NextResponse.json({
       success: true,
-      message: `Successfully purchased ${numberOfSeats} seat${numberOfSeats > 1 ? 's' : ''}`,
+      message: user.isAdmin
+        ? `Successfully purchased ${quantity} seat${quantity > 1 ? 's' : ''} (Admin - Free)`
+        : `Successfully purchased ${quantity} seat${quantity > 1 ? 's' : ''}!`,
       seats: {
-        purchased: updatedUser.purchasedSeats,
-        used: updatedUser.usedSeats,
-        available: updatedUser.availableSeats,
-        monthlyCost: monthlyCost,
+        purchased: quantity,
+        used: 0,
+        available: quantity,
+      },
+      billing: {
+        monthlyCost,
+        pricePerSeat: user.isAdmin ? 0 : 9.99,
+        isAdmin: user.isAdmin,
       },
     });
 

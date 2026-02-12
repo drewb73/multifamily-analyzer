@@ -1,15 +1,10 @@
 // File Location: src/app/api/seats/add/route.ts
-// API endpoint to add more seats to existing subscription
+// API endpoint to add more seats - with admin support
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import {
-  addSeats,
-  isValidSeatQuantity,
-  calculateMonthlyCost,
-  getMaxSeats,
-} from '@/lib/stripe-seats';
+import { addSeats, calculateMonthlyCost, getMaxSeats } from '@/lib/stripe-seats';
 
 export async function POST(request: Request) {
   try {
@@ -27,10 +22,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { additionalSeats } = body;
 
-    // 3. Validate additional seats
-    if (!additionalSeats || additionalSeats < 1) {
+    // 3. Validate input
+    if (!additionalSeats || typeof additionalSeats !== 'number' || additionalSeats < 1) {
       return NextResponse.json(
-        { error: 'Must add at least 1 seat' },
+        { error: 'Valid additional seats quantity is required' },
         { status: 400 }
       );
     }
@@ -41,6 +36,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         email: true,
+        isAdmin: true,
         purchasedSeats: true,
         usedSeats: true,
         availableSeats: true,
@@ -56,33 +52,33 @@ export async function POST(request: Request) {
     }
 
     // 5. Check if user has purchased seats
-    if (user.purchasedSeats === 0 || !user.seatSubscriptionItemId) {
+    if (user.purchasedSeats === 0) {
       return NextResponse.json(
-        { error: 'No existing seat subscription found. Use "Purchase Seats" first.' },
+        { error: 'You must purchase seats first before adding more' },
         { status: 400 }
       );
     }
 
-    // 6. Check if new total would exceed maximum
+    // 6. Check if would exceed maximum
     const newTotal = user.purchasedSeats + additionalSeats;
-    const maxSeats = getMaxSeats();
-
-    if (newTotal > maxSeats) {
+    if (newTotal > getMaxSeats()) {
       return NextResponse.json(
         { 
-          error: `Cannot exceed ${maxSeats} total seats. You currently have ${user.purchasedSeats} seats.`,
+          error: `Total seats would exceed maximum of ${getMaxSeats()}`,
           currentSeats: user.purchasedSeats,
-          maxSeats: maxSeats,
+          maxSeats: getMaxSeats(),
         },
         { status: 400 }
       );
     }
 
-    // 7. Add seats through Stripe
+    // 7. Add seats via Stripe (or bypass for admins)
     const result = await addSeats(
-      user.seatSubscriptionItemId,
+      user.id,
+      user.seatSubscriptionItemId || '',
       user.purchasedSeats,
-      additionalSeats
+      additionalSeats,
+      user.isAdmin
     );
 
     if (!result.success) {
@@ -93,36 +89,33 @@ export async function POST(request: Request) {
     }
 
     // 8. Update user in database
-    const updatedUser = await prisma.user.update({
+    await prisma.user.update({
       where: { id: user.id },
       data: {
         purchasedSeats: newTotal,
-        availableSeats: user.availableSeats + additionalSeats,
-      },
-      select: {
-        purchasedSeats: true,
-        usedSeats: true,
-        availableSeats: true,
+        availableSeats: newTotal - user.usedSeats,
       },
     });
 
-    // 9. Calculate new monthly cost
-    const newMonthlyCost = calculateMonthlyCost(newTotal);
-    const additionalMonthlyCost = calculateMonthlyCost(additionalSeats);
+    // 9. Calculate costs
+    const monthlyCost = calculateMonthlyCost(newTotal, user.isAdmin);
+    const additionalCost = calculateMonthlyCost(additionalSeats, user.isAdmin);
 
-    // 10. Return success response
+    // 10. Return success
     return NextResponse.json({
       success: true,
-      message: `Successfully added ${additionalSeats} seat${additionalSeats > 1 ? 's' : ''}`,
+      message: user.isAdmin
+        ? `Successfully added ${additionalSeats} seat${additionalSeats > 1 ? 's' : ''} (Admin - Free)`
+        : `Successfully added ${additionalSeats} seat${additionalSeats > 1 ? 's' : ''}!`,
       seats: {
-        purchased: updatedUser.purchasedSeats,
-        used: updatedUser.usedSeats,
-        available: updatedUser.availableSeats,
-        monthlyCost: newMonthlyCost,
+        purchased: newTotal,
+        used: user.usedSeats,
+        available: newTotal - user.usedSeats,
       },
       billing: {
-        additionalMonthlyCost: additionalMonthlyCost,
-        newTotalMonthlyCost: newMonthlyCost,
+        newMonthlyCost: monthlyCost,
+        additionalMonthlyCost: additionalCost,
+        isAdmin: user.isAdmin,
       },
     });
 

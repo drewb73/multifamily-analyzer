@@ -1,84 +1,102 @@
 // File Location: src/lib/stripe-seats.ts
-// Stripe helper functions for team workspace seat management
+// Stripe helper functions for seat management with admin bypass
 
 import Stripe from 'stripe';
 
-// Initialize Stripe with your API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-12-15.clover',
+  apiVersion: '2025-12-15.clover' as any,
 });
 
-// ============================================================================
-// TYPES
-// ============================================================================
+// Constants
+export const SEAT_PRICE = 9.99;
+export const MAX_SEATS = 25;
 
-export interface SeatPurchaseResult {
+// Get seat price ID from environment
+function getSeatPriceId(): string {
+  const priceId = process.env.STRIPE_SEAT_PRICE_ID;
+  if (!priceId) {
+    throw new Error('STRIPE_SEAT_PRICE_ID not configured');
+  }
+  return priceId;
+}
+
+// Check if user has valid Premium subscription (Stripe or manual)
+export async function canPurchaseSeats(
+  subscriptionStatus: string,
+  isAdmin: boolean
+): Promise<{ allowed: boolean; reason?: string }> {
+  // Admins can always purchase seats
+  if (isAdmin) {
+    return { allowed: true };
+  }
+
+  // Must have Premium subscription (Stripe or manual grant)
+  if (subscriptionStatus !== 'premium') {
+    return {
+      allowed: false,
+      reason: 'Premium subscription required to purchase seats',
+    };
+  }
+
+  return { allowed: true };
+}
+
+// Purchase seats for the first time
+export async function purchaseSeats(
+  userId: string,
+  stripeCustomerId: string | null,
+  stripeSubscriptionId: string | null,
+  quantity: number,
+  isAdmin: boolean
+): Promise<{
   success: boolean;
   subscriptionItemId?: string;
   error?: string;
-}
-
-export interface SeatInfo {
-  purchased: number;
-  used: number;
-  available: number;
-  monthlyCost: number;
-  subscriptionItemId?: string;
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const SEAT_PRICE_ID = process.env.STRIPE_SEAT_PRICE_ID!;
-const SEAT_PRICE = 9.99; // $9.99 per seat per month
-const MAX_SEATS = 25; // Maximum seats allowed per workspace
-
-// ============================================================================
-// MAIN FUNCTIONS
-// ============================================================================
-
-/**
- * Purchase seats for a workspace owner
- * Creates a new subscription or adds a subscription item to existing subscription
- */
-export async function purchaseSeats(
-  stripeCustomerId: string,
-  stripeSubscriptionId: string,
-  numberOfSeats: number
-): Promise<SeatPurchaseResult> {
+}> {
   try {
-    // Validation
-    if (numberOfSeats < 1 || numberOfSeats > MAX_SEATS) {
+    // Validate quantity
+    if (!isValidSeatQuantity(quantity)) {
       return {
         success: false,
-        error: `Number of seats must be between 1 and ${MAX_SEATS}`,
+        error: `Invalid quantity. Must be between 1 and ${MAX_SEATS}`,
       };
     }
 
-    // Get the existing subscription
+    // ADMIN BYPASS: Admins don't need Stripe
+    if (isAdmin) {
+      console.log(`🔑 Admin ${userId} purchasing ${quantity} seats (Stripe bypassed)`);
+      return {
+        success: true,
+        subscriptionItemId: 'admin-bypass', // Special value for admins
+      };
+    }
+
+    // Regular users must have Stripe customer and subscription
+    if (!stripeCustomerId || !stripeSubscriptionId) {
+      return {
+        success: false,
+        error: 'Stripe customer or subscription not found. Please ensure you have an active Premium subscription.',
+      };
+    }
+
+    // Get the subscription
     const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
-    // Check if they already have a seat subscription item
-    const existingSeatItem = subscription.items.data.find(
-      (item) => item.price.id === SEAT_PRICE_ID
-    );
-
-    if (existingSeatItem) {
-      // They already have seats, use addSeats instead
+    if (!subscription) {
       return {
         success: false,
-        error: 'User already has seats. Use addSeats() to add more.',
+        error: 'Subscription not found in Stripe',
       };
     }
 
-    // Add the seat subscription item to their existing subscription
+    // Add seat subscription item
     const subscriptionItem = await stripe.subscriptionItems.create({
       subscription: stripeSubscriptionId,
-      price: SEAT_PRICE_ID,
-      quantity: numberOfSeats,
-      proration_behavior: 'always_invoice', // Charge prorated amount immediately
+      price: getSeatPriceId(),
+      quantity: quantity,
     });
+
+    console.log(`✅ User ${userId} purchased ${quantity} seats via Stripe`);
 
     return {
       success: true,
@@ -93,41 +111,57 @@ export async function purchaseSeats(
   }
 }
 
-/**
- * Add more seats to an existing seat subscription
- */
+// Add more seats to existing subscription
 export async function addSeats(
+  userId: string,
   seatSubscriptionItemId: string,
-  currentSeats: number,
-  additionalSeats: number
-): Promise<SeatPurchaseResult> {
+  currentQuantity: number,
+  additionalSeats: number,
+  isAdmin: boolean
+): Promise<{
+  success: boolean;
+  newQuantity?: number;
+  error?: string;
+}> {
   try {
-    const newTotal = currentSeats + additionalSeats;
+    const newQuantity = currentQuantity + additionalSeats;
 
-    // Validation
-    if (newTotal > MAX_SEATS) {
+    // Validate new quantity
+    if (!isValidSeatQuantity(newQuantity)) {
       return {
         success: false,
-        error: `Cannot exceed ${MAX_SEATS} total seats. You currently have ${currentSeats} seats.`,
+        error: `Total seats would exceed maximum of ${MAX_SEATS}`,
       };
     }
 
-    if (additionalSeats < 1) {
+    // ADMIN BYPASS: Admins don't need Stripe
+    if (isAdmin) {
+      console.log(`🔑 Admin ${userId} adding ${additionalSeats} seats (Stripe bypassed)`);
       return {
-        success: false,
-        error: 'Must add at least 1 seat',
+        success: true,
+        newQuantity,
       };
     }
 
-    // Update the subscription item quantity
+    // Regular users need valid subscription item
+    if (!seatSubscriptionItemId || seatSubscriptionItemId === 'admin-bypass') {
+      return {
+        success: false,
+        error: 'No seat subscription found. Please purchase seats first.',
+      };
+    }
+
+    // Update subscription item quantity
     await stripe.subscriptionItems.update(seatSubscriptionItemId, {
-      quantity: newTotal,
-      proration_behavior: 'always_invoice', // Charge prorated amount
+      quantity: newQuantity,
+      proration_behavior: 'create_prorations', // Prorate the cost
     });
+
+    console.log(`✅ User ${userId} added ${additionalSeats} seats (new total: ${newQuantity})`);
 
     return {
       success: true,
-      subscriptionItemId: seatSubscriptionItemId,
+      newQuantity,
     };
   } catch (error: any) {
     console.error('Error adding seats:', error);
@@ -138,50 +172,81 @@ export async function addSeats(
   }
 }
 
-/**
- * Remove unused seats
- * Can only remove seats that aren't currently used by team members
- */
+// Remove unused seats
 export async function removeSeats(
+  userId: string,
   seatSubscriptionItemId: string,
-  currentSeats: number,
+  currentQuantity: number,
+  seatsToRemove: number,
   usedSeats: number,
-  seatsToRemove: number
-): Promise<SeatPurchaseResult> {
+  isAdmin: boolean
+): Promise<{
+  success: boolean;
+  newQuantity?: number;
+  error?: string;
+}> {
   try {
-    const newTotal = currentSeats - seatsToRemove;
+    const newQuantity = currentQuantity - seatsToRemove;
 
-    // Validation
-    if (seatsToRemove < 1) {
-      return {
-        success: false,
-        error: 'Must remove at least 1 seat',
-      };
-    }
-
-    if (newTotal < usedSeats) {
-      return {
-        success: false,
-        error: `Cannot remove seats. You have ${usedSeats} team members using seats. Remove team members first.`,
-      };
-    }
-
-    if (newTotal < 0) {
+    // Validate we're not removing more than we have
+    if (seatsToRemove > currentQuantity) {
       return {
         success: false,
         error: 'Cannot remove more seats than you have',
       };
     }
 
-    // Update the subscription item quantity
-    await stripe.subscriptionItems.update(seatSubscriptionItemId, {
-      quantity: newTotal,
-      proration_behavior: 'always_invoice', // Refund prorated amount
-    });
+    // Validate we're not removing seats that are in use
+    if (newQuantity < usedSeats) {
+      return {
+        success: false,
+        error: `Cannot remove seats that are in use. ${usedSeats} seats are currently being used by team members.`,
+      };
+    }
+
+    // Must keep at least 0 seats
+    if (newQuantity < 0) {
+      return {
+        success: false,
+        error: 'Invalid quantity',
+      };
+    }
+
+    // ADMIN BYPASS: Admins don't need Stripe
+    if (isAdmin) {
+      console.log(`🔑 Admin ${userId} removing ${seatsToRemove} seats (Stripe bypassed)`);
+      return {
+        success: true,
+        newQuantity,
+      };
+    }
+
+    // Regular users need valid subscription item
+    if (!seatSubscriptionItemId || seatSubscriptionItemId === 'admin-bypass') {
+      return {
+        success: false,
+        error: 'No seat subscription found',
+      };
+    }
+
+    // If removing all seats, delete the subscription item
+    if (newQuantity === 0) {
+      await stripe.subscriptionItems.del(seatSubscriptionItemId, {
+        proration_behavior: 'create_prorations',
+      });
+      console.log(`✅ User ${userId} removed all seats (subscription item deleted)`);
+    } else {
+      // Update subscription item quantity
+      await stripe.subscriptionItems.update(seatSubscriptionItemId, {
+        quantity: newQuantity,
+        proration_behavior: 'create_prorations', // Credit the account
+      });
+      console.log(`✅ User ${userId} removed ${seatsToRemove} seats (new total: ${newQuantity})`);
+    }
 
     return {
       success: true,
-      subscriptionItemId: seatSubscriptionItemId,
+      newQuantity,
     };
   } catch (error: any) {
     console.error('Error removing seats:', error);
@@ -192,116 +257,46 @@ export async function removeSeats(
   }
 }
 
-/**
- * Get current seat information for a user
- */
+// Get seat information
 export async function getSeatInfo(
   purchasedSeats: number,
   usedSeats: number,
-  seatSubscriptionItemId?: string
-): Promise<SeatInfo> {
+  isAdmin: boolean
+): Promise<{
+  purchased: number;
+  used: number;
+  available: number;
+  monthlyCost: number;
+  isAdmin: boolean;
+}> {
   const available = purchasedSeats - usedSeats;
-  const monthlyCost = purchasedSeats * SEAT_PRICE;
+  const monthlyCost = isAdmin ? 0 : purchasedSeats * SEAT_PRICE; // Admins don't pay
 
   return {
     purchased: purchasedSeats,
     used: usedSeats,
-    available: available,
-    monthlyCost: monthlyCost,
-    subscriptionItemId: seatSubscriptionItemId || undefined,
+    available,
+    monthlyCost,
+    isAdmin,
   };
 }
 
-/**
- * Calculate prorated cost for adding seats
- * We'll calculate this manually since we know the billing cycle
- */
-export async function calculateProratedCost(
-  additionalSeats: number
-): Promise<{ proratedAmount: number; nextBillingAmount: number }> {
-  try {
-    // For simplicity, we'll assume a 30-day month
-    // In production, you'd get this from the subscription
-    const fullMonthCost = additionalSeats * SEAT_PRICE;
-    
-    // Return the full month cost for now
-    // The actual proration happens automatically in Stripe
-    return {
-      proratedAmount: fullMonthCost, // Stripe will calculate actual proration
-      nextBillingAmount: fullMonthCost,
-    };
-  } catch (error) {
-    console.error('Error calculating prorated cost:', error);
-    return {
-      proratedAmount: 0,
-      nextBillingAmount: 0,
-    };
-  }
+// Helper: Calculate monthly cost
+export function calculateMonthlyCost(seats: number, isAdmin: boolean): number {
+  return isAdmin ? 0 : seats * SEAT_PRICE;
 }
 
-/**
- * Check if user can purchase seats
- * Must have Premium subscription
- */
-export async function canPurchaseSeats(
-  subscriptionStatus: string,
-  isAdmin: boolean
-): Promise<{ canPurchase: boolean; reason?: string }> {
-  // Admins can always purchase (for testing)
-  if (isAdmin) {
-    return { canPurchase: true };
-  }
-
-  // Must have premium subscription
-  if (subscriptionStatus !== 'premium') {
-    return {
-      canPurchase: false,
-      reason: 'Must have Premium subscription to purchase seats',
-    };
-  }
-
-  return { canPurchase: true };
+// Helper: Check if quantity is valid
+export function isValidSeatQuantity(quantity: number): boolean {
+  return quantity >= 1 && quantity <= MAX_SEATS;
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Get seat price constant
- */
-export function getSeatPrice(): number {
-  return SEAT_PRICE;
-}
-
-/**
- * Get max seats constant
- */
+// Helper: Get max seats
 export function getMaxSeats(): number {
   return MAX_SEATS;
 }
 
-/**
- * Calculate monthly cost for seats
- */
-export function calculateMonthlyCost(numberOfSeats: number): number {
-  return numberOfSeats * SEAT_PRICE;
-}
-
-/**
- * Validate seat quantity
- */
-export function isValidSeatQuantity(quantity: number): {
-  valid: boolean;
-  error?: string;
-} {
-  if (quantity < 1) {
-    return { valid: false, error: 'Must have at least 1 seat' };
-  }
-
-  if (quantity > MAX_SEATS) {
-    return { valid: false, error: `Cannot exceed ${MAX_SEATS} seats` };
-  }
-
-  return { valid: true };
+// Helper: Get seat price
+export function getSeatPrice(): number {
+  return SEAT_PRICE;
 }
