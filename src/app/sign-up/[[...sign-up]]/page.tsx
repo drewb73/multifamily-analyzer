@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/sign-up/[[...sign-up]]/page.tsx
-// Updated with team invitation support
+// Fixed: invitation error handling, token fallback for accept
 
 'use client'
 
@@ -41,6 +41,8 @@ export default function SignUpPage() {
   const [invitationToken, setInvitationToken] = useState<string | null>(null)
   const [invitationData, setInvitationData] = useState<InvitationData | null>(null)
   const [loadingInvitation, setLoadingInvitation] = useState(false)
+  // Separate invitation error from form errors so it doesn't block form
+  const [invitationError, setInvitationError] = useState<string | null>(null)
 
   // Check for invitation token on mount
   useEffect(() => {
@@ -53,21 +55,25 @@ export default function SignUpPage() {
 
   const loadInvitationData = async (token: string) => {
     setLoadingInvitation(true)
+    setInvitationError(null)
     try {
       const response = await fetch(`/api/team/invitations/validate?token=${token}`)
-      if (response.ok) {
-        const data = await response.json()
+      const data = await response.json()
+
+      if (response.ok && data.invitation) {
         setInvitationData(data.invitation)
-        // Pre-populate form
+        // Pre-populate form fields
         setEmail(data.invitation.email)
         setFirstName(data.invitation.firstName)
         setLastName(data.invitation.lastName)
       } else {
-        setError('Invalid or expired invitation. Please contact the workspace owner.')
+        // Show inline error on form but don't block it
+        setInvitationError(data.error || 'Could not load invitation details.')
+        console.error('Invitation load error:', data.error)
       }
-    } catch (error) {
-      console.error('Error loading invitation:', error)
-      setError('Failed to load invitation details.')
+    } catch (err) {
+      console.error('Error loading invitation:', err)
+      setInvitationError('Could not load invitation details. You can still sign up normally.')
     } finally {
       setLoadingInvitation(false)
     }
@@ -75,9 +81,7 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!isLoaded) return
-    
     setIsLoading(true)
     setError('')
 
@@ -88,14 +92,10 @@ export default function SignUpPage() {
         emailAddress: email,
         password,
       })
-
-      // Send email verification code
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
-      
       setPendingVerification(true)
     } catch (err: any) {
       console.error('Sign up error:', err)
-      
       if (err.errors?.[0]?.code === 'form_identifier_exists') {
         setError('An account with this email already exists.')
       } else if (err.errors?.[0]?.code === 'form_password_pwned') {
@@ -114,46 +114,53 @@ export default function SignUpPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!isLoaded) return
-    
     setIsLoading(true)
     setError('')
 
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code,
-      })
+      const completeSignUp = await signUp.attemptEmailAddressVerification({ code })
 
       if (completeSignUp.status === 'complete') {
         await setActive({ session: completeSignUp.createdSessionId })
         
-        // Wait for webhook to create user in database
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Wait for Clerk webhook to create the user in database
+        await new Promise(resolve => setTimeout(resolve, 2500))
         
         // If this was an invitation signup, accept the invitation
-        if (invitationToken && invitationData) {
+        // Use invitationData.id if available, fall back to looking up by token
+        if (invitationToken) {
           try {
-            const acceptResponse = await fetch(`/api/team/invitations/${invitationData.id}/accept`, {
-              method: 'POST',
-            })
-            
+            let acceptUrl: string;
+
+            if (invitationData?.id) {
+              // Best case: we have the invitation ID directly
+              acceptUrl = `/api/team/invitations/${invitationData.id}/accept`
+            } else {
+              // Fallback: accept by token (more resilient)
+              acceptUrl = `/api/team/invitations/accept-by-token?token=${invitationToken}`
+            }
+
+            const acceptResponse = await fetch(acceptUrl, { method: 'POST' })
+            const acceptData = await acceptResponse.json()
+
             if (acceptResponse.ok) {
-              // Successfully joined team - redirect to dashboard
+              console.log('✅ Invitation accepted automatically:', acceptData.message)
               router.push('/dashboard')
               return
             } else {
-              console.error('Failed to accept invitation automatically')
+              console.error('Failed to accept invitation:', acceptData.error)
+              // Still redirect to dashboard - webhook may have set them up already
             }
-          } catch (error) {
-            console.error('Error accepting invitation:', error)
+          } catch (err) {
+            console.error('Error accepting invitation:', err)
+            // Still redirect - webhook handles the core setup
           }
         }
         
-        // Check for redirect_url parameter (for checkout flow)
+        // Check for redirect_url parameter
         const urlParams = new URLSearchParams(window.location.search)
         const redirectUrl = urlParams.get('redirect_url')
-        
         if (redirectUrl) {
           router.push(decodeURIComponent(redirectUrl))
         } else {
@@ -162,7 +169,6 @@ export default function SignUpPage() {
       }
     } catch (err: any) {
       console.error('Verification error:', err)
-      
       if (err.errors?.[0]?.code === 'form_code_incorrect') {
         setError('Incorrect verification code. Please try again.')
       } else if (err.errors?.[0]?.message) {
@@ -177,22 +183,17 @@ export default function SignUpPage() {
 
   const resendCode = async () => {
     if (!isLoaded) return
-    
     setIsLoading(true)
     setError('')
-
     try {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
-      setError('') // Clear any previous errors
     } catch (err: any) {
-      console.error('Resend error:', err)
       setError(err.errors?.[0]?.message || 'Failed to resend code.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Show loading while settings are loading
   if (settingsLoading || loadingInvitation) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -201,7 +202,6 @@ export default function SignUpPage() {
     )
   }
 
-  // Check if sign up is disabled
   if (systemSettings && !systemSettings.signUpEnabled) {
     return <AuthMaintenancePage feature="Sign Up" />
   }
@@ -210,21 +210,17 @@ export default function SignUpPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
         <div className="w-full max-w-md">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Mail className="w-8 h-8 text-primary-600" />
             </div>
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-              Check Your Email
-            </h1>
+            <h1 className="text-3xl font-bold text-neutral-900 mb-2">Check Your Email</h1>
             <p className="text-neutral-600">
               We've sent a verification code to<br />
               <span className="font-medium text-neutral-900">{email}</span>
             </p>
           </div>
 
-          {/* Verification Form */}
           <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
             <form onSubmit={handleVerify} className="space-y-4">
               {error && (
@@ -285,7 +281,6 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           {invitationData ? (
             <>
@@ -297,6 +292,19 @@ export default function SignUpPage() {
               </h1>
               <p className="text-neutral-600">
                 You've been invited to join their workspace
+              </p>
+            </>
+          ) : invitationToken ? (
+            // Has token but invitation data failed to load - still show team UI
+            <>
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-primary-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+                Accept Team Invitation
+              </h1>
+              <p className="text-neutral-600">
+                Create your account to join the workspace
               </p>
             </>
           ) : (
@@ -311,15 +319,13 @@ export default function SignUpPage() {
           )}
         </div>
 
-        {/* Team Invitation Info */}
+        {/* Team invitation info box */}
         {invitationData && (
           <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-lg">
             <div className="flex items-start gap-3">
               <Users className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-primary-900">
-                  Team Workspace Invitation
-                </p>
+              <div>
+                <p className="text-sm font-medium text-primary-900">Team Workspace Invitation</p>
                 <p className="text-sm text-primary-700 mt-1">
                   You'll join {invitationData.ownerName}'s workspace after creating your account
                 </p>
@@ -328,7 +334,14 @@ export default function SignUpPage() {
           </div>
         )}
 
-        {/* Sign Up Form */}
+        {/* Invitation warning (non-blocking) */}
+        {invitationError && invitationToken && (
+          <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-warning-700">{invitationError}</p>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div id="clerk-captcha" className="hidden" />
@@ -342,9 +355,7 @@ export default function SignUpPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  First Name
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">First Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                   <input
@@ -358,11 +369,8 @@ export default function SignUpPage() {
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Last Name
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Last Name</label>
                 <input
                   type="text"
                   value={lastName}
@@ -376,9 +384,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Email Address
-              </label>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
@@ -394,9 +400,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
@@ -412,16 +416,10 @@ export default function SignUpPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-neutral-500 mt-1">
-                Must be at least 8 characters long
-              </p>
+              <p className="text-xs text-neutral-500 mt-1">Must be at least 8 characters long</p>
             </div>
 
             <button
@@ -435,7 +433,7 @@ export default function SignUpPage() {
                   Creating account...
                 </>
               ) : (
-                invitationData ? 'Create Account & Join Team' : 'Create Account'
+                invitationToken ? 'Create Account & Join Team' : 'Create Account'
               )}
             </button>
           </form>
@@ -448,7 +446,6 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-6 text-sm text-neutral-600">
           Professional multifamily property analysis made simple
         </div>

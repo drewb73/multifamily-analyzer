@@ -189,17 +189,14 @@ export async function POST(request: Request) {
         },
       });
 
-      // Reserve a seat (increment usedSeats, decrement availableSeats)
-      // Skip for admins
-      if (!owner.isAdmin) {
-        await tx.user.update({
-          where: { id: owner.id },
-          data: {
-            usedSeats: owner.usedSeats + 1,
-            availableSeats: owner.availableSeats - 1,
-          },
-        });
-      }
+      // Reserve a seat (always track usage, even for admins)
+      await tx.user.update({
+        where: { id: owner.id },
+        data: {
+          usedSeats: owner.usedSeats + 1,
+          availableSeats: Math.max(0, owner.availableSeats - 1),
+        },
+      });
 
       // If user exists, create notification for them
       if (invitedUser) {
