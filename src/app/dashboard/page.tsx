@@ -111,6 +111,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <PropertyAnalysisForm 
           draftId={analysisId} 
           userSubscriptionStatus={effectiveStatus}
+          isTeamMember={dbUser.isTeamMember}
           initialDealData={dealData}
         />
       </LockedFeatureWrapper>

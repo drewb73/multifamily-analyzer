@@ -22,6 +22,7 @@ import { SuccessToast } from '@/components/ui/SuccessToast'
 interface PropertyAnalysisFormProps {
   draftId?: string
   userSubscriptionStatus?: string | null
+  isTeamMember?: boolean
   initialDealData?: {  // ✅ NEW: For creating analysis from deal
     dealId: string
     address: string
@@ -41,6 +42,7 @@ interface PropertyAnalysisFormProps {
 export function PropertyAnalysisForm({ 
   draftId, 
   userSubscriptionStatus = null,
+  isTeamMember = false,
   initialDealData = null  // ✅ NEW
 }: PropertyAnalysisFormProps) {
   // ✅ CHECK FOR CLEAR FLAG IMMEDIATELY (before any hooks run)
@@ -213,7 +215,7 @@ export function PropertyAnalysisForm({
       // This prevents conflicts and makes the flow clearer
       
       // If we have a draftId and user is Premium, fetch from database first
-      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
       
       // ✅ IMPORTANT: Skip draft loading if we have initialDealData
       if (initialDealData) {
@@ -450,7 +452,7 @@ export function PropertyAnalysisForm({
     if (!pendingCalculation) return
     
     try {
-      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+      const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
       let savedAnalysisId = saveOptions.existingAnalysisId // Track analysis ID for deal creation
       
       if (isPremium) {
@@ -707,7 +709,7 @@ export function PropertyAnalysisForm({
         }}
         onConfirm={handleSaveConfirm}
         propertyAddress={formData.property?.address || ''}
-        isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'}
+        isPremium={userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember}
         linkedDealId={initialDealData?.dealId || null}  // ✅ Pass the deal ID!
       />
 
