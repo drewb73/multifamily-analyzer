@@ -1,3 +1,6 @@
+// FILE: src/app/api/dealiq/[id]/route.ts
+// COMPLETE FILE - DELETE function updated for workspace permissions
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -386,7 +389,7 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE - Delete a deal
+// ✅ DELETE - Delete a deal (UPDATED FOR WORKSPACE SHARING)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -397,10 +400,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // ✅ Get MongoDB User ID from Clerk ID
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
       where: { clerkId: clerkUserId },
-      select: { id: true }
+      select: { 
+        id: true, 
+        isTeamMember: true, 
+        teamWorkspaceOwnerId: true 
+      }
     })
 
     if (!user) {
@@ -408,6 +415,23 @@ export async function DELETE(
     }
 
     const mongoUserId = user.id
+
+    // ✅ Build workspace user IDs (same as GET route)
+    let workspaceUserIds = [mongoUserId]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      workspaceUserIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: mongoUserId },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    }
 
     // ✅ AWAIT params in Next.js 15
     const { id: paramId } = await params
@@ -417,26 +441,26 @@ export async function DELETE(
     // Check ID type
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // Find the deal
+    // ✅ CHANGED: Find deal that belongs to workspace
     let deal
     if (isObjectId) {
-      deal = await prisma.deal.findUnique({
-        where: { id: paramId }
+      deal = await prisma.deal.findFirst({
+        where: { 
+          id: paramId,
+          userId: { in: workspaceUserIds }  // ✅ Check workspace ownership
+        }
       })
-      if (deal && deal.userId !== mongoUserId) {
-        deal = null
-      }
     } else {
       deal = await prisma.deal.findFirst({
         where: {
-          userId: mongoUserId,
+          userId: { in: workspaceUserIds },  // ✅ Check workspace ownership
           dealId: paramId
         }
       })
     }
 
     if (!deal) {
-      return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Deal not found or you do not have permission to delete it' }, { status: 404 })
     }
 
     // Delete the deal (cascade will handle related records)
@@ -444,7 +468,7 @@ export async function DELETE(
       where: { id: deal.id }
     })
 
-    console.log('✅ Deal deleted successfully')
+    console.log('✅ Deal deleted successfully by workspace member')
 
     return NextResponse.json({ success: true })
 

@@ -1,4 +1,6 @@
-// src/app/api/analyses/[id]/route.ts
+// FILE: src/app/api/analyses/[id]/route.ts
+// COMPLETE FILE - DELETE function updated for workspace permissions
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -142,7 +144,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/analyses/[id] - Delete analysis
+// DELETE /api/analyses/[id] - Delete analysis (UPDATED FOR WORKSPACE SHARING)
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -154,32 +156,57 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { 
+        id: true, 
+        isTeamMember: true, 
+        teamWorkspaceOwnerId: true 
+      }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // ✅ Build workspace user IDs (same as GET route)
+    let workspaceUserIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      workspaceUserIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    }
+
     // Await params in Next.js 15
     const params = await context.params
 
-    // Check ownership
+    // ✅ CHANGED: Check workspace ownership
     const existing = await prisma.propertyAnalysis.findFirst({
       where: {
         id: params.id,
-        userId: user.id,
+        userId: { in: workspaceUserIds },  // ✅ Check workspace ownership
       }
     })
 
     if (!existing) {
-      return NextResponse.json({ error: 'Analysis not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Analysis not found or you do not have permission to delete it' }, { status: 404 })
     }
 
     await prisma.propertyAnalysis.delete({
       where: { id: params.id }
     })
+
+    console.log('✅ Analysis deleted successfully by workspace member')
 
     return NextResponse.json({ success: true })
   } catch (error) {
