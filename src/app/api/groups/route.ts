@@ -1,9 +1,11 @@
-// src/app/api/groups/route.ts
+// FILE: src/app/api/groups/route.ts
+// COMPLETE FILE - With workspace sharing
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/groups - List user's groups
+// GET /api/groups - List workspace groups
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth()
@@ -12,19 +14,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Fetch all groups for this user with analysis count
+    // ✅ Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    }
+
+    // ✅ Fetch all groups for workspace with analysis count
     const groups = await prisma.analysisGroup.findMany({
       where: {
-        userId: user.id,
+        userId: { in: userIds },
       },
       include: {
         _count: {
@@ -69,17 +89,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { 
+        id: true, 
+        subscriptionStatus: true,
+        isTeamMember: true 
+      }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is premium (only premium can create groups)
-    const isPremium = user.subscriptionStatus === 'premium' || user.subscriptionStatus === 'enterprise'
+    // ✅ Check if user is premium OR team member (team members have access)
+    const isPremium = user.subscriptionStatus === 'premium' || 
+                     user.subscriptionStatus === 'enterprise' || 
+                     user.isTeamMember
+    
     if (!isPremium) {
       return NextResponse.json(
         { error: 'Premium subscription required to create groups' },

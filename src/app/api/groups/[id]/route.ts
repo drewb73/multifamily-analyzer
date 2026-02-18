@@ -1,4 +1,6 @@
-// src/app/api/groups/[id]/route.ts
+// FILE: src/app/api/groups/[id]/route.ts
+// COMPLETE FILE - With workspace sharing
+
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
@@ -15,20 +17,40 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // ✅ Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    }
+
     const params = await context.params
 
+    // ✅ Check workspace ownership
     const group = await prisma.analysisGroup.findFirst({
       where: {
         id: params.id,
-        userId: user.id,
+        userId: { in: userIds },
       },
       include: {
         _count: {
@@ -65,7 +87,7 @@ export async function GET(
   }
 }
 
-// PUT /api/groups/[id] - Update group
+// PUT /api/groups/[id] - Update group (WORKSPACE SHARING)
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -77,21 +99,40 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // ✅ Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    }
+
     const params = await context.params
 
-    // Check ownership
+    // ✅ Check workspace ownership
     const existing = await prisma.analysisGroup.findFirst({
       where: {
         id: params.id,
-        userId: user.id,
+        userId: { in: userIds },
       }
     })
 
@@ -144,7 +185,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/groups/[id] - Delete group
+// DELETE /api/groups/[id] - Delete group (WORKSPACE SHARING)
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -156,21 +197,40 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // ✅ Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    }
+
     const params = await context.params
 
-    // Check ownership
+    // ✅ Check workspace ownership
     const existing = await prisma.analysisGroup.findFirst({
       where: {
         id: params.id,
-        userId: user.id,
+        userId: { in: userIds },
       }
     })
 
