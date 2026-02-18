@@ -1,9 +1,6 @@
-// COMPLETE FILE - DASHBOARD LAYOUT WITH MOBILE MENU STATE
+// COMPLETE FILE - DASHBOARD LAYOUT WITH TEAM MEMBER SUPPORT
 // Location: src/app/dashboard/layout.tsx
 // Action: REPLACE ENTIRE FILE
-// ✅ Manages mobile menu open/close state
-// ✅ Passes state between header and sidebar
-// ✅ Client component wrapper for state management
 
 import type { Metadata } from "next";
 import { MaintenanceLock } from "@/components/dashboard/MaintenanceLock";
@@ -65,6 +62,7 @@ export default async function DashboardLayout({
     <DashboardLayoutClient
       userSubscriptionStatus={effectiveStatus}
       trialHoursRemaining={trialHoursRemaining}
+      isTeamMember={dbUser?.isTeamMember || false}
     >
       {children}
     </DashboardLayoutClient>

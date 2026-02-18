@@ -1,5 +1,5 @@
 // File Location: src/app/api/team/members/[id]/route.ts
-// API endpoint to remove a team member (workspace owner only)
+// API endpoint to remove a team member - Next.js 15 + seat fix
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // 1. Authenticate the user
@@ -20,8 +20,18 @@ export async function DELETE(
       );
     }
 
-    // 2. Get team member ID from params
+    // 2. Get team member ID from params (await for Next.js 15)
+    const params = await context.params;
     const teamMemberId = params.id;
+
+    if (!teamMemberId) {
+      return NextResponse.json(
+        { error: 'Team member ID is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`🗑️ Attempting to remove team member: ${teamMemberId}`);
 
     // 3. Get user from database
     const user = await prisma.user.findUnique({
@@ -34,6 +44,7 @@ export async function DELETE(
         isAdmin: true,
         usedSeats: true,
         availableSeats: true,
+        purchasedSeats: true,
         isTeamMember: true,
       },
     });
@@ -75,6 +86,8 @@ export async function DELETE(
       );
     }
 
+    console.log(`👤 Found team member: ${teamMember.memberEmail}`);
+
     // 6. Verify the team member belongs to this owner
     if (teamMember.ownerId !== user.id) {
       return NextResponse.json(
@@ -90,6 +103,8 @@ export async function DELETE(
         where: { id: teamMemberId },
       });
 
+      console.log('✅ Team member record deleted');
+
       // Update the member's user record
       await tx.user.update({
         where: { id: teamMember.memberId },
@@ -99,16 +114,18 @@ export async function DELETE(
         },
       });
 
-      // Free up the seat (if not admin)
-      if (!user.isAdmin) {
-        await tx.user.update({
-          where: { id: user.id },
-          data: {
-            usedSeats: user.usedSeats - 1,
-            availableSeats: user.availableSeats + 1,
-          },
-        });
-      }
+      console.log('✅ Member user record updated');
+
+      // Free up the seat (always - removed isAdmin check)
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          usedSeats: Math.max(0, user.usedSeats - 1),
+          availableSeats: Math.min(user.purchasedSeats, user.availableSeats + 1),
+        },
+      });
+
+      console.log(`✅ Seat freed: usedSeats ${user.usedSeats} -> ${user.usedSeats - 1}`);
 
       // Create notification for the removed member
       await tx.notification.create({
@@ -123,7 +140,11 @@ export async function DELETE(
           },
         },
       });
+
+      console.log('✅ Notification sent to removed member');
     });
+
+    console.log(`✅ Successfully removed ${teamMember.memberEmail} from workspace`);
 
     // 8. Return success response
     return NextResponse.json({
@@ -137,9 +158,17 @@ export async function DELETE(
     });
 
   } catch (error: any) {
-    console.error('Error removing team member:', error);
+    console.error('❌ Error removing team member:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+    });
+    
     return NextResponse.json(
-      { error: 'Failed to remove team member. Please try again.' },
+      { 
+        error: 'Failed to remove team member. Please try again.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

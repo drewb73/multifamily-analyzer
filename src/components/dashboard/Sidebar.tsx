@@ -22,14 +22,16 @@ import { useClerk } from '@clerk/nextjs'
 import { NumexRELogo } from './NumexRELogo' // ← NEW: Professional logo
 
 interface DashboardSidebarProps {
+  isTeamMember: boolean
   userSubscriptionStatus: string | null
   trialHoursRemaining?: number
   mobileMenuOpen?: boolean
   onMobileMenuClose?: () => void
 }
 
-export default function DashboardSidebar({ 
+export default function DashboardSidebar({
   userSubscriptionStatus,
+  isTeamMember,
   trialHoursRemaining,
   mobileMenuOpen = false,
   onMobileMenuClose
@@ -40,7 +42,8 @@ export default function DashboardSidebar({
   const { signOut } = useClerk()
 
   // Determine what's locked based on subscription
-  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+  // Team members get premium access through their workspace owner
+  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
   const isTrial = userSubscriptionStatus === 'trial'
   const isFree = !isPremium && !isTrial
 

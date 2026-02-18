@@ -1,9 +1,6 @@
-// COMPLETE FILE - CLIENT COMPONENT FOR DASHBOARD LAYOUT
+// COMPLETE FILE - CLIENT COMPONENT FOR DASHBOARD LAYOUT WITH TEAM MEMBER SUPPORT
 // Location: src/components/dashboard/DashboardLayoutClient.tsx
-// Action: CREATE NEW FILE
-// ✅ Manages mobile menu state
-// ✅ Connects header and sidebar
-// ✅ Handles mobile menu open/close
+// Action: REPLACE ENTIRE FILE
 
 'use client'
 
@@ -14,12 +11,14 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader"
 interface DashboardLayoutClientProps {
   userSubscriptionStatus: string | null
   trialHoursRemaining: number
+  isTeamMember: boolean
   children: React.ReactNode
 }
 
 export default function DashboardLayoutClient({
   userSubscriptionStatus,
   trialHoursRemaining,
+  isTeamMember,
   children
 }: DashboardLayoutClientProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -34,6 +33,7 @@ export default function DashboardLayoutClient({
         <DashboardSidebar 
           userSubscriptionStatus={userSubscriptionStatus}
           trialHoursRemaining={trialHoursRemaining}
+          isTeamMember={isTeamMember}
           mobileMenuOpen={mobileMenuOpen}
           onMobileMenuClose={() => setMobileMenuOpen(false)}
         />
