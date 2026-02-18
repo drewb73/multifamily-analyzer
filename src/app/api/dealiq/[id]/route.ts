@@ -1,11 +1,11 @@
 // FILE: src/app/api/dealiq/[id]/route.ts
-// COMPLETE FILE - DELETE function updated for workspace permissions
+// COMPLETE FILE - All functions updated for workspace sharing
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// ✅ GET - Fetch a single deal with all relations
+// ✅ GET - Fetch a single deal with all relations (WORKSPACE SHARING)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,32 +16,56 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // ✅ FIRST: Get the MongoDB User ID from Clerk ID
+    // ✅ Get user with workspace info
     const user = await prisma.user.findUnique({
       where: { clerkId: clerkUserId },
-      select: { id: true }
+      select: { 
+        id: true, 
+        isTeamMember: true, 
+        teamWorkspaceOwnerId: true 
+      }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const mongoUserId = user.id  // ✅ This is the MongoDB ObjectID
+    const mongoUserId = user.id
+
+    // ✅ Build workspace user IDs
+    let workspaceUserIds = [mongoUserId]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      workspaceUserIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: mongoUserId },
+        select: { memberId: true }
+      })
+      members.forEach(m => workspaceUserIds.push(m.memberId))
+    }
 
     // ✅ AWAIT params in Next.js 15
     const { id: paramId } = await params
     
-    console.log('🔍 Looking for deal with ID:', paramId, 'for user:', mongoUserId)
+    console.log('🔍 Looking for deal:', paramId, 'Workspace users:', workspaceUserIds)
 
     // Check if paramId is a MongoDB ObjectID (24 hex chars) or a dealId (numeric string)
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // Query by the appropriate ID type
+    // Query by the appropriate ID type with WORKSPACE SHARING
     let deal
     if (isObjectId) {
-      // Query by MongoDB id
-      deal = await prisma.deal.findUnique({
-        where: { id: paramId },
+      // Query by MongoDB id - CHECK WORKSPACE OWNERSHIP
+      deal = await prisma.deal.findFirst({
+        where: { 
+          id: paramId,
+          userId: { in: workspaceUserIds }
+        },
         include: {
           contacts: true,
           notes: {
@@ -71,15 +95,11 @@ export async function GET(
           }
         }
       })
-      // Verify ownership
-      if (deal && deal.userId !== mongoUserId) {
-        deal = null
-      }
     } else {
-      // Query by dealId + userId
+      // Query by dealId - CHECK WORKSPACE OWNERSHIP
       deal = await prisma.deal.findFirst({
         where: {
-          userId: mongoUserId,
+          userId: { in: workspaceUserIds },
           dealId: paramId
         },
         include: {
@@ -114,6 +134,7 @@ export async function GET(
     }
 
     if (!deal) {
+      console.log('❌ Deal not found in workspace')
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
 
@@ -122,10 +143,11 @@ export async function GET(
     if (deal.analysisId) {
       console.log('⚠️ Analysis relation is null, fetching manually for ID:', deal.analysisId)
       
+      // ✅ Check workspace for analysis too
       analysis = await prisma.propertyAnalysis.findFirst({
         where: {
           id: deal.analysisId,
-          userId: mongoUserId
+          userId: { in: workspaceUserIds }
         }
       })
       
@@ -134,7 +156,7 @@ export async function GET(
       }
     }
 
-    console.log('✅ Deal found:', deal.dealId)
+    console.log('✅ Deal found by workspace member:', deal.dealId)
 
     return NextResponse.json({
       success: true,
@@ -272,7 +294,6 @@ export async function PATCH(
       changes.push({ field: 'squareFeet', old: deal.squareFeet, new: body.squareFeet })
     }
 
-    // ✅ NEW: Track financing type changes
     if (body.financingType !== undefined && body.financingType !== deal.financingType) {
       changes.push({ field: 'financingType', old: deal.financingType, new: body.financingType })
     }
@@ -307,7 +328,6 @@ export async function PATCH(
         squareFeet: body.squareFeet !== undefined ? body.squareFeet : deal.squareFeet,
         pricePerSqft: body.pricePerSqft !== undefined ? body.pricePerSqft : deal.pricePerSqft,
         
-        // ✅ NEW: Financing type
         financingType: body.financingType !== undefined ? body.financingType : deal.financingType,
         
         updatedAt: new Date(),
@@ -389,7 +409,7 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE - Delete a deal (UPDATED FOR WORKSPACE SHARING)
+// ✅ DELETE - Delete a deal (WORKSPACE SHARING)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -416,7 +436,7 @@ export async function DELETE(
 
     const mongoUserId = user.id
 
-    // ✅ Build workspace user IDs (same as GET route)
+    // ✅ Build workspace user IDs
     let workspaceUserIds = [mongoUserId]
     if (user.isTeamMember && user.teamWorkspaceOwnerId) {
       workspaceUserIds.push(user.teamWorkspaceOwnerId)
@@ -441,19 +461,19 @@ export async function DELETE(
     // Check ID type
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(paramId)
 
-    // ✅ CHANGED: Find deal that belongs to workspace
+    // ✅ Find deal that belongs to workspace
     let deal
     if (isObjectId) {
       deal = await prisma.deal.findFirst({
         where: { 
           id: paramId,
-          userId: { in: workspaceUserIds }  // ✅ Check workspace ownership
+          userId: { in: workspaceUserIds }
         }
       })
     } else {
       deal = await prisma.deal.findFirst({
         where: {
-          userId: { in: workspaceUserIds },  // ✅ Check workspace ownership
+          userId: { in: workspaceUserIds },
           dealId: paramId
         }
       })
