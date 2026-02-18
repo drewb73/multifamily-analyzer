@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/dashboard/settings/page.tsx
-// IMPROVEMENT: Fetch and pass cancelledAt to BillingCard for cancelled subscription display
+// MINIMAL CHANGE: Added isTeamMember tracking
 
 'use client'
 
@@ -25,17 +25,18 @@ export default function SettingsPage() {
     status: SubscriptionStatus
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
-    cancelledAt: Date | null // ✅ NEW: Track cancellation date
+    cancelledAt: Date | null
+    isTeamMember: boolean  // ✅ ADDED
   }>({
     status: 'free',
     trialEndsAt: null,
     subscriptionEndsAt: null,
-    cancelledAt: null // ✅ NEW
+    cancelledAt: null,
+    isTeamMember: false  // ✅ ADDED
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
   
-  // ✅ NEW: Load billing history separately
   const loadBillingHistory = async () => {
     if (!user) return
     
@@ -59,7 +60,6 @@ export default function SettingsPage() {
     
     setIsLoading(true)
     try {
-      // Fetch user profile from MongoDB
       const response = await fetch('/api/user/profile')
       if (response.ok) {
         const data = await response.json()
@@ -69,18 +69,16 @@ export default function SettingsPage() {
           company: data.company || ''
         })
         
-        // ✅ UPDATED: Also fetch cancelledAt
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
           subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null,
-          cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null // ✅ NEW
+          cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
+          isTeamMember: data.isTeamMember || false  // ✅ ADDED
         })
         
-        // ✅ NEW: Load billing history after user data is loaded
         loadBillingHistory()
       } else {
-        // Fallback to Clerk data if profile doesn't exist yet
         setUserProfile({
           displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           email: user.emailAddresses[0]?.emailAddress || '',
@@ -98,7 +96,6 @@ export default function SettingsPage() {
     loadUserData()
   }, [user])
   
-  // Save profile changes
   const handleSaveProfile = async (data: typeof userProfile) => {
     try {
       const response = await fetch('/api/user/profile', {
@@ -114,7 +111,6 @@ export default function SettingsPage() {
       const updated = await response.json()
       setUserProfile(data)
       
-      // If email changed, might need to trigger verification
       if (data.email !== userProfile.email) {
         alert('Email updated! Please check your inbox to verify your new email address.')
       }
@@ -124,7 +120,6 @@ export default function SettingsPage() {
     }
   }
   
-  // Refresh subscription data after upgrade/cancel
   const handleRefreshSubscription = () => {
     loadUserData()
   }
@@ -153,6 +148,7 @@ export default function SettingsPage() {
         <AccountCard
           subscriptionStatus={subscriptionData.status}
           trialEndsAt={subscriptionData.trialEndsAt}
+          isTeamMember={subscriptionData.isTeamMember}  // ✅ ADDED
           onRefresh={handleRefreshSubscription}
         />
         
@@ -165,12 +161,11 @@ export default function SettingsPage() {
         {/* Security */}
         <SecurityCard />
         
-        {/* ✅ UPDATED: Pass cancelledAt to BillingCard */}
         {settings?.stripeEnabled ? (
           <BillingCard
             subscriptionStatus={subscriptionData.status}
             subscriptionEndsAt={subscriptionData.subscriptionEndsAt}
-            cancelledAt={subscriptionData.cancelledAt} // ✅ NEW: Pass cancellation date
+            cancelledAt={subscriptionData.cancelledAt}
             billingHistory={billingHistory}
           />
         ) : (

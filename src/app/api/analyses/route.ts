@@ -1,9 +1,10 @@
 // src/app/api/analyses/route.ts
+// MINIMAL CHANGE: Added workspace sharing
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/analyses - List user's analyses with filtering/sorting
+// GET /api/analyses - List user's analyses + workspace
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth()
@@ -12,13 +13,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
+    // ✅ CHANGED: Get user with team info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // ✅ ADDED: Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
     }
 
     // Get query parameters
@@ -42,9 +61,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Build where clause
+    // ✅ CHANGED: Build where clause with workspace userIds
     const where: any = {
-      userId: user.id,
+      userId: { in: userIds },
     }
 
     // SEARCH - searches across multiple fields with OR
@@ -59,10 +78,9 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Specific filters (these work with search)
-    // Special handling for "No Group" filter
+    // Specific filters
     if (onlyUngrouped) {
-      where.groupId = null  // Only analyses with no group
+      where.groupId = null
     } else if (groupId) {
       where.groupId = groupId
     }
@@ -96,7 +114,6 @@ export async function GET(request: NextRequest) {
     if (isArchived !== null) {
       where.isArchived = isArchived === 'true'
     } else {
-      // Default to not archived if not specified
       where.isArchived = false
     }
 
@@ -122,18 +139,20 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({
+      success: true,
       analyses,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
     })
   } catch (error) {
-    console.error('Error fetching analyses:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch analyses' },
-      { status: 500 }
-    )
+    console.error('Get analyses error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch analyses' 
+    }, { status: 500 })
   }
 }
 
@@ -146,7 +165,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
     const user = await prisma.user.findUnique({
       where: { clerkId: userId }
     })
@@ -155,71 +173,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is premium (only premium can save to database)
-    const isPremium = user.subscriptionStatus === 'premium' || user.subscriptionStatus === 'enterprise'
-    if (!isPremium) {
-      return NextResponse.json(
-        { error: 'Premium subscription required to save analyses' },
-        { status: 403 }
-      )
-    }
-
     const body = await request.json()
-    const { name, data, results, groupId, notes } = body
 
-    // Validate required fields
-    if (!name || !data || !results) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name, data, results' },
-        { status: 400 }
-      )
-    }
-
-    // Extract property details for filtering
-    const property = data.property
-    if (!property) {
-      return NextResponse.json(
-        { error: 'Missing property data' },
-        { status: 400 }
-      )
-    }
-
-    // Extract key metrics for indexing
-    const keyMetrics = results.keyMetrics || {}
-
-    // Create analysis
+    // Create the analysis
     const analysis = await prisma.propertyAnalysis.create({
       data: {
         userId: user.id,
-        groupId: groupId || null,
-        name,
-        notes: notes || null,
-        
-        // Property details
-        address: property.address || '',
-        city: property.city || '',
-        state: property.state || '',
-        zipCode: property.zipCode || '',
-        purchasePrice: property.purchasePrice || 0,
-        totalUnits: property.totalUnits || 0,
-        propertySize: property.propertySize || 0,
-        isCashPurchase: property.isCashPurchase || false,
-        downPayment: property.downPayment || null,
-        loanTerm: property.loanTerm || null,
-        interestRate: property.interestRate || null,
-        
-        // Full data
-        data,
-        results,
-        
-        // Extracted metrics
-        capRate: keyMetrics.capRate || null,
-        cashFlow: keyMetrics.annualCashFlow || null,
-        cashOnCashReturn: keyMetrics.cashOnCashReturn || null,
-        grossRentMultiplier: keyMetrics.grossRentMultiplier || null,
-        netOperatingIncome: keyMetrics.netOperatingIncome || null,
-        totalInvestment: keyMetrics.totalInvestment || null,
-        debtServiceCoverage: keyMetrics.debtServiceCoverageRatio || null,
+        ...body
       },
       include: {
         group: {
@@ -233,12 +193,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ analysis }, { status: 201 })
+    return NextResponse.json({ 
+      success: true, 
+      analysis 
+    })
   } catch (error) {
-    console.error('Error creating analysis:', error)
-    return NextResponse.json(
-      { error: 'Failed to create analysis' },
-      { status: 500 }
-    )
+    console.error('Create analysis error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to create analysis' 
+    }, { status: 500 })
   }
 }

@@ -14,6 +14,7 @@ import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface AccountCardProps {
+  isTeamMember?: boolean  // ✅ ADDED
   subscriptionStatus: SubscriptionStatus
   trialEndsAt: Date | null
   onRefresh?: () => void

@@ -1,12 +1,12 @@
 // FILE LOCATION: /src/app/api/dealiq/route.ts
-// PURPOSE: Main deals API - List and create deals
+// MINIMAL CHANGE: Added workspace sharing
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { generateDealId } from '@/lib/dealiq-constants'
 
-// GET - List all deals for current user
+// GET - List all deals for current user + workspace
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth()
@@ -15,19 +15,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user from database
+    // ✅ CHANGED: Get user with team info
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      select: { id: true, isTeamMember: true, teamWorkspaceOwnerId: true }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Get all deals for this user, sorted by created date (newest first)
+    // ✅ ADDED: Build workspace user IDs
+    let userIds = [user.id]
+    if (user.isTeamMember && user.teamWorkspaceOwnerId) {
+      userIds.push(user.teamWorkspaceOwnerId)
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.teamWorkspaceOwnerId },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    } else {
+      const members = await prisma.workspaceTeamMember.findMany({
+        where: { ownerId: user.id },
+        select: { memberId: true }
+      })
+      members.forEach(m => userIds.push(m.memberId))
+    }
+
+    // ✅ CHANGED: Query workspace deals
     const deals = await prisma.deal.findMany({
       where: {
-        userId: user.id
+        userId: { in: userIds }
       },
       orderBy: {
         createdAt: 'desc'
@@ -92,10 +110,9 @@ export async function POST(request: NextRequest) {
         units: body.units || null,
         pricePerUnit: body.units ? body.price / body.units : null,
         pricePerSqft: body.squareFeet ? body.price / body.squareFeet : null,
-        stage: 'prospecting', // Default stage
-        forecastStatus: 'non_forecastable', // Default forecast
+        stage: 'prospecting',
+        forecastStatus: 'non_forecastable',
         financingType: body.financingType || null,
-        // ✅ NEW: Add financing fields
         downPayment: body.downPayment || null,
         loanTerm: body.loanTerm || null,
         loanRate: body.loanRate || null,
