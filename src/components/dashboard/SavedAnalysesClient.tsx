@@ -262,27 +262,27 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
         if (selectedGroupId && selectedGroupId !== 'no-group') {
           // Specific group selected - fetch all counts separately
           const allResponse = await fetchAnalyses(countsParams)
-          setAllAnalysesCount(allResponse.total || 0)
+          setAllAnalysesCount(allResponse.pagination.total || 0)
           
           const ungroupedResponse = await fetchAnalyses({
             ...countsParams,
             onlyUngrouped: true,
           })
-          setUngroupedCount(ungroupedResponse.total || 0)
+          setUngroupedCount(ungroupedResponse.pagination.total || 0)
         } else if (selectedGroupId === 'no-group') {
           // "No Group" selected - fetch total count separately, use response for ungrouped count
           const allResponse = await fetchAnalyses(countsParams)
-          setAllAnalysesCount(allResponse.total || 0)
-          setUngroupedCount(response.total || 0)
+          setAllAnalysesCount(allResponse.pagination.total || 0)
+          setUngroupedCount(response.pagination.total || 0)
         } else {
           // "All Analyses" selected - fetch ungrouped count separately
-          setAllAnalysesCount(response.total || 0)
+          setAllAnalysesCount(allAnalysesResponse.pagination.total || 0)
           
           const ungroupedResponse = await fetchAnalyses({
             ...countsParams,
             onlyUngrouped: true,
           })
-          setUngroupedCount(ungroupedResponse.total || 0)
+          setUngroupedCount(ungroupedResponse.pagination.total || 0)
         }
       } else {
         // Free/Trial user - load from local storage
