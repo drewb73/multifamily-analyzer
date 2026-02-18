@@ -122,11 +122,12 @@ export async function DELETE(
 
         console.log('✅ Invitation status updated to rescinded');
 
-        // Free up the seat (if not admin and invitation was pending)
-        const shouldFreeSeat = !user.isAdmin && 
-          (invitation.status === 'pending' || 
-           invitation.status === 'pending_signup' || 
-           invitation.status === 'pending_premium_cancel');
+        // Free up the seat whenever a pending invitation is cancelled
+        const shouldFreeSeat = (
+          invitation.status === 'pending' || 
+          invitation.status === 'pending_signup' || 
+          invitation.status === 'pending_premium_cancel'
+        );
 
         if (shouldFreeSeat) {
           await tx.user.update({
@@ -139,7 +140,7 @@ export async function DELETE(
 
           console.log(`✅ Freed seat: usedSeats ${user.usedSeats} -> ${user.usedSeats - 1}`);
         } else {
-          console.log(`ℹ️ Seat not freed (admin: ${user.isAdmin}, status: ${invitation.status})`);
+          console.log(`ℹ️ Seat not freed (status: ${invitation.status})`);
         }
 
         // If invited user exists, create notification
@@ -170,7 +171,7 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
       message: `Invitation to ${invitation.invitedEmail} has been cancelled.`,
-      freedSeat: !user.isAdmin,
+      freedSeat: true,
     });
 
   } catch (error: any) {

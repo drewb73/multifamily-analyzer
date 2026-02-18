@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/system-settings',
   '/api/emergency-maintenance-off',  // Emergency route
   '/api/promo-modal/active',
+  '/api/team/invitations/validate',  // Public: called from sign-up page before user is logged in
 ])
 
 // Cache for admin check to avoid too many DB calls
