@@ -1,4 +1,5 @@
 // src/app/dashboard/saved/page.tsx
+// Updated with team member support
 import { SavedAnalysesClient } from '@/components/dashboard/SavedAnalysesClient';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
 import { MaintenanceLock } from '@/components/dashboard/MaintenanceLock';
@@ -31,9 +32,9 @@ export default async function SavedAnalysesPage() {
     dbUser.hasUsedTrial
   );
 
-  // Check if user can view saved analyses
-  const canViewSavedAnalyses = canUserPerformAction(effectiveStatus, 'viewSavedAnalyses');
-  const canStartTrial = effectiveStatus === 'free' && !dbUser.hasUsedTrial;
+  // Check if user can view saved analyses (team members get premium access)
+  const canViewSavedAnalyses = canUserPerformAction(effectiveStatus, 'viewSavedAnalyses', dbUser.isTeamMember);
+  const canStartTrial = effectiveStatus === 'free' && !dbUser.hasUsedTrial && !dbUser.isTeamMember;
 
   return (
     <div className="h-full flex flex-col">
@@ -55,13 +56,13 @@ export default async function SavedAnalysesPage() {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        {canViewSavedAnalyses ? (
-          // Premium user - show saved analyses with subscription status
+        <LockedFeatureWrapper 
+          isLocked={!canViewSavedAnalyses}
+          featureName="Saved Analyses"
+          canStartTrial={canStartTrial}
+        >
           <SavedAnalysesClient userSubscriptionStatus={effectiveStatus} />
-        ) : (
-          // Non-premium user - show locked feature
-          <LockedFeatureWrapper canStartTrial={canStartTrial} />
-        )}
+        </LockedFeatureWrapper>
       </div>
     </div>
   );

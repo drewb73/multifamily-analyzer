@@ -1,4 +1,5 @@
 // src/lib/subscription.ts
+// Updated to support team member access
 
 /**
  * Subscription Tier System
@@ -8,6 +9,7 @@
  * 2. TRIAL - 72 hours, Analysis unlocked, Saved Analyses locked, PDF export locked
  * 3. PREMIUM - Everything unlocked including PDF export
  * 4. ENTERPRISE - Hidden placeholder for now
+ * 5. TEAM MEMBER - Same access as Premium (through workspace owner)
  */
 
 export type SubscriptionStatus = 'free' | 'trial' | 'premium' | 'enterprise';
@@ -73,21 +75,32 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionStatus, SubscriptionTierConf
 
 /**
  * Get tier configuration for a subscription status
+ * Team members are treated as premium
  */
-export function getTierConfig(status: SubscriptionStatus): SubscriptionTierConfig {
+export function getTierConfig(
+  status: SubscriptionStatus,
+  isTeamMember: boolean = false
+): SubscriptionTierConfig {
+  // Team members get premium access regardless of their subscription status
+  if (isTeamMember) {
+    return SUBSCRIPTION_TIERS.premium;
+  }
   return SUBSCRIPTION_TIERS[status] || SUBSCRIPTION_TIERS.free;
 }
 
 /**
  * Check if user can perform an action based on their subscription
+ * Team members automatically get premium-level access
  */
 export function canUserPerformAction(
   subscriptionStatus: SubscriptionStatus | null,
-  action: 'analyze' | 'viewSavedAnalyses' | 'exportPDF' | 'accessDealIQ'
+  action: 'analyze' | 'viewSavedAnalyses' | 'exportPDF' | 'accessDealIQ',
+  isTeamMember: boolean = false
 ): boolean {
   if (!subscriptionStatus) return false;
   
-  const tier = getTierConfig(subscriptionStatus);
+  // Team members get premium access
+  const tier = getTierConfig(subscriptionStatus, isTeamMember);
   
   switch (action) {
     case 'analyze':
@@ -112,104 +125,92 @@ export function isTrialExpired(trialEndsAt: Date | null): boolean {
 }
 
 /**
- * Get trial time remaining in hours
+ * Calculate hours remaining in trial (for display)
  */
 export function getTrialHoursRemaining(trialEndsAt: Date | null): number {
   if (!trialEndsAt) return 0;
   
   const now = new Date();
   const end = new Date(trialEndsAt);
-  const diff = end.getTime() - now.getTime();
+  const hoursRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60)));
   
-  if (diff <= 0) return 0;
-  
-  return Math.ceil(diff / (1000 * 60 * 60)); // Convert to hours
+  return hoursRemaining;
 }
 
 /**
- * Get display badge for subscription status
+ * Get subscription badge info (for display)
+ * Team members show as "Team Member" badge
  */
-export function getSubscriptionBadge(status: SubscriptionStatus | null): {
+export function getSubscriptionBadge(
+  status: SubscriptionStatus | null,
+  isTeamMember: boolean = false
+): {
   text: string;
-  color: string;
+  color: 'gray' | 'blue' | 'green' | 'purple';
 } {
-  if (!status) {
-    return { text: 'Free', color: 'bg-neutral-100 text-neutral-700' };
+  // Team members get special badge
+  if (isTeamMember) {
+    return { text: 'Team Member', color: 'blue' };
   }
-  
+
+  if (!status) {
+    return { text: 'Free', color: 'gray' };
+  }
+
   const tier = getTierConfig(status);
   
   switch (status) {
     case 'trial':
-      return { text: tier.displayName, color: 'bg-warning-100 text-warning-700' };
+      return { text: tier.displayName, color: 'blue' };
     case 'premium':
-      return { text: tier.displayName, color: 'bg-success-100 text-success-700' };
+      return { text: tier.displayName, color: 'green' };
     case 'enterprise':
-      return { text: tier.displayName, color: 'bg-primary-100 text-primary-700' };
+      return { text: tier.displayName, color: 'purple' };
     default:
-      return { text: tier.displayName, color: 'bg-neutral-100 text-neutral-700' };
+      return { text: tier.displayName, color: 'gray' };
   }
 }
 
 /**
- * Get upgrade message based on current status and action
+ * Get upgrade message based on subscription status
  */
 export function getUpgradeMessage(
-  subscriptionStatus: SubscriptionStatus | null,
-  hasUsedTrial: boolean,
-  action: 'analyze' | 'viewSavedAnalyses' | 'exportPDF'
+  status: SubscriptionStatus | null,
+  hasUsedTrial: boolean = false,
+  isTeamMember: boolean = false
 ): string {
-  const tier = subscriptionStatus ? getTierConfig(subscriptionStatus) : null;
-  
-  // Free tier messages
-  if (subscriptionStatus === 'free') {
-    if (action === 'analyze') {
-      if (!hasUsedTrial) {
-        return '🚀 Start your FREE 72-hour trial to unlock property analysis!\n\nClick "Start Free Trial" in the top right corner.';
-      } else {
-        return '⭐ Upgrade to Premium to analyze properties!\n\nClick "Upgrade Account" in the top right corner.';
-      }
+  // Team members don't need to upgrade
+  if (isTeamMember) {
+    return '';
+  }
+
+  if (!status || status === 'free') {
+    if (!hasUsedTrial) {
+      return 'Start your 72-hour free trial or upgrade to Premium for unlimited access';
     }
+    return 'Upgrade to Premium for unlimited access to all features';
   }
   
-  // Trial tier messages
-  if (subscriptionStatus === 'trial') {
-    if (action === 'viewSavedAnalyses') {
-      return '⭐ Upgrade to Premium to save and view your analyses!\n\nYour trial allows you to create analyses, but saving requires Premium.';
-    }
-    if (action === 'exportPDF') {
-      return '⭐ Upgrade to Premium to export your analyses to PDF!\n\nClick "Upgrade Account" in the top right corner.';
-    }
+  if (status === 'trial') {
+    return 'Upgrade to Premium to keep access after your trial ends';
   }
   
-  // Default message
-  return '⭐ Upgrade to Premium to access this feature!\n\nClick "Upgrade Account" in the top right corner.';
+  return '';
 }
 
 /**
- * Determine effective subscription status
- * Handles trial expiration logic
+ * Get effective subscription status (handles trial expiration automatically)
+ * This is what should be used for display and access control
  */
 export function getEffectiveSubscriptionStatus(
-  subscriptionStatus: SubscriptionStatus | null,
+  dbStatus: SubscriptionStatus,
   trialEndsAt: Date | null,
-  hasUsedTrial: boolean
+  hasUsedTrial: boolean = false
 ): SubscriptionStatus {
-  // Premium/Enterprise always stay premium/enterprise
-  if (subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise') {
-    return subscriptionStatus;
-  }
-  
-  // If trial status but trial expired, convert to free
-  if (subscriptionStatus === 'trial' && isTrialExpired(trialEndsAt)) {
+  // If trial status but trial has expired, return free
+  if (dbStatus === 'trial' && isTrialExpired(trialEndsAt)) {
     return 'free';
   }
   
-  // If trial and not expired, stay trial
-  if (subscriptionStatus === 'trial') {
-    return 'trial';
-  }
-  
-  // Everything else is free
-  return 'free';
+  return dbStatus;
 }

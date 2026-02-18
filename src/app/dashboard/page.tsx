@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/dashboard/page.tsx
-// FIXED: Pass both MongoDB ID and dealId (7-digit number)
+// Updated with team member support
 
 import { PropertyAnalysisForm } from '@/components/analysis/PropertyAnalysisForm';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
@@ -15,7 +15,7 @@ import { prisma } from '@/lib/prisma';
 interface DashboardPageProps {
   searchParams: Promise<{ 
     analysisId?: string
-    fromDeal?: string  // ✅ For creating analysis from deal
+    fromDeal?: string  // For creating analysis from deal
   }>
 }
 
@@ -42,16 +42,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dbUser.hasUsedTrial
   );
 
-  // Check if user can analyze properties
-  const canAnalyze = canUserPerformAction(effectiveStatus, 'analyze');
-  const canStartTrial = effectiveStatus === 'free' && !dbUser.hasUsedTrial;
+  // Check if user can analyze properties (team members get premium access)
+  const canAnalyze = canUserPerformAction(effectiveStatus, 'analyze', dbUser.isTeamMember);
+  const canStartTrial = effectiveStatus === 'free' && !dbUser.hasUsedTrial && !dbUser.isTeamMember;
 
   // Get params (await for Next.js 15)
   const params = await searchParams;
   const analysisId = params.analysisId;
   const fromDeal = params.fromDeal;
   
-  // ✅ FIXED: Use the 7-digit dealId
+  // Use the 7-digit dealId
   let dealData = null;
   if (fromDeal) {
     try {
@@ -64,7 +64,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       
       if (deal) {
         dealData = {
-          dealId: String(deal.dealId),   // ✅ Use the 7-digit dealId
+          dealId: String(deal.dealId),   // Use the 7-digit dealId
           address: deal.address,
           city: deal.city,
           state: deal.state,
@@ -86,9 +86,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
-  console.log('🎯 SERVER: About to render with dealData:', dealData);
-  console.log('🎯 SERVER: dealData is null?', dealData === null);
-
   return (
     <div>
       <DashboardBanner />
@@ -106,17 +103,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </p>
       </div>
       
-      {canAnalyze ? (
-        // User can analyze - show the form with analysisId or dealData if present
+      <LockedFeatureWrapper 
+        isLocked={!canAnalyze}
+        featureName="Property Analysis"
+        canStartTrial={canStartTrial}
+      >
         <PropertyAnalysisForm 
           draftId={analysisId} 
           userSubscriptionStatus={effectiveStatus}
           initialDealData={dealData}
         />
-      ) : (
-        // User cannot analyze - show locked feature
-        <LockedFeatureWrapper canStartTrial={canStartTrial} />
-      )}
+      </LockedFeatureWrapper>
     </div>
   );
 }

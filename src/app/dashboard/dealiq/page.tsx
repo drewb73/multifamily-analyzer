@@ -83,13 +83,12 @@ export default function DealIQPage() {
           const data = await response.json()
           setSubscriptionStatus(data.subscriptionStatus)
           
-          // Check if user can access DealIQ (only premium/enterprise)
-          const isPremium = data.subscriptionStatus === 'premium' || data.subscriptionStatus === 'enterprise'
-          setCanAccessDealIQ(isPremium)
+          // Check if user can access DealIQ (premium, enterprise, or team member)
+          const isPremium = data.subscriptionStatus === 'premium' || data.subscriptionStatus === 'enterprise' || data.isTeamMember
           
           // Check if can start trial
           const isFree = data.subscriptionStatus === 'free'
-          setCanStartTrial(isFree && !data.hasUsedTrial)
+          setCanStartTrial(isFree && !data.hasUsedTrial && !data.isTeamMember)
         }
       } catch (error) {
         console.error('Failed to check access:', error)

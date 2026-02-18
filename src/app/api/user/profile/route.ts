@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/api/user/profile/route.ts
-// IMPROVEMENT: Return cancelledAt field for cancelled subscription display
+// Updated to return isTeamMember for client-side access control
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Return user profile
+    // Return user profile with team member status
     return NextResponse.json({
       displayName: user.firstName && user.lastName 
         ? `${user.firstName} ${user.lastName}` 
@@ -44,8 +44,10 @@ export async function GET(request: NextRequest) {
       subscriptionStatus: user.subscriptionStatus || 'free',
       trialEndsAt: user.trialEndsAt,
       subscriptionEndsAt: user.subscriptionEndsAt,
-      cancelledAt: user.cancelledAt, // ✅ NEW: Return cancellation date
-      billingHistory: [] // Will be populated after Stripe integration
+      cancelledAt: user.cancelledAt,
+      hasUsedTrial: user.hasUsedTrial,
+      isTeamMember: user.isTeamMember || false,  // ✅ NEW: Return team member status
+      billingHistory: []
     })
   } catch (error) {
     console.error('Error fetching user profile:', error)
@@ -78,63 +80,54 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       )
     }
-    
-    // Check if email is already in use by another user
-    if (email) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          email,
-          clerkId: { not: userId }
+
+    // Parse display name into first and last name
+    let firstName = ''
+    let lastName = ''
+    if (displayName) {
+      const parts = displayName.trim().split(' ')
+      firstName = parts[0] || ''
+      lastName = parts.slice(1).join(' ') || ''
+    }
+
+    // Find or create user
+    let user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    })
+
+    if (!user) {
+      // Create new user with default values
+      user = await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email: email || '',
+          firstName,
+          lastName,
+          ...(company !== undefined && { company }),
+          subscriptionStatus: 'free',
+          hasUsedTrial: false,
         }
       })
-      
-      if (existingUser) {
-        return NextResponse.json(
-          { error: 'Email already in use' },
-          { status: 409 }
-        )
-      }
+    } else {
+      // Update existing user
+      user = await prisma.user.update({
+        where: { clerkId: userId },
+        data: {
+          ...(email !== undefined && { email }),
+          ...(firstName !== undefined && { firstName }),
+          ...(lastName !== undefined && { lastName }),
+          ...(company !== undefined && { company }),
+        }
+      })
     }
-    
-    // Parse displayName into firstName and lastName
-    const nameParts = displayName?.trim().split(' ') || []
-    const firstName = nameParts[0] || ''
-    const lastName = nameParts.slice(1).join(' ') || ''
-    
-    // Prepare update data
-    const updateData: any = {
-      firstName: firstName || undefined,
-      lastName: lastName || undefined,
-      email: email || undefined,
-    }
-    
-    // Add company if provided (only if field exists in schema)
-    if (company !== undefined) {
-      updateData.company = company
-    }
-    
-    // Update user profile
-    const updatedUser = await prisma.user.upsert({
-      where: { clerkId: userId },
-      update: updateData,
-      create: {
-        clerkId: userId,
-        email: email || '',
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        ...(company !== undefined && { company }),
-        subscriptionStatus: 'free',
-        hasUsedTrial: false,
-      }
-    })
     
     return NextResponse.json({
       success: true,
-      displayName: updatedUser.firstName && updatedUser.lastName
-        ? `${updatedUser.firstName} ${updatedUser.lastName}`
-        : (updatedUser.firstName || ''),
-      email: updatedUser.email,
-      company: (updatedUser as any).company || ''
+      displayName: user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : (user.firstName || ''),
+      email: user.email,
+      company: (user as any).company || ''
     })
   } catch (error) {
     console.error('Error updating user profile:', error)
