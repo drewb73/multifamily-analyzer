@@ -1,5 +1,6 @@
-// src/app/dashboard/saved/page.tsx
-// Updated with team member support
+// FILE: src/app/dashboard/saved/page.tsx
+// COMPLETE FILE - Now passes isTeamMember to client component
+
 import { SavedAnalysesClient } from '@/components/dashboard/SavedAnalysesClient';
 import { LockedFeatureWrapper } from '@/components/dashboard/LockedFeatureWrapper';
 import { MaintenanceLock } from '@/components/dashboard/MaintenanceLock';
@@ -61,7 +62,10 @@ export default async function SavedAnalysesPage() {
           featureName="Saved Analyses"
           canStartTrial={canStartTrial}
         >
-          <SavedAnalysesClient userSubscriptionStatus={effectiveStatus} />
+          <SavedAnalysesClient 
+            userSubscriptionStatus={effectiveStatus} 
+            isTeamMember={dbUser.isTeamMember}
+          />
         </LockedFeatureWrapper>
       </div>
     </div>

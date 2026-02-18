@@ -179,9 +179,10 @@ MobileGroupSelector.displayName = 'MobileGroupSelector'
 
 interface SavedAnalysesClientProps {
   userSubscriptionStatus: string | null
+  isTeamMember?: boolean
 }
 
-export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesClientProps) {
+export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = false }: SavedAnalysesClientProps) {
   // Get userId from Clerk for user-scoped storage
   const { user } = useUser()
   const userId = user?.id
@@ -211,8 +212,8 @@ export function SavedAnalysesClient({ userSubscriptionStatus }: SavedAnalysesCli
   
   const sidebarRef = useRef<any>(null)
 
-  // Check if user is premium (can access database)
-  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+  // Check if user is premium (can access database) - includes team members
+  const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
 
   // Debounced load function
   const loadAnalyses = useCallback(async (search: string) => {
