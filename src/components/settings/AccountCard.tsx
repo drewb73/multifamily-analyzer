@@ -1,12 +1,12 @@
 // FILE LOCATION: /src/components/settings/AccountCard.tsx
-// FIX #3: Read cancelledAt from data.subscription.cancelledAt (correct API structure)
+// COMPLETE FILE with Team Member badge fix
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { User, Crown, Clock, Trash2, Shield, Loader2, Calendar, AlertTriangle, CheckCircle } from 'lucide-react'
+import { User, Crown, Clock, Trash2, Shield, Loader2, Calendar, AlertTriangle, CheckCircle, Users } from 'lucide-react'
 import Link from 'next/link'
 import { SubscriptionStatus, getSubscriptionBadge, getTrialHoursRemaining } from '@/lib/subscription'
 import { ManageSubscriptionModal } from '@/components/subscription/ManageSubscriptionModal'
@@ -14,13 +14,13 @@ import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface AccountCardProps {
-  isTeamMember?: boolean  // ✅ ADDED
+  isTeamMember?: boolean
   subscriptionStatus: SubscriptionStatus
   trialEndsAt: Date | null
   onRefresh?: () => void
 }
 
-export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, trialEndsAt, onRefresh }: AccountCardProps) {
+export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, trialEndsAt, isTeamMember = false, onRefresh }: AccountCardProps) {
   const router = useRouter()
   const { user } = useUser()
   const { signOut } = useClerk()
@@ -55,7 +55,6 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         if (response.ok) {
           const data = await response.json()
           
-          // ✅ FIX #3: Read from correct API structure (data.subscription.X)
           if (data.subscription) {
             setSubscriptionEndsAt(
               data.subscription.subscriptionEndsAt 
@@ -83,10 +82,10 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
     }
   }, [user])
   
-  const badge = getSubscriptionBadge(subscriptionStatus)
+  const badge = getSubscriptionBadge(subscriptionStatus, isTeamMember)
   const hoursRemaining = trialEndsAt ? getTrialHoursRemaining(trialEndsAt) : 0
   const showTrialExpiry = subscriptionStatus === 'trial' && hoursRemaining > 0
-  const showUpgrade = subscriptionStatus !== 'premium' && subscriptionStatus !== 'enterprise'
+  const showUpgrade = !isTeamMember && subscriptionStatus !== 'premium' && subscriptionStatus !== 'enterprise'
   
   // Check if subscription is cancelled but still active
   const isCancelledButActive = cancelledAt && subscriptionEndsAt && new Date() < subscriptionEndsAt
@@ -144,7 +143,6 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         throw new Error(data.error || 'Failed to cancel subscription')
       }
 
-      // ✅ FIX #3: Update local state with returned data
       if (data.cancelledAt) {
         setCancelledAt(new Date(data.cancelledAt))
       }
@@ -155,7 +153,6 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
       setShowManageModal(false)
       setSuccessMessage('Subscription cancelled. You\'ll have access until the end of your billing period.')
       
-      // Refresh the page to show updated status
       if (onRefresh) {
         onRefresh()
       }
@@ -180,7 +177,6 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         throw new Error(data.error || 'Failed to delete account')
       }
 
-      // Sign out and redirect
       await signOut()
       router.push('/?account=marked_for_deletion')
     } catch (error: any) {
@@ -195,10 +191,16 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-neutral-900">Account Information</h2>
           <div className="flex items-center gap-2">
-            {subscriptionStatus === 'premium' && <Crown className="w-5 h-5 text-success-600" />}
-            {subscriptionStatus === 'trial' && <Clock className="w-5 h-5 text-warning-600" />}
-            {subscriptionStatus === 'enterprise' && <Shield className="w-5 h-5 text-primary-600" />}
-            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${badge.color}`}>
+            {isTeamMember && <Users className="w-5 h-5 text-primary-600" />}
+            {!isTeamMember && subscriptionStatus === 'premium' && <Crown className="w-5 h-5 text-success-600" />}
+            {!isTeamMember && subscriptionStatus === 'trial' && <Clock className="w-5 h-5 text-warning-600" />}
+            {!isTeamMember && subscriptionStatus === 'enterprise' && <Shield className="w-5 h-5 text-primary-600" />}
+            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+              badge.color === 'green' ? 'bg-success-100 text-success-800' :
+              badge.color === 'blue' ? 'bg-primary-100 text-primary-800' :
+              badge.color === 'purple' ? 'bg-purple-100 text-purple-800' :
+              'bg-neutral-100 text-neutral-800'
+            }`}>
               {badge.text}
             </span>
           </div>
@@ -294,7 +296,7 @@ export function AccountCard({ subscriptionStatus: initialSubscriptionStatus, tri
         
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 pt-6 border-t border-neutral-200">
-          {/* Upgrade Button - Show if not premium */}
+          {/* Upgrade Button - Show if not premium and not team member */}
           {showUpgrade && (
             <button
               onClick={handleUpgrade}

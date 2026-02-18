@@ -1,5 +1,5 @@
 // FILE LOCATION: /src/app/dashboard/settings/page.tsx
-// MINIMAL CHANGE: Added isTeamMember tracking
+// UPDATED: Added TeamCard link
 
 'use client'
 
@@ -9,6 +9,7 @@ import { ProfileCard } from '@/components/settings/ProfileCard'
 import { AccountCard } from '@/components/settings/AccountCard'
 import { SecurityCard } from '@/components/settings/SecurityCard'
 import { BillingCard } from '@/components/settings/BillingCard'
+import { TeamCard } from '@/components/settings/TeamCard'  // ✅ NEW
 import { SubscriptionStatus } from '@/lib/subscription'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
@@ -26,16 +27,17 @@ export default function SettingsPage() {
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
     cancelledAt: Date | null
-    isTeamMember: boolean  // ✅ ADDED
+    isTeamMember: boolean
   }>({
     status: 'free',
     trialEndsAt: null,
     subscriptionEndsAt: null,
     cancelledAt: null,
-    isTeamMember: false  // ✅ ADDED
+    isTeamMember: false
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
+  const [hasTeamMembers, setHasTeamMembers] = useState(false)  // ✅ NEW
   
   const loadBillingHistory = async () => {
     if (!user) return
@@ -54,7 +56,19 @@ export default function SettingsPage() {
     }
   }
   
-  // Load user data
+  // ✅ NEW: Check if user has team members
+  const checkTeamStatus = async () => {
+    try {
+      const response = await fetch('/api/team/members')
+      if (response.ok) {
+        const data = await response.json()
+        setHasTeamMembers(data.members && data.members.length > 0)
+      }
+    } catch (error) {
+      console.error('Failed to check team status:', error)
+    }
+  }
+  
   const loadUserData = async () => {
     if (!user) return
     
@@ -74,10 +88,11 @@ export default function SettingsPage() {
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
           subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null,
           cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
-          isTeamMember: data.isTeamMember || false  // ✅ ADDED
+          isTeamMember: data.isTeamMember || false
         })
         
         loadBillingHistory()
+        checkTeamStatus()  // ✅ NEW
       } else {
         setUserProfile({
           displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
@@ -131,6 +146,9 @@ export default function SettingsPage() {
       </div>
     )
   }
+
+  // ✅ NEW: Determine if user is workspace owner (has team members but is not a team member themselves)
+  const isWorkspaceOwner = hasTeamMembers && !subscriptionData.isTeamMember
   
   return (
     <div>
@@ -148,7 +166,7 @@ export default function SettingsPage() {
         <AccountCard
           subscriptionStatus={subscriptionData.status}
           trialEndsAt={subscriptionData.trialEndsAt}
-          isTeamMember={subscriptionData.isTeamMember}  // ✅ ADDED
+          isTeamMember={subscriptionData.isTeamMember}
           onRefresh={handleRefreshSubscription}
         />
         
@@ -157,6 +175,14 @@ export default function SettingsPage() {
           initialData={userProfile}
           onSave={handleSaveProfile}
         />
+
+        {/* ✅ NEW: Team Workspace Card */}
+        {(subscriptionData.isTeamMember || isWorkspaceOwner) && (
+          <TeamCard
+            isTeamMember={subscriptionData.isTeamMember}
+            isWorkspaceOwner={isWorkspaceOwner}
+          />
+        )}
 
         {/* Security */}
         <SecurityCard />
