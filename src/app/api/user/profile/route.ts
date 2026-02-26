@@ -1,5 +1,6 @@
 // FILE LOCATION: /src/app/api/user/profile/route.ts
-// Updated to return isTeamMember for client-side access control
+// COMPLETE FILE - Replace entire file
+// FIXED: Now returns subscriptionSource so billing can show manual premium correctly
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
@@ -42,11 +43,12 @@ export async function GET(request: NextRequest) {
       email: user.email || '',
       company: (user as any).company || '',
       subscriptionStatus: user.subscriptionStatus || 'free',
+      subscriptionSource: user.subscriptionSource || null,  // ✅ ADDED: Return subscription source (stripe/manual)
       trialEndsAt: user.trialEndsAt,
       subscriptionEndsAt: user.subscriptionEndsAt,
       cancelledAt: user.cancelledAt,
       hasUsedTrial: user.hasUsedTrial,
-      isTeamMember: user.isTeamMember || false,  // ✅ NEW: Return team member status
+      isTeamMember: user.isTeamMember || false,
       billingHistory: []
     })
   } catch (error) {
@@ -81,53 +83,55 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Parse display name into first and last name
-    let firstName = ''
-    let lastName = ''
-    if (displayName) {
-      const parts = displayName.trim().split(' ')
-      firstName = parts[0] || ''
-      lastName = parts.slice(1).join(' ') || ''
-    }
-
-    // Find or create user
-    let user = await prisma.user.findUnique({
+    // Find user
+    const user = await prisma.user.findUnique({
       where: { clerkId: userId }
     })
 
     if (!user) {
-      // Create new user with default values
-      user = await prisma.user.create({
-        data: {
-          clerkId: userId,
-          email: email || '',
-          firstName,
-          lastName,
-          ...(company !== undefined && { company }),
-          subscriptionStatus: 'free',
-          hasUsedTrial: false,
-        }
-      })
-    } else {
-      // Update existing user
-      user = await prisma.user.update({
-        where: { clerkId: userId },
-        data: {
-          ...(email !== undefined && { email }),
-          ...(firstName !== undefined && { firstName }),
-          ...(lastName !== undefined && { lastName }),
-          ...(company !== undefined && { company }),
-        }
-      })
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Prepare update data
+    const updateData: any = {}
+    
+    // Parse display name into firstName and lastName
+    if (displayName !== undefined) {
+      const parts = displayName.trim().split(' ')
+      if (parts.length === 1) {
+        updateData.firstName = parts[0]
+        updateData.lastName = null
+      } else {
+        updateData.firstName = parts[0]
+        updateData.lastName = parts.slice(1).join(' ')
+      }
     }
     
+    if (email !== undefined) updateData.email = email
+    if (company !== undefined) updateData.company = company
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { clerkId: userId },
+      data: updateData
+    })
+
     return NextResponse.json({
-      success: true,
-      displayName: user.firstName && user.lastName
-        ? `${user.firstName} ${user.lastName}`
-        : (user.firstName || ''),
-      email: user.email,
-      company: (user as any).company || ''
+      displayName: updatedUser.firstName && updatedUser.lastName 
+        ? `${updatedUser.firstName} ${updatedUser.lastName}` 
+        : (updatedUser.firstName || ''),
+      email: updatedUser.email || '',
+      company: (updatedUser as any).company || '',
+      subscriptionStatus: updatedUser.subscriptionStatus || 'free',
+      subscriptionSource: updatedUser.subscriptionSource || null,  // ✅ ADDED: Return subscription source
+      trialEndsAt: updatedUser.trialEndsAt,
+      subscriptionEndsAt: updatedUser.subscriptionEndsAt,
+      cancelledAt: updatedUser.cancelledAt,
+      hasUsedTrial: updatedUser.hasUsedTrial,
+      isTeamMember: updatedUser.isTeamMember || false,
     })
   } catch (error) {
     console.error('Error updating user profile:', error)

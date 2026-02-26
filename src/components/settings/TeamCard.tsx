@@ -1,5 +1,6 @@
-// NEW FILE: src/components/settings/TeamCard.tsx
-// Add this new component for team settings link
+// FILE LOCATION: src/components/settings/TeamCard.tsx
+// COMPLETE FILE - Replace entire file
+// FIXED: Now shows for ALL premium users, not just those with existing teams
 
 'use client'
 
@@ -12,9 +13,8 @@ interface TeamCardProps {
 }
 
 export function TeamCard({ isTeamMember, isWorkspaceOwner }: TeamCardProps) {
-  if (!isTeamMember && !isWorkspaceOwner) {
-    return null // Don't show if not part of a team
-  }
+  // ✅ REMOVED: Don't hide the card! Show it for ALL premium users
+  // This allows premium users to discover the team feature even if they haven't invited anyone yet
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
@@ -25,7 +25,11 @@ export function TeamCard({ isTeamMember, isWorkspaceOwner }: TeamCardProps) {
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">Team Workspace</h2>
           <p className="text-sm text-neutral-600">
-            {isWorkspaceOwner ? 'Manage your team' : 'View team members'}
+            {isWorkspaceOwner 
+              ? 'Manage your team' 
+              : isTeamMember 
+                ? 'View team members' 
+                : 'Collaborate with your team'}
           </p>
         </div>
       </div>
@@ -33,14 +37,20 @@ export function TeamCard({ isTeamMember, isWorkspaceOwner }: TeamCardProps) {
       <p className="text-sm text-neutral-600 mb-4">
         {isWorkspaceOwner 
           ? 'Invite team members, manage seats, and view your workspace settings.'
-          : 'You are part of a team workspace with shared access to deals and analyses.'}
+          : isTeamMember
+            ? 'You are part of a team workspace with shared access to deals and analyses.'
+            : 'Invite team members to collaborate on deals and property analyses. Share access to your workspace.'}
       </p>
 
       <Link
         href="/dashboard/settings/team"
         className="w-full btn-primary flex items-center justify-center gap-2"
       >
-        {isWorkspaceOwner ? 'Manage Team' : 'View Team'}
+        {isWorkspaceOwner 
+          ? 'Manage Team' 
+          : isTeamMember 
+            ? 'View Team' 
+            : 'Set Up Team'}
         <ArrowRight className="w-4 h-4" />
       </Link>
     </div>

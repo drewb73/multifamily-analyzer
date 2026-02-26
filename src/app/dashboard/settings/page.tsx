@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/app/dashboard/settings/page.tsx
 // COMPLETE FILE - Replace entire file
-// UPDATED: TeamCard shows for all premium users (not just workspace owners)
+// UPDATED: Added subscriptionSource tracking for manual premium billing display
 
 'use client'
 
@@ -25,12 +25,14 @@ export default function SettingsPage() {
   })
   const [subscriptionData, setSubscriptionData] = useState<{
     status: SubscriptionStatus
+    source: string | null  // ✅ ADDED: Track subscription source (stripe/manual)
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
     cancelledAt: Date | null
     isTeamMember: boolean
   }>({
     status: 'free',
+    source: null,  // ✅ ADDED
     trialEndsAt: null,
     subscriptionEndsAt: null,
     cancelledAt: null,
@@ -86,6 +88,7 @@ export default function SettingsPage() {
         
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
+          source: data.subscriptionSource || null,  // ✅ ADDED: Get subscription source
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
           subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null,
           cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
@@ -148,7 +151,7 @@ export default function SettingsPage() {
     )
   }
 
-  // ✅ UPDATED: Show TeamCard for ALL premium/enterprise users OR team members
+  // Show TeamCard for ALL premium/enterprise users OR team members
   const isPremium = subscriptionData.status === 'premium' || subscriptionData.status === 'enterprise'
   const showTeamCard = isPremium || subscriptionData.isTeamMember
   const isWorkspaceOwner = hasTeamMembers && !subscriptionData.isTeamMember
@@ -179,7 +182,7 @@ export default function SettingsPage() {
           onSave={handleSaveProfile}
         />
 
-        {/* ✅ UPDATED: Team Workspace Card - Show for all premium users */}
+        {/* Team Workspace Card - Show for all premium users */}
         {showTeamCard && (
           <TeamCard
             isTeamMember={subscriptionData.isTeamMember}
@@ -193,6 +196,7 @@ export default function SettingsPage() {
         {settings?.stripeEnabled ? (
           <BillingCard
             subscriptionStatus={subscriptionData.status}
+            subscriptionSource={subscriptionData.source}  // ✅ ADDED: Pass subscription source
             subscriptionEndsAt={subscriptionData.subscriptionEndsAt}
             cancelledAt={subscriptionData.cancelledAt}
             billingHistory={billingHistory}

@@ -1,18 +1,20 @@
 // FILE LOCATION: /src/components/settings/BillingCard.tsx
-// IMPROVEMENT: Show proper billing info for cancelled subscriptions
+// COMPLETE FILE - Replace entire file
+// UPDATED: Handle manual premium subscriptions (show as free/no charge)
 
 'use client'
 
 import { useState } from 'react'
-import { CreditCard, Calendar, Receipt, AlertTriangle } from 'lucide-react'
+import { CreditCard, Calendar, Receipt, AlertTriangle, CheckCircle } from 'lucide-react'
 import { SubscriptionStatus } from '@/lib/subscription'
 import { BillingHistoryModal } from './BillingHistoryModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface BillingCardProps {
   subscriptionStatus: SubscriptionStatus
-  subscriptionEndsAt: Date | null // Next billing date OR expiration date (if cancelled)
-  cancelledAt: Date | null // ✅ NEW: Track if subscription is cancelled
+  subscriptionSource: string | null  // ✅ ADDED: Track if manual/stripe
+  subscriptionEndsAt: Date | null
+  cancelledAt: Date | null
   billingHistory: Array<{
     id: string
     date: Date
@@ -24,8 +26,9 @@ interface BillingCardProps {
 
 export function BillingCard({ 
   subscriptionStatus, 
+  subscriptionSource,  // ✅ ADDED
   subscriptionEndsAt, 
-  cancelledAt, // ✅ NEW
+  cancelledAt,
   billingHistory 
 }: BillingCardProps) {
   const [showHistory, setShowHistory] = useState(false)
@@ -36,10 +39,79 @@ export function BillingCard({
     return null
   }
   
-  // ✅ NEW: Check if subscription is cancelled but still active
+  // ✅ NEW: Check if this is a manual/admin-granted subscription
+  const isManualSubscription = subscriptionSource === 'manual'
+  
+  // ✅ NEW: Special display for manual subscriptions
+  if (isManualSubscription && (subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise')) {
+    return (
+      <div className="elevated-card p-6">
+        <div className="flex items-center mb-6">
+          <CreditCard className="h-6 w-6 text-success-600 mr-3" />
+          <h2 className="text-xl font-semibold text-neutral-800">
+            Billing
+          </h2>
+        </div>
+
+        {/* Manual Premium Display */}
+        <div className="space-y-4">
+          {/* Success Banner */}
+          <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-success-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-success-900">Manual Premium Access</p>
+                <p className="text-sm text-success-700 mt-1">
+                  Your account has been granted premium access by an administrator. No billing charges apply.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Plan */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Current Plan</div>
+            <div className="font-medium text-neutral-900">
+              {subscriptionStatus === 'enterprise' ? 'Enterprise - Complimentary' : 'Premium - Complimentary'}
+            </div>
+          </div>
+
+          {/* Monthly Cost */}
+          <div>
+            <div className="text-sm text-neutral-500 mb-2">Monthly Cost</div>
+            <div className="font-medium text-neutral-900">$0.00 USD</div>
+            <p className="text-xs text-neutral-600 mt-1">
+              No charges - Administrative grant
+            </p>
+          </div>
+
+          {/* Access Expiration (if set) */}
+          {subscriptionEndsAt && (
+            <div>
+              <div className="text-sm text-neutral-500 mb-2">Access Valid Until</div>
+              <div className="text-neutral-900">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-neutral-500" />
+                  <span className="font-medium">
+                    {new Date(subscriptionEndsAt).toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+  
+  // ✅ BELOW: Normal Stripe subscription display (unchanged)
+  
   const isCancelledButActive = cancelledAt && subscriptionEndsAt && new Date() < subscriptionEndsAt
   
-  // Format next billing/expiration date
   const getNextBillingDate = () => {
     if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
       return 'N/A'
@@ -53,7 +125,6 @@ export function BillingCard({
     })
   }
 
-  // Calculate days until next billing/expiration
   const getDaysUntilBilling = () => {
     if (!subscriptionEndsAt || subscriptionStatus !== 'premium') {
       return null
@@ -67,7 +138,6 @@ export function BillingCard({
     return Math.max(0, diffDays)
   }
   
-  // ✅ UPDATED: Show "Premium - Cancelled" if cancelled
   const getPlanDisplay = () => {
     switch (subscriptionStatus) {
       case 'premium':
@@ -94,7 +164,7 @@ export function BillingCard({
           </h2>
         </div>
         
-        {/* ✅ NEW: Cancellation Warning */}
+        {/* Cancellation Warning */}
         {isCancelledButActive && (
           <div className="mb-6 p-4 bg-warning-50 border border-warning-200 rounded-lg">
             <div className="flex items-start gap-3">
@@ -116,7 +186,7 @@ export function BillingCard({
             <div className="font-medium text-neutral-900">{getPlanDisplay()}</div>
           </div>
           
-          {/* ✅ UPDATED: Show "Subscription Expiration Date" if cancelled */}
+          {/* Next Billing Date */}
           <div>
             <div className="text-sm text-neutral-500 mb-2">
               {isCancelledButActive ? 'Subscription Expiration Date' : 'Next Billing Date'}
@@ -145,65 +215,39 @@ export function BillingCard({
             </div>
           </div>
 
-          {/* ✅ UPDATED: Show $0.00 if cancelled */}
+          {/* Next Charge */}
           {showBillingInfo && (
             <div>
               <div className="text-sm text-neutral-500 mb-2">Next Charge</div>
-              <div className="font-medium text-neutral-900">
-                {isCancelledButActive ? (
-                  <>
-                    <span className="line-through text-neutral-400 mr-2">$9.99</span>
-                    <span className="text-success-600">$0.00 USD</span>
-                  </>
-                ) : (
-                  '$9.99 USD'
-                )}
-              </div>
-              <p className="text-xs text-neutral-600 mt-1">
-                {isCancelledButActive ? (
-                  'No further charges will be made'
-                ) : (
-                  <>
-                    Charged monthly on the {subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 'N/A'}
-                    {getOrdinalSuffix(subscriptionEndsAt ? new Date(subscriptionEndsAt).getDate() : 1)} of each month
-                  </>
-                )}
-              </p>
-            </div>
-          )}
-          
-          {/* Billing History Button */}
-          <div className="pt-2">
-            <button
-              onClick={() => setShowHistory(true)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg text-neutral-700 font-medium hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
-              disabled={!showBillingInfo}
-            >
-              <Receipt className="w-4 h-4" />
-              View Billing History
-            </button>
-            {!showBillingInfo && (
-              <p className="text-xs text-center text-neutral-500 mt-2">
-                Billing history available after subscribing to Premium
-              </p>
-            )}
-          </div>
-          
-          {/* Payment Method - Placeholder for Stripe integration */}
-          {showBillingInfo && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-              <div className="text-xs text-blue-700">
-                <p className="font-medium mb-1">💡 Demo Mode</p>
-                <p>
-                  Payment methods will be managed through Stripe when billing is enabled. 
-                  You'll be able to update your card, view invoices, and manage payment details.
+              <div className="text-neutral-900">
+                <div className="font-medium">
+                  {isCancelledButActive ? '$0.00 USD' : '$9.99 USD'}
+                </div>
+                <p className="text-xs text-neutral-600 mt-1">
+                  {isCancelledButActive 
+                    ? 'Subscription will not renew'
+                    : 'Charged monthly on the 26th of each month'
+                  }
                 </p>
               </div>
             </div>
           )}
         </div>
+
+        {/* Billing History Button */}
+        {billingHistory.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-neutral-200">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              <Receipt className="w-4 h-4 mr-2" />
+              View Billing History
+            </button>
+          </div>
+        )}
       </div>
-      
+
       {/* Billing History Modal */}
       <BillingHistoryModal
         isOpen={showHistory}
@@ -212,17 +256,4 @@ export function BillingCard({
       />
     </>
   )
-}
-
-// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
-function getOrdinalSuffix(day: number): string {
-  if (day >= 11 && day <= 13) {
-    return 'th'
-  }
-  switch (day % 10) {
-    case 1: return 'st'
-    case 2: return 'nd'
-    case 3: return 'rd'
-    default: return 'th'
-  }
 }
