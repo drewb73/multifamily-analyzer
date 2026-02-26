@@ -1,11 +1,11 @@
 // FILE: src/app/api/analyses/route.ts
-// COMPLETE FILE - With workspace sharing and DEBUG LOGGING
+// COMPLETE FILE - Fixed POST to extract ALL required property fields
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/analyses - List user's analyses + workspace (WITH DEBUG)
+// GET /api/analyses - List workspace analyses
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth()
@@ -24,15 +24,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // ✅ DEBUG LOG 1
-    console.log('📊 ========== SAVED ANALYSES DEBUG ==========')
-    console.log('📊 User:', {
-      id: user.id,
-      email: user.email,
-      isTeamMember: user.isTeamMember,
-      ownerId: user.teamWorkspaceOwnerId
-    })
-
     // Build workspace user IDs
     let userIds = [user.id]
     if (user.isTeamMember && user.teamWorkspaceOwnerId) {
@@ -49,10 +40,6 @@ export async function GET(request: NextRequest) {
       })
       members.forEach(m => userIds.push(m.memberId))
     }
-
-    // ✅ DEBUG LOG 2
-    console.log('📊 Querying with userIds:', userIds)
-    console.log('📊 UserIds count:', userIds.length)
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams
@@ -131,14 +118,8 @@ export async function GET(request: NextRequest) {
       where.isArchived = false
     }
 
-    // ✅ DEBUG LOG 3
-    console.log('📊 Where clause:', JSON.stringify(where, null, 2))
-
     // Count total
     const total = await prisma.propertyAnalysis.count({ where })
-
-    // ✅ DEBUG LOG 4
-    console.log('📊 Total count:', total)
 
     // Fetch analyses
     const analyses = await prisma.propertyAnalysis.findMany({
@@ -158,31 +139,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // ✅ DEBUG LOG 5 - CRITICAL
-    console.log('📊 Found analyses:', analyses.length)
-    if (analyses.length > 0) {
-      console.log('📊 Sample:', analyses.slice(0, 3).map(a => ({
-        id: a.id,
-        name: a.name,
-        userId: a.userId,
-        createdAt: a.createdAt
-      })))
-    } else {
-      console.log('📊 ⚠️  NO ANALYSES FOUND!')
-      console.log('📊 Checking all analyses in database...')
-      const allAnalyses = await prisma.propertyAnalysis.findMany({
-        select: { id: true, name: true, userId: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      })
-      console.log('📊 ALL ANALYSES IN DB (last 10):', allAnalyses)
-      console.log('📊 Do any match our userIds?', allAnalyses.map(a => ({
-        name: a.name,
-        userId: a.userId,
-        matchesQuery: userIds.includes(a.userId)
-      })))
-    }
-
     return NextResponse.json({
       success: true,
       analyses,
@@ -201,7 +157,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/analyses - Create new analysis
+// POST /api/analyses - Create new analysis (FIXED WITH ALL REQUIRED FIELDS)
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth()
@@ -220,11 +176,39 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    // Create the analysis
+    // ✅ CRITICAL FIX: Extract property fields from nested data.property
+    const propertyData = body.data?.property || {}
+    
+    console.log('💾 Creating analysis with extracted fields:', {
+      name: body.name,
+      address: propertyData.address,
+      userId: user.id
+    })
+    
+    // Create the analysis with ALL required fields extracted
     const analysis = await prisma.propertyAnalysis.create({
       data: {
         userId: user.id,
-        ...body
+        name: body.name,
+        data: body.data,
+        results: body.results,
+        notes: body.notes || null,
+        groupId: body.groupId || null,
+        
+        // ✅ Extract ALL property fields from data.property to root level
+        address: propertyData.address || null,
+        city: propertyData.city || null,
+        state: propertyData.state || null,
+        zipCode: propertyData.zipCode || null,
+        totalUnits: propertyData.totalUnits || null,
+        purchasePrice: propertyData.purchasePrice || null,
+        propertySize: propertyData.propertySize || null,  // ✅ ADDED
+        isCashPurchase: propertyData.isCashPurchase || false,  // ✅ ADDED
+        
+        // Calculate capRate and cashFlow from results if available
+        capRate: body.results?.keyMetrics?.capRate || null,
+        cashFlow: body.results?.keyMetrics?.annualCashFlow || null,
+        cashOnCashReturn: body.results?.keyMetrics?.cashOnCashReturn || null,
       },
       include: {
         group: {
@@ -238,12 +222,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log('✅ Analysis created successfully:', analysis.id)
+
     return NextResponse.json({ 
       success: true, 
       analysis 
     })
   } catch (error) {
-    console.error('Create analysis error:', error)
+    console.error('❌ Create analysis error:', error)
     return NextResponse.json({ 
       error: 'Failed to create analysis' 
     }, { status: 500 })
