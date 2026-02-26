@@ -1,5 +1,5 @@
 // File Location: src/app/api/team/members/[id]/route.ts
-// API endpoint to remove a team member - Next.js 15 + seat fix
+// FIXED: Transfers member's data to owner when removed + CORRECT MODEL NAMES
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
@@ -10,7 +10,6 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 1. Authenticate the user
     const { userId } = await auth();
 
     if (!userId) {
@@ -20,7 +19,6 @@ export async function DELETE(
       );
     }
 
-    // 2. Get team member ID from params (await for Next.js 15)
     const params = await context.params;
     const teamMemberId = params.id;
 
@@ -33,7 +31,6 @@ export async function DELETE(
 
     console.log(`🗑️ Attempting to remove team member: ${teamMemberId}`);
 
-    // 3. Get user from database
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       select: {
@@ -56,7 +53,6 @@ export async function DELETE(
       );
     }
 
-    // 4. Check if user is a workspace owner
     if (user.isTeamMember) {
       return NextResponse.json(
         { error: 'Only workspace owners can remove team members' },
@@ -64,7 +60,6 @@ export async function DELETE(
       );
     }
 
-    // 5. Get team member record
     const teamMember = await prisma.workspaceTeamMember.findUnique({
       where: { id: teamMemberId },
       include: {
@@ -88,7 +83,6 @@ export async function DELETE(
 
     console.log(`👤 Found team member: ${teamMember.memberEmail}`);
 
-    // 6. Verify the team member belongs to this owner
     if (teamMember.ownerId !== user.id) {
       return NextResponse.json(
         { error: 'You can only remove members from your own workspace' },
@@ -96,13 +90,35 @@ export async function DELETE(
       );
     }
 
-    // 7. Remove team member - Use transaction
+    // ✅ CRITICAL FIX: Transfer all member's data to owner in transaction
     await prisma.$transaction(async (tx) => {
+      console.log('📊 Starting data transfer to owner...');
+      
+      // ✅ FIXED: Transfer all deals from member to owner (correct model name: Deal)
+      const dealsUpdated = await tx.deal.updateMany({
+        where: { userId: teamMember.memberId },
+        data: { userId: user.id },
+      });
+      console.log(`✅ Transferred ${dealsUpdated.count} deals to owner`);
+
+      // ✅ Transfer all saved analyses from member to owner
+      const analysesUpdated = await tx.propertyAnalysis.updateMany({
+        where: { userId: teamMember.memberId },
+        data: { userId: user.id },
+      });
+      console.log(`✅ Transferred ${analysesUpdated.count} analyses to owner`);
+
+      // ✅ Transfer all groups from member to owner
+      const groupsUpdated = await tx.analysisGroup.updateMany({
+        where: { userId: teamMember.memberId },
+        data: { userId: user.id },
+      });
+      console.log(`✅ Transferred ${groupsUpdated.count} groups to owner`);
+
       // Delete the team member record
       await tx.workspaceTeamMember.delete({
         where: { id: teamMemberId },
       });
-
       console.log('✅ Team member record deleted');
 
       // Update the member's user record
@@ -113,10 +129,9 @@ export async function DELETE(
           teamWorkspaceOwnerId: null,
         },
       });
-
       console.log('✅ Member user record updated');
 
-      // Free up the seat (always - removed isAdmin check)
+      // Free up the seat
       await tx.user.update({
         where: { id: user.id },
         data: {
@@ -124,7 +139,6 @@ export async function DELETE(
           availableSeats: Math.min(user.purchasedSeats, user.availableSeats + 1),
         },
       });
-
       console.log(`✅ Seat freed: usedSeats ${user.usedSeats} -> ${user.usedSeats - 1}`);
 
       // Create notification for the removed member
@@ -133,27 +147,30 @@ export async function DELETE(
           userId: teamMember.memberId,
           type: 'member_removed',
           title: 'Removed from Workspace',
-          message: `You have been removed from ${user.firstName} ${user.lastName}'s workspace.`,
+          message: `You have been removed from ${user.firstName} ${user.lastName}'s workspace. Your contributions have been transferred to the workspace owner.`,
           metadata: {
             ownerName: `${user.firstName} ${user.lastName}`,
             ownerEmail: user.email,
+            dealsTransferred: dealsUpdated.count,
+            analysesTransferred: analysesUpdated.count,
+            groupsTransferred: groupsUpdated.count,
           },
         },
       });
-
       console.log('✅ Notification sent to removed member');
     });
 
-    console.log(`✅ Successfully removed ${teamMember.memberEmail} from workspace`);
+    console.log(`✅ Successfully removed ${teamMember.memberEmail} and transferred data`);
 
-    // 8. Return success response
     return NextResponse.json({
       success: true,
-      message: `${teamMember.memberName} has been removed from your workspace.`,
-      member: {
-        id: teamMember.id,
-        email: teamMember.memberEmail,
-        name: teamMember.memberName,
+      message: `${teamMember.memberName} has been removed. Their contributions have been transferred to you.`,
+      transferred: {
+        member: {
+          id: teamMember.id,
+          email: teamMember.memberEmail,
+          name: teamMember.memberName,
+        },
       },
     });
 
