@@ -1,18 +1,18 @@
 // FILE LOCATION: /src/components/settings/BillingCard.tsx
 // COMPLETE FILE - Replace entire file
-// UPDATED: Handle manual premium subscriptions (show as free/no charge)
+// FIXED: ALL hooks MUST be called before ANY early returns
 
 'use client'
 
-import { useState } from 'react'
-import { CreditCard, Calendar, Receipt, AlertTriangle, CheckCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { CreditCard, Calendar, Receipt, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import { SubscriptionStatus } from '@/lib/subscription'
 import { BillingHistoryModal } from './BillingHistoryModal'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
 interface BillingCardProps {
   subscriptionStatus: SubscriptionStatus
-  subscriptionSource: string | null  // ✅ ADDED: Track if manual/stripe
+  subscriptionSource: string | null
   subscriptionEndsAt: Date | null
   cancelledAt: Date | null
   billingHistory: Array<{
@@ -24,25 +24,77 @@ interface BillingCardProps {
   }>
 }
 
+interface SubscriptionLineItem {
+  id: string
+  quantity: number
+  price: {
+    unitAmount: number
+    currency: string
+  }
+  product: {
+    name: string
+    description: string | null
+  }
+}
+
+interface StripeSubscription {
+  id: string
+  status: string
+  currentPeriodEnd: number
+  cancelAtPeriodEnd: boolean
+  items: SubscriptionLineItem[]
+  totalAmount: number
+}
+
 export function BillingCard({ 
   subscriptionStatus, 
-  subscriptionSource,  // ✅ ADDED
+  subscriptionSource,
   subscriptionEndsAt, 
   cancelledAt,
   billingHistory 
 }: BillingCardProps) {
+  // ✅ CRITICAL: ALL hooks must be called FIRST, before ANY returns
   const [showHistory, setShowHistory] = useState(false)
   const { settings } = useSystemSettings()
+  const [stripeSubscription, setStripeSubscription] = useState<StripeSubscription | null>(null)
+  const [loadingSubscription, setLoadingSubscription] = useState(true)
+  
+  // ✅ useEffect MUST come before ANY conditional returns
+  useEffect(() => {
+    async function fetchSubscriptionDetails() {
+      // Only fetch for Stripe subscriptions
+      if (subscriptionSource === 'manual' || subscriptionStatus === 'free' || subscriptionStatus === 'trial') {
+        setLoadingSubscription(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/billing/subscription')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.subscription) {
+            setStripeSubscription(data.subscription)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription details:', error)
+      } finally {
+        setLoadingSubscription(false)
+      }
+    }
+
+    fetchSubscriptionDetails()
+  }, [subscriptionSource, subscriptionStatus])
+  
+  // ✅ NOW we can do early returns (after all hooks are called)
+  const isManualSubscription = subscriptionSource === 'manual'
   
   // Hide if Stripe disabled
   if (!settings?.stripeEnabled) {
     return null
   }
   
-  // ✅ NEW: Check if this is a manual/admin-granted subscription
-  const isManualSubscription = subscriptionSource === 'manual'
-  
-  // ✅ NEW: Special display for manual subscriptions
+  // Special display for manual subscriptions
   if (isManualSubscription && (subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise')) {
     return (
       <div className="elevated-card p-6">
@@ -53,9 +105,7 @@ export function BillingCard({
           </h2>
         </div>
 
-        {/* Manual Premium Display */}
         <div className="space-y-4">
-          {/* Success Banner */}
           <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
             <div className="flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-success-600 mt-0.5 flex-shrink-0" />
@@ -68,7 +118,6 @@ export function BillingCard({
             </div>
           </div>
 
-          {/* Current Plan */}
           <div>
             <div className="text-sm text-neutral-500 mb-2">Current Plan</div>
             <div className="font-medium text-neutral-900">
@@ -76,7 +125,6 @@ export function BillingCard({
             </div>
           </div>
 
-          {/* Monthly Cost */}
           <div>
             <div className="text-sm text-neutral-500 mb-2">Monthly Cost</div>
             <div className="font-medium text-neutral-900">$0.00 USD</div>
@@ -85,7 +133,6 @@ export function BillingCard({
             </p>
           </div>
 
-          {/* Access Expiration (if set) */}
           {subscriptionEndsAt && (
             <div>
               <div className="text-sm text-neutral-500 mb-2">Access Valid Until</div>
@@ -108,8 +155,7 @@ export function BillingCard({
     )
   }
   
-  // ✅ BELOW: Normal Stripe subscription display (unchanged)
-  
+  // Stripe subscription display with line items
   const isCancelledButActive = cancelledAt && subscriptionEndsAt && new Date() < subscriptionEndsAt
   
   const getNextBillingDate = () => {
@@ -141,9 +187,9 @@ export function BillingCard({
   const getPlanDisplay = () => {
     switch (subscriptionStatus) {
       case 'premium':
-        return isCancelledButActive ? 'Premium - Cancelled' : 'Premium - $9.99/month'
+        return isCancelledButActive ? 'Premium - Cancelled' : 'Premium'
       case 'enterprise':
-        return 'Enterprise - Custom'
+        return 'Enterprise'
       case 'trial':
         return 'Free Trial'
       default:
@@ -153,6 +199,11 @@ export function BillingCard({
 
   const daysRemaining = getDaysUntilBilling()
   const showBillingInfo = subscriptionStatus === 'premium' || subscriptionStatus === 'enterprise'
+  
+  // Format currency
+  const formatCurrency = (amountInCents: number) => {
+    return `$${(amountInCents / 100).toFixed(2)}`
+  }
   
   return (
     <>
@@ -164,7 +215,6 @@ export function BillingCard({
           </h2>
         </div>
         
-        {/* Cancellation Warning */}
         {isCancelledButActive && (
           <div className="mb-6 p-4 bg-warning-50 border border-warning-200 rounded-lg">
             <div className="flex items-start gap-3">
@@ -185,6 +235,45 @@ export function BillingCard({
             <div className="text-sm text-neutral-500 mb-2">Current Plan</div>
             <div className="font-medium text-neutral-900">{getPlanDisplay()}</div>
           </div>
+          
+          {/* Subscription Line Items (Base + Seats) */}
+          {showBillingInfo && stripeSubscription && !loadingSubscription && (
+            <div>
+              <div className="text-sm text-neutral-500 mb-3">Subscription Details</div>
+              <div className="space-y-2 bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+                {stripeSubscription.items.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-neutral-700">
+                      {item.product.name}
+                      {item.quantity > 1 && (
+                        <span className="text-neutral-500 ml-1">× {item.quantity}</span>
+                      )}
+                    </span>
+                    <span className="font-medium text-neutral-900">
+                      {formatCurrency(item.price.unitAmount * item.quantity)}/mo
+                    </span>
+                  </div>
+                ))}
+                
+                {stripeSubscription.items.length > 1 && (
+                  <div className="flex justify-between text-sm pt-2 border-t border-neutral-300 font-semibold">
+                    <span className="text-neutral-900">Total</span>
+                    <span className="text-neutral-900">
+                      {formatCurrency(stripeSubscription.totalAmount)}/mo
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Loading state */}
+          {showBillingInfo && loadingSubscription && (
+            <div className="flex items-center gap-2 text-sm text-neutral-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading subscription details...</span>
+            </div>
+          )}
           
           {/* Next Billing Date */}
           <div>
@@ -216,17 +305,20 @@ export function BillingCard({
           </div>
 
           {/* Next Charge */}
-          {showBillingInfo && (
+          {showBillingInfo && stripeSubscription && !loadingSubscription && (
             <div>
               <div className="text-sm text-neutral-500 mb-2">Next Charge</div>
               <div className="text-neutral-900">
                 <div className="font-medium">
-                  {isCancelledButActive ? '$0.00 USD' : '$9.99 USD'}
+                  {isCancelledButActive 
+                    ? '$0.00 USD' 
+                    : `${formatCurrency(stripeSubscription.totalAmount)} USD`
+                  }
                 </div>
                 <p className="text-xs text-neutral-600 mt-1">
                   {isCancelledButActive 
                     ? 'Subscription will not renew'
-                    : 'Charged monthly on the 26th of each month'
+                    : `Charged monthly on the ${new Date(subscriptionEndsAt || Date.now()).getDate()}${getOrdinalSuffix(new Date(subscriptionEndsAt || Date.now()).getDate())} of each month`
                   }
                 </p>
               </div>
@@ -234,7 +326,6 @@ export function BillingCard({
           )}
         </div>
 
-        {/* Billing History Button */}
         {billingHistory.length > 0 && (
           <div className="mt-6 pt-6 border-t border-neutral-200">
             <button
@@ -248,7 +339,6 @@ export function BillingCard({
         )}
       </div>
 
-      {/* Billing History Modal */}
       <BillingHistoryModal
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
@@ -256,4 +346,15 @@ export function BillingCard({
       />
     </>
   )
+}
+
+// Helper function for ordinal suffixes (1st, 2nd, 3rd, etc.)
+function getOrdinalSuffix(day: number): string {
+  if (day > 3 && day < 21) return 'th'
+  switch (day % 10) {
+    case 1: return 'st'
+    case 2: return 'nd'
+    case 3: return 'rd'
+    default: return 'th'
+  }
 }
