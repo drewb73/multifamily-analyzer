@@ -83,8 +83,13 @@ export default function DealIQPage() {
           const data = await response.json()
           setSubscriptionStatus(data.subscriptionStatus)
           
-          // Check if user can access DealIQ (premium, enterprise, or team member)
+          // ✅ FIXED: Check if user can access DealIQ (premium, enterprise, or team member)
           const isPremium = data.subscriptionStatus === 'premium' || data.subscriptionStatus === 'enterprise' || data.isTeamMember
+          
+          // ✅ FIXED: Also check system settings - feature must be enabled AND user must have premium
+          // If settings not loaded yet, default to enabled (true)
+          const featureEnabled = settings?.dealiqEnabled !== false
+          setCanAccessDealIQ(isPremium && featureEnabled)
           
           // Check if can start trial
           const isFree = data.subscriptionStatus === 'free'
@@ -96,10 +101,10 @@ export default function DealIQPage() {
       }
     }
     
-    if (user) {
+    if (user && !settingsLoading) {
       checkAccess()
     }
-  }, [user])
+  }, [user, settings, settingsLoading])
 
   useEffect(() => {
     loadDeals()

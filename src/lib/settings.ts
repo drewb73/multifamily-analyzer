@@ -1,3 +1,6 @@
+// FILE LOCATION: src/lib/settings.ts
+// COMPLETE FILE - Replace entire file
+
 import { prisma } from '@/lib/prisma'
 
 // Cache settings for 5 seconds to avoid too many DB calls
@@ -28,6 +31,7 @@ export async function getSystemSettings() {
       analysisEnabled: true,
       pdfExportEnabled: true,
       savedDraftsEnabled: true,
+      dealiqEnabled: true, // ✅ ADDED: DealIQ enabled by default
       accountDeletionEnabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),

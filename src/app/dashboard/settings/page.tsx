@@ -1,5 +1,6 @@
 // FILE LOCATION: /src/app/dashboard/settings/page.tsx
-// UPDATED: Added TeamCard link
+// COMPLETE FILE - Replace entire file
+// UPDATED: TeamCard shows for all premium users (not just workspace owners)
 
 'use client'
 
@@ -9,7 +10,7 @@ import { ProfileCard } from '@/components/settings/ProfileCard'
 import { AccountCard } from '@/components/settings/AccountCard'
 import { SecurityCard } from '@/components/settings/SecurityCard'
 import { BillingCard } from '@/components/settings/BillingCard'
-import { TeamCard } from '@/components/settings/TeamCard'  // ✅ NEW
+import { TeamCard } from '@/components/settings/TeamCard'
 import { SubscriptionStatus } from '@/lib/subscription'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
 
@@ -37,7 +38,7 @@ export default function SettingsPage() {
   })
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
-  const [hasTeamMembers, setHasTeamMembers] = useState(false)  // ✅ NEW
+  const [hasTeamMembers, setHasTeamMembers] = useState(false)
   
   const loadBillingHistory = async () => {
     if (!user) return
@@ -56,7 +57,7 @@ export default function SettingsPage() {
     }
   }
   
-  // ✅ NEW: Check if user has team members
+  // Check if user has team members
   const checkTeamStatus = async () => {
     try {
       const response = await fetch('/api/team/members')
@@ -92,7 +93,7 @@ export default function SettingsPage() {
         })
         
         loadBillingHistory()
-        checkTeamStatus()  // ✅ NEW
+        checkTeamStatus()
       } else {
         setUserProfile({
           displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
@@ -147,7 +148,9 @@ export default function SettingsPage() {
     )
   }
 
-  // ✅ NEW: Determine if user is workspace owner (has team members but is not a team member themselves)
+  // ✅ UPDATED: Show TeamCard for ALL premium/enterprise users OR team members
+  const isPremium = subscriptionData.status === 'premium' || subscriptionData.status === 'enterprise'
+  const showTeamCard = isPremium || subscriptionData.isTeamMember
   const isWorkspaceOwner = hasTeamMembers && !subscriptionData.isTeamMember
   
   return (
@@ -176,8 +179,8 @@ export default function SettingsPage() {
           onSave={handleSaveProfile}
         />
 
-        {/* ✅ NEW: Team Workspace Card */}
-        {(subscriptionData.isTeamMember || isWorkspaceOwner) && (
+        {/* ✅ UPDATED: Team Workspace Card - Show for all premium users */}
+        {showTeamCard && (
           <TeamCard
             isTeamMember={subscriptionData.isTeamMember}
             isWorkspaceOwner={isWorkspaceOwner}

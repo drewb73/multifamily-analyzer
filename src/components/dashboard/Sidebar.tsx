@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Briefcase // ← ADDED
+  Briefcase, // ← ADDED
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -52,20 +52,20 @@ export default function DashboardSidebar({
       name: 'Analyze Property',
       href: '/dashboard',
       icon: Home,
-      locked: isFree || !systemSettings?.analysisEnabled,
+      locked: isFree || (systemSettings?.analysisEnabled === false),
     },
     {
       name: 'Saved Analyses',
       href: '/dashboard/saved',
       icon: FileText,
-      locked: !isPremium || !systemSettings?.savedDraftsEnabled,
+      locked: !isPremium || (systemSettings?.savedDraftsEnabled === false),
     },
     // ← ADDED: DealIQ CRM menu item
     {
       name: 'DealIQ',
       href: '/dashboard/dealiq',
       icon: Briefcase,
-      locked: !isPremium || !systemSettings?.dealiqEnabled,
+      locked: !isPremium || (systemSettings?.dealiqEnabled === false),
     },
     {
       name: 'Contact Support',

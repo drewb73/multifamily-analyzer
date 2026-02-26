@@ -386,7 +386,7 @@ model SystemSettings {
   pdfExportEnabled     Boolean  @default(true)
   savedDraftsEnabled   Boolean  @default(true)
   accountDeletionEnabled Boolean @default(true)
-  dealiqEnabled Boolean @default(false)
+  dealiqEnabled Boolean @default(true)
   
   // Timestamps
   createdAt DateTime @default(now())
