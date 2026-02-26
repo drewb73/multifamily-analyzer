@@ -1,4 +1,6 @@
-// Location: src/components/dashboard/SavedAnalysesClient.tsx
+// OPTIMIZED VERSION - Uses Promise.all for parallel queries
+// This version makes all API calls simultaneously instead of sequentially
+
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
@@ -27,7 +29,7 @@ interface MobileGroupSelectorProps {
   onGroupSelect: (groupId: string | null) => void
   totalAnalysesCount: number
   ungroupedCount: number
-  groupCounts: Record<string, number>  // ✅ NEW
+  groupCounts: Record<string, number>
   onCreateGroup: () => void
   onEditGroup: (group: Group) => void
 }
@@ -63,7 +65,7 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
     }
 
     const handleEditClick = (e: React.MouseEvent, group: Group) => {
-      e.stopPropagation() // Prevent group selection
+      e.stopPropagation()
       setIsOpen(false)
       onEditGroup(group)
     }
@@ -85,15 +87,12 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
 
         {isOpen && (
           <>
-            {/* Overlay */}
             <div 
               className="fixed inset-0 z-40"
               onClick={() => setIsOpen(false)}
             />
 
-            {/* Dropdown Menu */}
             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-              {/* All Analyses */}
               <button
                 onClick={() => {
                   onGroupSelect(null)
@@ -107,7 +106,6 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
                 <span className="text-sm text-neutral-500">{totalAnalysesCount}</span>
               </button>
 
-              {/* No Group */}
               <button
                 onClick={() => {
                   onGroupSelect('no-group')
@@ -121,7 +119,6 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
                 <span className="text-sm text-neutral-500">{ungroupedCount}</span>
               </button>
 
-              {/* Groups with Edit button */}
               {groups.map((group) => (
                 <div
                   key={group.id}
@@ -140,7 +137,6 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
                     <span className="text-sm text-neutral-500 ml-2 flex-shrink-0">{groupCounts[group.id] ?? group.analysisCount ?? 0}</span>
                   </button>
                   
-                  {/* Edit button */}
                   <button
                     onClick={(e) => handleEditClick(e, group)}
                     className="px-3 py-3 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors flex-shrink-0"
@@ -153,7 +149,6 @@ const MobileGroupSelector = forwardRef<any, MobileGroupSelectorProps>(
                 </div>
               ))}
 
-              {/* Create New Group */}
               <button
                 onClick={() => {
                   onCreateGroup()
@@ -183,14 +178,13 @@ interface SavedAnalysesClientProps {
 }
 
 export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = false }: SavedAnalysesClientProps) {
-  // Get userId from Clerk for user-scoped storage
   const { user } = useUser()
   const userId = user?.id
   
   const [analyses, setAnalyses] = useState<any[]>([])
   const [allAnalysesCount, setAllAnalysesCount] = useState(0)
   const [ungroupedCount, setUngroupedCount] = useState(0)
-  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})  // ✅ NEW
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -202,27 +196,23 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
     sortOrder: 'desc'
   })
   
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   
-  // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [analysisToDelete, setAnalysisToDelete] = useState<{ id: string; address?: string } | null>(null)
   
   const sidebarRef = useRef<any>(null)
 
-  // Check if user is premium (can access database) - includes team members
   const isPremium = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
 
-  // Debounced load function
+  // ✅ OPTIMIZED: Load analyses with parallel queries
   const loadAnalyses = useCallback(async (search: string) => {
     setIsLoading(true)
     setError(null)
     
     try {
       if (isPremium) {
-        // Premium user - fetch from database with group filter, search, AND sort
         const fetchParams: any = {
           isArchived: false,
           sortBy: sortOption.sortBy,
@@ -230,27 +220,33 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
           search: search || undefined,
         }
         
-        // Add group filter based on selection
         if (selectedGroupId === 'no-group') {
           fetchParams.onlyUngrouped = true
         } else if (selectedGroupId) {
           fetchParams.groupId = selectedGroupId
         }
         
-        const response = await fetchAnalyses(fetchParams)
-        setAnalyses(response.analyses || [])
-        
-        // Fetch total count and ungrouped count
         const countsParams: any = {
           isArchived: false,
           search: search || undefined,
         }
         
-        // ✅ NEW: Fetch ALL analyses to calculate group counts
-        const allAnalysesResponse = await fetchAnalyses(countsParams)
-        const allAnalysesData = allAnalysesResponse.analyses || []
+        // ✅ PERFORMANCE FIX: Make all queries in parallel with Promise.all
+        const [
+          mainResponse,
+          allAnalysesResponse,
+          ungroupedResponse
+        ] = await Promise.all([
+          fetchAnalyses(fetchParams),                    // Main analyses for display
+          fetchAnalyses(countsParams),                   // All analyses for counts
+          fetchAnalyses({ ...countsParams, onlyUngrouped: true })  // Ungrouped count
+        ])
         
-        // Calculate group counts from the data
+        // Set main analyses
+        setAnalyses(mainResponse.analyses || [])
+        
+        // Calculate group counts from ALL analyses
+        const allAnalysesData = allAnalysesResponse.analyses || []
         const counts: Record<string, number> = {}
         allAnalysesData.forEach((analysis: any) => {
           if (analysis.groupId) {
@@ -259,36 +255,14 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
         })
         setGroupCounts(counts)
         
-        if (selectedGroupId && selectedGroupId !== 'no-group') {
-          // Specific group selected - fetch all counts separately
-          const allResponse = await fetchAnalyses(countsParams)
-          setAllAnalysesCount(allResponse.pagination.total || 0)
-          
-          const ungroupedResponse = await fetchAnalyses({
-            ...countsParams,
-            onlyUngrouped: true,
-          })
-          setUngroupedCount(ungroupedResponse.pagination.total || 0)
-        } else if (selectedGroupId === 'no-group') {
-          // "No Group" selected - fetch total count separately, use response for ungrouped count
-          const allResponse = await fetchAnalyses(countsParams)
-          setAllAnalysesCount(allResponse.pagination.total || 0)
-          setUngroupedCount(response.pagination.total || 0)
-        } else {
-          // "All Analyses" selected - fetch ungrouped count separately
-          setAllAnalysesCount(allAnalysesResponse.pagination.total || 0)
-          
-          const ungroupedResponse = await fetchAnalyses({
-            ...countsParams,
-            onlyUngrouped: true,
-          })
-          setUngroupedCount(ungroupedResponse.pagination.total || 0)
-        }
+        // Set counts
+        setAllAnalysesCount(allAnalysesResponse.pagination.total || 0)
+        setUngroupedCount(ungroupedResponse.pagination.total || 0)
+        
       } else {
         // Free/Trial user - load from local storage
         const storedData = getStorageItem<DraftAnalysis[]>(STORAGE_KEYS.SAVED_ANALYSES, [], userId)
         
-        // Filter by search query
         let filtered = storedData
         if (search) {
           const searchLower = search.toLowerCase()
@@ -304,7 +278,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
           })
         }
         
-        // Apply sorting
         const sorted = [...filtered].sort((a, b) => {
           const dateA = a.lastModified || 0
           const dateB = b.lastModified || 0
@@ -323,22 +296,18 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
     }
   }, [isPremium, userId, sortOption, selectedGroupId])
 
-  // Load analyses when filters change
   useEffect(() => {
     loadAnalyses(searchQuery)
   }, [loadAnalyses, searchQuery])
 
-  // Handle search with debounce
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
   }
 
-  // Handle sort change - receives SortOption not string
   const handleSortChange = (option: SortOption) => {
     setSortOption(option)
   }
 
-  // Handle delete
   const handleDeleteClick = (id: string, address?: string) => {
     setAnalysisToDelete({ id, address })
     setDeleteModalOpen(true)
@@ -356,7 +325,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
         setStorageItem(STORAGE_KEYS.SAVED_ANALYSES, filtered, userId)
       }
       
-      // ✅ SIMPLE FIX: Just refresh the page
       window.location.reload()
     } catch (err) {
       console.error('Error deleting analysis:', err)
@@ -364,7 +332,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
     }
   }
 
-  // Group management
   const handleCreateGroup = () => {
     setEditingGroup(null)
     setIsModalOpen(true)
@@ -407,7 +374,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
   return (
     <>
       <div className="flex h-full overflow-hidden">
-        {/* Desktop: Group Sidebar (hidden on mobile) */}
         {isPremium && (
           <div className="hidden lg:block">
             <GroupSidebar
@@ -424,12 +390,9 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
           </div>
         )}
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto h-full">
-          {/* Mobile: Group Dropdown + Search + Sort (stacked) */}
           <div className="p-4 md:p-6 pb-2">
             <div className="space-y-3">
-              {/* Mobile Group Dropdown (only on mobile, only if premium) */}
               {isPremium && (
                 <div className="lg:hidden">
                   <MobileGroupSelector
@@ -445,9 +408,7 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                 </div>
               )}
 
-              {/* Search and Sort - Stacked on mobile, side-by-side on desktop */}
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {/* Search Bar */}
                 <div className="w-full lg:flex-1 lg:min-w-0 lg:max-w-2xl">
                   <SearchBar 
                     value={searchQuery}
@@ -456,7 +417,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                   />
                 </div>
                 
-                {/* Sort Dropdown */}
                 <div className="w-full lg:w-auto lg:flex-shrink-0">
                   <SortDropdown 
                     value={sortOption.value}
@@ -467,7 +427,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
             </div>
           </div>
 
-          {/* Content Area */}
           {analyses.length === 0 && !searchQuery ? (
             <div className="p-6 md:p-12 flex items-center justify-center">
               <div className="elevated-card p-8 md:p-12 text-center max-w-2xl">
@@ -488,7 +447,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
             </div>
           ) : (
             <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
-              {/* Analysis count */}
               <div className="flex justify-between items-center">
                 <p className="text-sm text-neutral-600">
                   {isLoading && <span className="text-neutral-400">Loading... </span>}
@@ -498,7 +456,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                 </p>
               </div>
 
-              {/* Empty search results */}
               {analyses.length === 0 && searchQuery && (
                 <div className="elevated-card p-12 text-center">
                   <div className="text-6xl mb-4">🔍</div>
@@ -518,7 +475,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                 </div>
               )}
 
-              {/* Analyses Grid */}
               {analyses.length > 0 && (
                 <div className="grid gap-4">
                   {analyses.map((analysis) => {
@@ -538,7 +494,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                     const cashOnCashReturn = (analysis.cashOnCashReturn || results?.keyMetrics?.cashOnCashReturn || 0)
                     const annualCashFlow = (analysis.cashFlow || results?.keyMetrics?.annualCashFlow || 0)
                     
-                    // Use updatedAt to show when analysis was last modified, fallback to createdAt
                     const savedDate = analysis.updatedAt 
                       ? new Date(analysis.updatedAt).getTime()
                       : analysis.createdAt 
@@ -549,14 +504,12 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                       <Card key={analysis.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
                         <div className="flex flex-col lg:flex-row items-start gap-4">
                           <div className="flex-1 w-full min-w-0">
-                            {/* Title */}
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <FileText className="w-5 h-5 text-primary-600 flex-shrink-0" />
                               <h3 className="text-lg font-semibold text-neutral-900 truncate flex-1 min-w-0">
                                 {analysis.name}
                               </h3>
                               
-                              {/* Desktop: Group dropdown on same line as title */}
                               {isPremium && (
                                 <div className="hidden lg:block">
                                   <GroupDropdown
@@ -569,7 +522,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                               )}
                             </div>
 
-                            {/* Mobile: Group dropdown BEFORE address */}
                             {isPremium && (
                               <div className="lg:hidden mb-2">
                                 <GroupDropdown
@@ -581,7 +533,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                               </div>
                             )}
                             
-                            {/* Property details */}
                             <div className="text-sm text-neutral-600 space-y-1 mb-4">
                               {property.address && (
                                 <p className="break-words">📍 {property.address}{property.city ? `, ${property.city}` : ''}{property.state ? `, ${property.state}` : ''}{property.zipCode ? ` ${property.zipCode}` : ''}</p>
@@ -593,7 +544,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                               </div>
                             </div>
 
-                            {/* Metrics */}
                             {results && (
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="bg-primary-50 rounded-lg p-3">
@@ -618,7 +568,6 @@ export function SavedAnalysesClient({ userSubscriptionStatus, isTeamMember = fal
                             )}
                           </div>
 
-                          {/* Action buttons */}
                           <div className="flex lg:flex-col gap-2 w-full lg:w-auto">
                             <Link
                               href={`/dashboard?analysisId=${analysis.id}`}
