@@ -808,6 +808,7 @@ export function PropertyAnalysisForm({
             results={results}
             onBackToEdit={() => setCurrentStep(3)}
             userSubscriptionStatus={userSubscriptionStatus}
+            isTeamMember={isTeamMember}
           />
         )}
       </Card>

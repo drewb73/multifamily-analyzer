@@ -14,13 +14,15 @@ interface AnalysisResultsProps {
   results: AnalysisResultsType
   onBackToEdit?: () => void
   userSubscriptionStatus?: string | null
+  isTeamMember?: boolean
 }
 
 export function AnalysisResults({ 
   inputs, 
   results, 
   onBackToEdit,
-  userSubscriptionStatus = null 
+  userSubscriptionStatus = null,
+  isTeamMember = false
 }: AnalysisResultsProps) {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -33,7 +35,7 @@ export function AnalysisResults({
   
   
   // Check if user has access to premium features (PDF export and saved drafts)
-  const isPremiumUser = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise'
+  const isPremiumUser = userSubscriptionStatus === 'premium' || userSubscriptionStatus === 'enterprise' || isTeamMember
   
   // Find vacancy expense for display
   const vacancyExpense = inputs.expenses.find(exp => 
