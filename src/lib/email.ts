@@ -312,6 +312,13 @@ export async function sendNewUserInvitationEmail(
   data: InvitationEmailData
 ): Promise<EmailResult> {
   try {
+    // ✅ Log what we're about to send
+    console.log('📧 [EMAIL DEBUG] Attempting to send invitation email:');
+    console.log('   To:', data.invitedEmail);
+    console.log('   From:', FROM_EMAIL);
+    console.log('   Owner:', data.ownerFirstName, data.ownerLastName);
+    console.log('   Token:', data.inviteToken.substring(0, 10) + '...');
+    
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: data.invitedEmail,
@@ -319,19 +326,38 @@ export async function sendNewUserInvitationEmail(
       html: getNewUserInvitationTemplate(data),
     });
 
+    // ✅ Log the full Resend response
+    console.log('📧 [EMAIL DEBUG] Resend API response:', JSON.stringify(result, null, 2));
+
     if (result.data) {
+      console.log('✅ [EMAIL DEBUG] Email sent successfully! Message ID:', result.data.id);
       return {
         success: true,
         messageId: result.data.id,
       };
     }
 
+    if (result.error) {
+      console.error('❌ [EMAIL DEBUG] Resend returned error:', result.error);
+      return {
+        success: false,
+        error: result.error.message || 'Resend API error',
+      };
+    }
+
+    console.error('❌ [EMAIL DEBUG] Unexpected response format:', result);
     return {
       success: false,
       error: 'Failed to send email',
     };
   } catch (error: any) {
-    console.error('Error sending new user invitation email:', error);
+    console.error('❌ [EMAIL DEBUG] Exception caught:', {
+      message: error.message,
+      statusCode: error.statusCode,
+      name: error.name,
+      code: error.code,
+      stack: error.stack
+    });
     return {
       success: false,
       error: error.message || 'Failed to send email',

@@ -1,6 +1,6 @@
 // FILE LOCATION: /src/app/dashboard/settings/page.tsx
 // COMPLETE FILE - Replace entire file
-// UPDATED: Added subscriptionSource tracking for manual premium billing display
+// UPDATED: Hide billing section for team members
 
 'use client'
 
@@ -25,14 +25,14 @@ export default function SettingsPage() {
   })
   const [subscriptionData, setSubscriptionData] = useState<{
     status: SubscriptionStatus
-    source: string | null  // ✅ ADDED: Track subscription source (stripe/manual)
+    source: string | null
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
     cancelledAt: Date | null
     isTeamMember: boolean
   }>({
     status: 'free',
-    source: null,  // ✅ ADDED
+    source: null,
     trialEndsAt: null,
     subscriptionEndsAt: null,
     cancelledAt: null,
@@ -83,19 +83,23 @@ export default function SettingsPage() {
         setUserProfile({
           displayName: data.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           email: data.email || user.emailAddresses[0]?.emailAddress || '',
-          company: data.company || ''
+          company: (user as any).company || ''
         })
         
         setSubscriptionData({
           status: data.subscriptionStatus || 'free',
-          source: data.subscriptionSource || null,  // ✅ ADDED: Get subscription source
+          source: data.subscriptionSource || null,
           trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : null,
           subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : null,
           cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
-          isTeamMember: data.isTeamMember || false
+          isTeamMember: data.isTeamMember || false,
         })
         
-        loadBillingHistory()
+        // Only load billing history for non-team members
+        if (!data.isTeamMember) {
+          loadBillingHistory()
+        }
+        
         checkTeamStatus()
       } else {
         setUserProfile({
@@ -193,22 +197,27 @@ export default function SettingsPage() {
         {/* Security */}
         <SecurityCard />
         
-        {settings?.stripeEnabled ? (
+        {/* Billing - Only show for NON-team members */}
+        {!subscriptionData.isTeamMember && settings?.stripeEnabled && (
           <BillingCard
             subscriptionStatus={subscriptionData.status}
-            subscriptionSource={subscriptionData.source}  // ✅ ADDED: Pass subscription source
+            subscriptionSource={subscriptionData.source}
             subscriptionEndsAt={subscriptionData.subscriptionEndsAt}
             cancelledAt={subscriptionData.cancelledAt}
             billingHistory={billingHistory}
           />
-        ) : (
+        )}
+        
+        {/* Show message for team members if Stripe enabled but they can't see billing */}
+        {subscriptionData.isTeamMember && settings?.stripeEnabled && (
           <div className="elevated-card p-6">
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">
               Billing & Subscription
             </h2>
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 text-center">
-              <p className="text-neutral-600">
-                Payment management is temporarily unavailable
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-900 font-medium mb-2">Team Member Account</p>
+              <p className="text-blue-700 text-sm">
+                You're part of a team workspace. Billing is managed by your workspace owner.
               </p>
             </div>
           </div>
