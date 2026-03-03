@@ -1,5 +1,6 @@
 // File Location: src/app/api/team/invitations/[id]/rescind/route.ts
-// API endpoint to rescind (cancel) a team invitation (owner only) - Next.js 15 compatible
+// COMPLETE FILE - Replace entire file
+// FIXED: Increased transaction timeout to prevent timeout errors
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
@@ -14,7 +15,6 @@ export async function DELETE(
     const { userId } = await auth();
 
     if (!userId) {
-      console.error('Rescind invitation: No userId');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -26,7 +26,6 @@ export async function DELETE(
     const invitationId = params.id;
 
     if (!invitationId) {
-      console.error('Rescind invitation: No invitation ID');
       return NextResponse.json(
         { error: 'Invitation ID is required' },
         { status: 400 }
@@ -48,14 +47,11 @@ export async function DELETE(
     });
 
     if (!user) {
-      console.error('Rescind invitation: User not found in database');
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-
-    console.log(`👤 User found: ${user.email}`);
 
     // 4. Get invitation
     const invitation = await prisma.workspaceInvitation.findUnique({
@@ -73,7 +69,6 @@ export async function DELETE(
     });
 
     if (!invitation) {
-      console.error('Rescind invitation: Invitation not found');
       return NextResponse.json(
         { error: 'Invitation not found' },
         { status: 404 }
@@ -84,7 +79,6 @@ export async function DELETE(
 
     // 5. Validate user is the owner of this invitation
     if (invitation.ownerId !== user.id) {
-      console.error(`Rescind invitation: User ${user.id} is not owner ${invitation.ownerId}`);
       return NextResponse.json(
         { error: 'You can only cancel your own invitations' },
         { status: 403 }
@@ -93,7 +87,6 @@ export async function DELETE(
 
     // 6. Check if invitation can be rescinded
     if (invitation.status === 'accepted') {
-      console.error('Rescind invitation: Already accepted');
       return NextResponse.json(
         { error: 'Cannot cancel an accepted invitation. Remove the team member instead.' },
         { status: 400 }
@@ -101,14 +94,13 @@ export async function DELETE(
     }
 
     if (invitation.status === 'rescinded') {
-      console.error('Rescind invitation: Already rescinded');
       return NextResponse.json(
         { error: 'This invitation has already been cancelled' },
         { status: 400 }
       );
     }
 
-    // 7. Rescind invitation - Use transaction
+    // 7. Rescind invitation - Use transaction with increased timeout
     try {
       await prisma.$transaction(async (tx) => {
         // Update invitation status
@@ -119,8 +111,6 @@ export async function DELETE(
             respondedAt: new Date(),
           },
         });
-
-        console.log('✅ Invitation status updated to rescinded');
 
         // Free up the seat whenever a pending invitation is cancelled
         const shouldFreeSeat = (
@@ -139,8 +129,6 @@ export async function DELETE(
           });
 
           console.log(`✅ Freed seat: usedSeats ${user.usedSeats} -> ${user.usedSeats - 1}`);
-        } else {
-          console.log(`ℹ️ Seat not freed (status: ${invitation.status})`);
         }
 
         // If invited user exists, create notification
@@ -156,9 +144,9 @@ export async function DELETE(
               },
             },
           });
-
-          console.log(`✅ Notification sent to invited user`);
         }
+      }, {
+        timeout: 10000, // ✅ FIXED: Increased timeout to 10 seconds (from default 5s)
       });
     } catch (txError: any) {
       console.error('Transaction error:', txError);
